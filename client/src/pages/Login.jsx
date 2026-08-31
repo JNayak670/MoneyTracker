@@ -5,7 +5,7 @@ import { Lock, Mail, Sparkles, ArrowRight } from 'lucide-react';
 
 export default function Login() {
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [pin, setPin] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -18,7 +18,7 @@ export default function Login() {
     setLoading(true);
 
     try {
-      await login(email, password);
+      await login(email, pin);
       navigate('/');
     } catch (err) {
       setError(err.message || 'Login failed');
@@ -77,7 +77,7 @@ export default function Login() {
             className="w-full mb-6 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-4 rounded-xl shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all text-sm"
           >
             <Sparkles className="w-4 h-4" />
-            <span>Try as Demo User (1-Click Instant)</span>
+            <span>Try as Demo User (PIN: 1234)</span>
           </button>
 
           <div className="relative mb-6">
@@ -85,7 +85,7 @@ export default function Login() {
               <div className="w-full border-t border-slate-200" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-white px-3 text-slate-400 font-bold">Or with email</span>
+              <span className="bg-white px-3 text-slate-400 font-bold">Or with email & PIN</span>
             </div>
           </div>
 
@@ -109,16 +109,19 @@ export default function Login() {
 
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                Password
+                Security PIN
               </label>
               <div className="relative">
                 <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
                   type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={6}
+                  value={pin}
+                  onChange={(e) => setPin(e.target.value)}
+                  placeholder="Enter 4-digit PIN"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 tracking-widest focus:bg-white focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
                   required
                 />
               </div>

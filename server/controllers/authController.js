@@ -8,15 +8,23 @@ function generateToken(id) {
 }
 
 // @route   POST /api/auth/register
-// @desc    Register a new user
+// @desc    Register a new user with PIN
 exports.register = async (req, res) => {
   try {
-    const { name, email, password, currency = '₹' } = req.body;
+    const { name, email, pin, password, currency = '₹' } = req.body;
+    const rawPin = (pin || password || '').toString().trim();
 
-    if (!name || !email || !password) {
+    if (!name || !email || !rawPin) {
       return res.status(400).json({
         success: false,
-        error: 'Please provide name, email, and password.'
+        error: 'Please provide name, email, and a 4-6 digit security PIN.'
+      });
+    }
+
+    if (!/^\d{4,6}$/.test(rawPin)) {
+      return res.status(400).json({
+        success: false,
+        error: 'PIN must be 4 to 6 numeric digits.'
       });
     }
 
@@ -31,12 +39,12 @@ exports.register = async (req, res) => {
     }
 
     const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
+    const hashedPin = await bcrypt.hash(rawPin, salt);
 
     const user = await User.create({
       name: name.trim(),
       email: cleanEmail,
-      password: hashedPassword,
+      pin: hashedPin,
       currency
     });
 
@@ -61,15 +69,16 @@ exports.register = async (req, res) => {
 };
 
 // @route   POST /api/auth/login
-// @desc    Authenticate user & get token
+// @desc    Authenticate user with PIN & get token
 exports.login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, pin, password } = req.body;
+    const rawPin = (pin || password || '').toString().trim();
 
-    if (!email || !password) {
+    if (!email || !rawPin) {
       return res.status(400).json({
         success: false,
-        error: 'Please provide email and password.'
+        error: 'Please provide email and your security PIN.'
       });
     }
 
@@ -79,15 +88,16 @@ exports.login = async (req, res) => {
     if (!user) {
       return res.status(401).json({
         success: false,
-        error: 'Invalid email or password.'
+        error: 'Invalid email or PIN.'
       });
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
+    const storedHash = user.pin || user.password;
+    const isMatch = await bcrypt.compare(rawPin, storedHash);
     if (!isMatch) {
       return res.status(401).json({
         success: false,
-        error: 'Invalid email or password.'
+        error: 'Invalid email or PIN.'
       });
     }
 

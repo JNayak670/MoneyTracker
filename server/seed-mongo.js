@@ -10,17 +10,19 @@ async function seed() {
   let demoUser = await User.findOne({ email });
 
   const salt = await bcrypt.genSalt(10);
-  const hashedPassword = await bcrypt.hash('demo123', salt);
+  const hashedPin = await bcrypt.hash('1234', salt);
 
   if (!demoUser) {
     demoUser = await User.create({
       name: 'Demo Account',
       email,
-      password: hashedPassword,
+      pin: hashedPin,
       currency: '₹'
     });
-    console.log(`Created demo user: ${demoUser.email} (Password: demo123)`);
+    console.log(`Created demo user: ${demoUser.email} (PIN: 1234)`);
   } else {
+    demoUser.pin = hashedPin;
+    await demoUser.save();
     // Clear old transactions & friends for demo user
     await Transaction.deleteMany({ userId: demoUser.id });
     await Friend.deleteMany({ userId: demoUser.id });

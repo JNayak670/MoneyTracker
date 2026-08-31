@@ -6,8 +6,7 @@ import { Lock, Mail, User, ArrowRight } from 'lucide-react';
 export default function Register() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [currency, setCurrency] = useState('₹');
+  const [pin, setPin] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -20,7 +19,7 @@ export default function Register() {
     setLoading(true);
 
     try {
-      await register(name, email, password, currency);
+      await register(name, email, pin);
       navigate('/');
     } catch (err) {
       setError(err.message || 'Registration failed');
@@ -95,38 +94,22 @@ export default function Register() {
 
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                Password
+                Create 4-Digit PIN
               </label>
               <div className="relative">
                 <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
                   type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="At least 6 characters"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
-                  minLength={6}
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={6}
+                  value={pin}
+                  onChange={(e) => setPin(e.target.value)}
+                  placeholder="Enter 4-digit PIN (e.g. 1234)"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 tracking-widest focus:bg-white focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
                   required
                 />
               </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                Currency
-              </label>
-              <select
-                value={currency}
-                onChange={(e) => setCurrency(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 focus:bg-white focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
-              >
-                <option value="₹">₹ (INR - Indian Rupee)</option>
-                <option value="$">$ (USD - US Dollar)</option>
-                <option value="€">€ (EUR - Euro)</option>
-                <option value="£">£ (GBP - British Pound)</option>
-                <option value="AED ">AED (Dirham)</option>
-                <option value="¥">¥ (Yen)</option>
-              </select>
             </div>
 
             <button

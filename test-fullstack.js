@@ -25,11 +25,11 @@ async function runTests() {
     console.log('✅ Test 1 Passed\n');
 
     // 2. Demo User Login
-    console.log('Test 2: POST /api/auth/login (Demo User)');
+    console.log('Test 2: POST /api/auth/login (Demo User with PIN)');
     const loginRes = await fetch(`${BASE}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: 'demo@moneytracker.com', password: 'demo123' })
+      body: JSON.stringify({ email: 'demo@moneytracker.com', pin: '1234' })
     }).then(r => r.json());
     
     if (!loginRes.success || !loginRes.data.token) throw new Error('Demo login failed: ' + loginRes.error);
