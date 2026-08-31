@@ -20,6 +20,18 @@ const userSchema = new mongoose.Schema({
   currency: {
     type: String,
     default: '₹'
+  },
+  failedLoginAttempts: {
+    type: Number,
+    default: 0
+  },
+  isLocked: {
+    type: Boolean,
+    default: false
+  },
+  lockedAt: {
+    type: Date,
+    default: null
   }
 }, {
   timestamps: true,

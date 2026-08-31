@@ -8,6 +8,7 @@ const friendRoutes = require('./routes/friendRoutes');
 const transactionRoutes = require('./routes/transactionRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const shareRoutes = require('./routes/shareRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -25,6 +26,8 @@ app.use('/api/friends', friendRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/share', shareRoutes);
+app.use('/api/admin', adminRoutes);
+
 
 // Health check
 app.get('/api/health', (req, res) => {

@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard';
 import Friends from './pages/Friends';
 import Transactions from './pages/Transactions';
 import Analytics from './pages/Analytics';
+import Admin from './pages/Admin';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import SharedLedger from './pages/SharedLedger';
@@ -124,9 +125,13 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          
           {/* Public Time-Limited Shared Ledger View */}
           <Route path="/share" element={<SharedLedger />} />
           <Route path="/share/:code" element={<SharedLedger />} />
+          
+          {/* Dedicated Independent Admin Portal (Protected by Gmail & Passkey) */}
+          <Route path="/admin" element={<Admin />} />
           
           <Route element={<ProtectedRoute />}>
             <Route path="/*" element={<AppLayout />} />

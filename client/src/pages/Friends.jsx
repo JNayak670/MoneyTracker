@@ -31,6 +31,7 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
 
   // Add/Edit Friend Form Modal State
   const [friendModalOpen, setFriendModalOpen] = useState(false);
+  const [currentEditingFriend, setCurrentEditingFriend] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -76,6 +77,7 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
 
   useEffect(() => {
     if (editingFriend) {
+      setCurrentEditingFriend(editingFriend);
       setFormData({
         name: editingFriend.name || '',
         phone: editingFriend.phone || '',
@@ -108,16 +110,50 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
     }
   };
 
+  const handleOpenCreateModal = () => {
+    setCurrentEditingFriend(null);
+    setFormData({
+      name: '',
+      phone: '',
+      email: '',
+      relationshipTag: 'Friend',
+      avatarEmoji: '👤',
+      avatarColor: '#6366f1',
+      notes: ''
+    });
+    setFriendModalOpen(true);
+  };
+
+  const handleOpenEditModal = (friend) => {
+    setCurrentEditingFriend(friend);
+    setFormData({
+      name: friend.name || '',
+      phone: friend.phone || '',
+      email: friend.email || '',
+      relationshipTag: friend.relationshipTag || 'Friend',
+      avatarEmoji: friend.avatarEmoji || '👤',
+      avatarColor: friend.avatarColor || '#6366f1',
+      notes: friend.notes || ''
+    });
+    setFriendModalOpen(true);
+  };
+
+  const handleCloseFriendModal = () => {
+    setFriendModalOpen(false);
+    setCurrentEditingFriend(null);
+    onCloseFriendModal?.();
+  };
+
   const handleSaveFriend = async (e) => {
     e.preventDefault();
     try {
-      if (editingFriend?.id) {
-        await api.put(`/friends/${editingFriend.id}`, formData);
+      const editId = currentEditingFriend?.id || currentEditingFriend?._id || editingFriend?.id || editingFriend?._id;
+      if (editId) {
+        await api.put(`/friends/${editId}`, formData);
       } else {
         await api.post('/friends', formData);
       }
-      setFriendModalOpen(false);
-      onCloseFriendModal();
+      handleCloseFriendModal();
       await fetchFriends();
       window.dispatchEvent(new Event('transaction-updated'));
     } catch (err) {
@@ -182,18 +218,7 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
         </div>
 
         <button
-          onClick={() => {
-            setFormData({
-              name: '',
-              phone: '',
-              email: '',
-              relationshipTag: 'Friend',
-              avatarEmoji: '👤',
-              avatarColor: '#6366f1',
-              notes: ''
-            });
-            setFriendModalOpen(true);
-          }}
+          onClick={handleOpenCreateModal}
           className="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold px-4 py-2.5 rounded-xl shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all self-start sm:self-auto"
         >
           <PlusCircle className="w-4 h-4" />
@@ -258,10 +283,7 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
               onSettle={(id, amt, name) => setSettleModal({ open: true, friendId: id, friendName: name, amount: amt })}
               onRemind={(id, amt, name, phone) => setWhatsappModal({ open: true, friendName: name, amount: amt, phone })}
               onShareCode={(id, name) => setShareModal({ open: true, friendId: id, friendName: name })}
-              onEdit={(f) => {
-                setFormData(f);
-                setFriendModalOpen(true);
-              }}
+              onEdit={(f) => handleOpenEditModal(f)}
               onDelete={handleDeleteFriend}
             />
           ))}
@@ -421,13 +443,10 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
           <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/80">
               <h2 className="text-lg font-bold text-slate-900">
-                {editingFriend?.id ? 'Edit Friend Details' : 'Add Friend to Circle'}
+                {(currentEditingFriend?.id || editingFriend?.id) ? 'Edit Friend Details' : 'Add Friend to Circle'}
               </h2>
               <button
-                onClick={() => {
-                  setFriendModalOpen(false);
-                  onCloseFriendModal?.();
-                }}
+                onClick={handleCloseFriendModal}
                 className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors"
               >
                 <X className="w-5 h-5" />
@@ -525,10 +544,7 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
               <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
                 <button
                   type="button"
-                  onClick={() => {
-                    setFriendModalOpen(false);
-                    onCloseFriendModal?.();
-                  }}
+                  onClick={handleCloseFriendModal}
                   className="px-4 py-2 rounded-xl text-sm font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors"
                 >
                   Cancel
