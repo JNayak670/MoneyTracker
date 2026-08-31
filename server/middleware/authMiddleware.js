@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const prisma = require('../db');
+const { User } = require('../db');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_jwt_key_circle_money_tracker_2026';
 
@@ -19,10 +19,7 @@ async function protect(req, res, next) {
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.id },
-      select: { id: true, name: true, email: true, currency: true, createdAt: true }
-    });
+    const user = await User.findById(decoded.id).select('-password');
 
     if (!user) {
       return res.status(401).json({

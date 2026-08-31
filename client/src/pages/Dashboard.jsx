@@ -43,6 +43,15 @@ export default function Dashboard({ onOpenAddTx, onOpenAddFriend, onViewFriendHi
 
   useEffect(() => {
     fetchData();
+
+    const handleUpdate = () => {
+      fetchData();
+    };
+
+    window.addEventListener('transaction-updated', handleUpdate);
+    return () => {
+      window.removeEventListener('transaction-updated', handleUpdate);
+    };
   }, []);
 
   const handleSettleSubmit = async (payload) => {
@@ -50,6 +59,7 @@ export default function Dashboard({ onOpenAddTx, onOpenAddFriend, onViewFriendHi
       await api.post('/transactions/settle', payload);
       setSettleModal({ open: false, friendId: '', friendName: '', amount: 0 });
       await fetchData();
+      window.dispatchEvent(new Event('transaction-updated'));
     } catch (err) {
       alert(`Settlement failed: ${err.message}`);
     }
@@ -60,6 +70,7 @@ export default function Dashboard({ onOpenAddTx, onOpenAddFriend, onViewFriendHi
     try {
       await api.delete(`/friends/${id}`);
       await fetchData();
+      window.dispatchEvent(new Event('transaction-updated'));
     } catch (err) {
       alert(`Delete failed: ${err.message}`);
     }
@@ -83,12 +94,12 @@ export default function Dashboard({ onOpenAddTx, onOpenAddFriend, onViewFriendHi
     <div className="space-y-8 animate-fadeIn">
       
       {/* Top Welcome Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-slate-800">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-slate-200">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
             Financial Overview
           </h1>
-          <p className="text-sm text-slate-400 mt-1">
+          <p className="text-sm text-slate-500 mt-1">
             Real-time balance sheet for your friend circle & shared expenses
           </p>
         </div>
@@ -96,13 +107,13 @@ export default function Dashboard({ onOpenAddTx, onOpenAddFriend, onViewFriendHi
         <div className="flex items-center gap-2.5">
           <button
             onClick={onOpenAddFriend}
-            className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-slate-200 text-sm font-semibold px-4 py-2.5 rounded-xl border border-slate-800 transition-colors"
+            className="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 text-sm font-semibold px-4 py-2.5 rounded-xl border border-slate-200 shadow-sm transition-all"
           >
             <span>👤+</span> <span>New Friend</span>
           </button>
           <button
             onClick={onOpenAddTx}
-            className="flex items-center gap-2 bg-brand-600 hover:bg-brand-500 text-white text-sm font-bold px-4 py-2.5 rounded-xl shadow-lg shadow-brand-500/25 transition-all"
+            className="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold px-4 py-2.5 rounded-xl shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all"
           >
             <PlusCircle className="w-4 h-4" />
             <span>Record Transaction</span>
@@ -146,12 +157,12 @@ export default function Dashboard({ onOpenAddTx, onOpenAddFriend, onViewFriendHi
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Users className="w-5 h-5 text-brand-400" />
-            <h2 className="text-lg font-bold text-white">Active Friends</h2>
+            <Users className="w-5 h-5 text-brand-600" />
+            <h2 className="text-lg font-bold text-slate-900">Active Friends</h2>
           </div>
           <Link
             to="/friends"
-            className="flex items-center gap-1 text-xs font-bold text-brand-400 hover:text-brand-300 transition-colors"
+            className="flex items-center gap-1 text-xs font-bold text-brand-600 hover:text-brand-700 transition-colors"
           >
             <span>View All ({friends.length})</span>
             <ArrowRight className="w-3.5 h-3.5" />
@@ -161,13 +172,13 @@ export default function Dashboard({ onOpenAddTx, onOpenAddFriend, onViewFriendHi
         {activeFriends.length === 0 ? (
           <div className="glass-card rounded-2xl p-8 text-center border-dashed">
             <span className="text-3xl mb-2 block">🤝</span>
-            <h3 className="font-bold text-base text-white">All Dues Are Settled!</h3>
-            <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+            <h3 className="font-bold text-base text-slate-900">All Dues Are Settled!</h3>
+            <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
               No outstanding balances with any friend. Click below to add a new transaction.
             </p>
             <button
               onClick={onOpenAddTx}
-              className="mt-4 inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all"
+              className="mt-4 inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-sm transition-all"
             >
               <PlusCircle className="w-3.5 h-3.5" />
               <span>Record New Expense</span>
@@ -196,19 +207,19 @@ export default function Dashboard({ onOpenAddTx, onOpenAddFriend, onViewFriendHi
       <div className="space-y-4 pt-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Receipt className="w-5 h-5 text-brand-400" />
-            <h2 className="text-lg font-bold text-white">Recent Transactions</h2>
+            <Receipt className="w-5 h-5 text-brand-600" />
+            <h2 className="text-lg font-bold text-slate-900">Recent Transactions</h2>
           </div>
           <Link
             to="/transactions"
-            className="flex items-center gap-1 text-xs font-bold text-brand-400 hover:text-brand-300 transition-colors"
+            className="flex items-center gap-1 text-xs font-bold text-brand-600 hover:text-brand-700 transition-colors"
           >
             <span>Full Ledger</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         </div>
 
-        <div className="glass-card rounded-2xl overflow-hidden shadow-xl">
+        <div className="glass-card rounded-2xl overflow-hidden shadow-sm">
           {summary?.recentTransactions?.length === 0 ? (
             <div className="p-8 text-center text-slate-500 text-xs font-medium">
               No transactions recorded yet.
@@ -216,7 +227,7 @@ export default function Dashboard({ onOpenAddTx, onOpenAddFriend, onViewFriendHi
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
-                <thead className="bg-slate-900/80 border-b border-slate-800 text-slate-400 uppercase tracking-wider font-bold">
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase tracking-wider font-bold">
                   <tr>
                     <th className="px-5 py-3.5">Date</th>
                     <th className="px-5 py-3.5">Friend</th>
@@ -226,18 +237,18 @@ export default function Dashboard({ onOpenAddTx, onOpenAddFriend, onViewFriendHi
                     <th className="px-5 py-3.5 text-right">Amount</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800/60">
+                <tbody className="divide-y divide-slate-100">
                   {summary.recentTransactions.map(t => {
                     const isGiven = t.type === 'GIVEN' || t.impactOnUser > 0;
                     return (
-                      <tr key={t.id} className="hover:bg-slate-800/30 transition-colors">
-                        <td className="px-5 py-3.5 text-slate-400 font-mono">
+                      <tr key={t.id} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="px-5 py-3.5 text-slate-500 font-mono">
                           {t.date}
                         </td>
-                        <td className="px-5 py-3.5 font-bold text-slate-200">
+                        <td className="px-5 py-3.5 font-bold text-slate-900">
                           <div className="flex items-center gap-2">
                             <span 
-                              className="w-6 h-6 rounded-full flex items-center justify-center text-xs text-white"
+                              className="w-6 h-6 rounded-full flex items-center justify-center text-xs text-white shadow-xs"
                               style={{ backgroundColor: t.friend?.avatarColor || '#6366f1' }}
                             >
                               {t.friend?.avatarEmoji || '👤'}
@@ -246,24 +257,26 @@ export default function Dashboard({ onOpenAddTx, onOpenAddFriend, onViewFriendHi
                           </div>
                         </td>
                         <td className="px-5 py-3.5">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full font-semibold text-[10px] ${
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full font-bold text-[10px] ${
                             t.type === 'SETTLED'
-                              ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
+                              ? 'bg-cyan-50 text-cyan-700 border border-cyan-200'
                               : isGiven
-                              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                              : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : 'bg-rose-50 text-rose-700 border border-rose-200'
                           }`}>
                             {t.type}
                           </span>
                         </td>
-                        <td className="px-5 py-3.5 text-slate-300 font-medium max-w-xs truncate">
+                        <td className="px-5 py-3.5 text-slate-700 font-medium max-w-xs truncate">
                           {t.note}
                         </td>
-                        <td className="px-5 py-3.5 text-slate-400">
-                          {t.category}
+                        <td className="px-5 py-3.5 text-slate-500">
+                          <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md font-medium text-[11px] border border-slate-200/60">
+                            {t.category}
+                          </span>
                         </td>
                         <td className={`px-5 py-3.5 text-right font-extrabold text-sm ${
-                          isGiven ? 'text-emerald-400' : 'text-rose-400'
+                          isGiven ? 'text-emerald-700' : 'text-rose-700'
                         }`}>
                           {isGiven ? '+' : '-'}{currency}{t.amount.toLocaleString()}
                         </td>

@@ -1,4 +1,4 @@
-const prisma = require('../db');
+const { Transaction, Friend } = require('../db');
 
 // @route   GET /api/transactions
 // @desc    Get transactions with search and filters for logged in user
@@ -7,50 +7,59 @@ exports.getTransactions = async (req, res) => {
     const userId = req.user.id;
     const { friendId, type, category, search, startDate, endDate, limit = 100 } = req.query;
 
-    const where = { userId };
+    const query = { userId };
 
-    if (friendId) where.friendId = friendId;
-    if (type) where.type = type;
-    if (category) where.category = category;
+    if (friendId) query.friendId = friendId;
+    if (type) query.type = type;
+    if (category) query.category = category;
     if (startDate || endDate) {
-      where.date = {};
-      if (startDate) where.date.gte = startDate;
-      if (endDate) where.date.lte = endDate;
+      query.date = {};
+      if (startDate) query.date.$gte = startDate;
+      if (endDate) query.date.$lte = endDate;
     }
 
     if (search && search.trim()) {
-      const q = search.trim();
-      where.OR = [
-        { note: { contains: q } },
-        { receiptNote: { contains: q } },
-        { friend: { name: { contains: q } } }
+      const regex = new RegExp(search.trim(), 'i');
+      query.$or = [
+        { note: regex },
+        { receiptNote: regex }
       ];
     }
 
-    const transactions = await prisma.transaction.findMany({
-      where,
-      include: {
-        friend: {
-          select: {
-            id: true,
-            name: true,
-            avatarColor: true,
-            avatarEmoji: true,
-            relationshipTag: true,
-            phone: true
-          }
-        }
-      },
-      orderBy: [
-        { date: 'desc' },
-        { createdAt: 'desc' }
-      ],
-      take: Number(limit)
-    });
+    const transactions = await Transaction.find(query)
+      .sort({ date: -1, createdAt: -1 })
+      .limit(Number(limit))
+      .populate('friendId', 'id name avatarColor avatarEmoji relationshipTag phone');
+
+    const formatted = transactions.map(t => ({
+      id: t.id,
+      userId: t.userId.toString(),
+      friendId: t.friendId ? (t.friendId.id || t.friendId._id.toString()) : null,
+      type: t.type,
+      amount: t.amount,
+      impactOnUser: t.impactOnUser,
+      category: t.category,
+      note: t.note,
+      date: t.date,
+      time: t.time,
+      paymentMethod: t.paymentMethod,
+      status: t.status,
+      receiptNote: t.receiptNote,
+      splitGroupId: t.splitGroupId,
+      createdAt: t.createdAt,
+      friend: t.friendId ? {
+        id: t.friendId.id || t.friendId._id.toString(),
+        name: t.friendId.name,
+        avatarColor: t.friendId.avatarColor,
+        avatarEmoji: t.friendId.avatarEmoji,
+        relationshipTag: t.friendId.relationshipTag,
+        phone: t.friendId.phone
+      } : null
+    }));
 
     res.json({
       success: true,
-      data: transactions
+      data: formatted
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -84,31 +93,29 @@ exports.createTransaction = async (req, res) => {
     if (isGroupSplit && Array.isArray(splits) && splits.length > 0) {
       const splitGroupId = 'SPLIT-' + Date.now();
 
-      const createdList = await prisma.$transaction(
-        splits.map(s => {
-          const numShare = Math.abs(Number(s.shareAmount));
-          const isPayer = s.paidByUser !== false;
-          const impact = isPayer ? numShare : -numShare;
-          const txType = isPayer ? 'SPLIT' : 'RECEIVED';
+      const createdList = [];
+      for (const s of splits) {
+        const numShare = Math.abs(Number(s.shareAmount));
+        const isPayer = s.paidByUser !== false;
+        const impact = isPayer ? numShare : -numShare;
+        const txType = isPayer ? 'SPLIT' : 'RECEIVED';
 
-          return prisma.transaction.create({
-            data: {
-              userId,
-              friendId: s.friendId,
-              type: txType,
-              amount: numShare,
-              impactOnUser: impact,
-              category,
-              note: note.trim(),
-              date,
-              time,
-              paymentMethod,
-              receiptNote: receiptNote || `Group split bill: ${note}`,
-              splitGroupId
-            }
-          });
-        })
-      );
+        const tx = await Transaction.create({
+          userId,
+          friendId: s.friendId,
+          type: txType,
+          amount: numShare,
+          impactOnUser: impact,
+          category,
+          note: note.trim(),
+          date,
+          time,
+          paymentMethod,
+          receiptNote: receiptNote || `Group split bill: ${note}`,
+          splitGroupId
+        });
+        createdList.push(tx);
+      }
 
       return res.status(201).json({
         success: true,
@@ -126,10 +133,7 @@ exports.createTransaction = async (req, res) => {
       return res.status(400).json({ success: false, error: 'Friend must be selected.' });
     }
 
-    // Verify friend belongs to user
-    const friend = await prisma.friend.findFirst({
-      where: { id: friendId, userId }
-    });
+    const friend = await Friend.findOne({ _id: friendId, userId });
     if (!friend) {
       return res.status(404).json({ success: false, error: 'Friend not found.' });
     }
@@ -144,30 +148,23 @@ exports.createTransaction = async (req, res) => {
       impact = direction === 'RECEIVED_FROM_FRIEND' ? -numAmount : numAmount;
     }
 
-    const tx = await prisma.transaction.create({
-      data: {
-        userId,
-        friendId,
-        type: type || 'GIVEN',
-        amount: numAmount,
-        impactOnUser: impact,
-        category,
-        note: note.trim(),
-        date,
-        time,
-        paymentMethod,
-        receiptNote: receiptNote ? receiptNote.trim() : null
-      },
-      include: {
-        friend: {
-          select: { id: true, name: true, avatarColor: true, avatarEmoji: true }
-        }
-      }
+    const tx = await Transaction.create({
+      userId,
+      friendId,
+      type,
+      amount: numAmount,
+      impactOnUser: impact,
+      category,
+      note: note.trim(),
+      date,
+      time,
+      paymentMethod,
+      receiptNote
     });
 
     res.status(201).json({
       success: true,
-      message: 'Transaction saved',
+      message: 'Transaction recorded successfully',
       data: tx
     });
   } catch (err) {
@@ -175,60 +172,101 @@ exports.createTransaction = async (req, res) => {
   }
 };
 
+// @route   POST /api/transactions/settle
+// @desc    Settle up balance with a friend
+exports.settleUp = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { friendId, amount, paymentMethod = 'UPI', note = 'Settlement', date = new Date().toISOString().slice(0, 10) } = req.body;
+
+    if (!friendId) {
+      return res.status(400).json({ success: false, error: 'Friend ID is required for settlement.' });
+    }
+
+    const friend = await Friend.findOne({ _id: friendId, userId });
+    if (!friend) {
+      return res.status(404).json({ success: false, error: 'Friend not found.' });
+    }
+
+    // Calculate current net balance
+    const friendTxs = await Transaction.find({ friendId, userId });
+    let currentBalance = 0;
+    for (const t of friendTxs) {
+      currentBalance += t.impactOnUser;
+    }
+
+    currentBalance = Number(currentBalance.toFixed(2));
+    if (currentBalance === 0) {
+      return res.status(400).json({ success: false, error: `${friend.name} is already completely settled up!` });
+    }
+
+    const settleAmount = amount ? Math.abs(Number(amount)) : Math.abs(currentBalance);
+    const impact = currentBalance > 0 ? -settleAmount : settleAmount;
+
+    const tx = await Transaction.create({
+      userId,
+      friendId,
+      type: 'SETTLED',
+      amount: settleAmount,
+      impactOnUser: impact,
+      category: 'Settlement',
+      note: note.trim(),
+      date,
+      time: new Date().toTimeString().slice(0, 5),
+      paymentMethod,
+      receiptNote: `Settled via ${paymentMethod}`
+    });
+
+    const newBalance = Number((currentBalance + impact).toFixed(2));
+
+    res.json({
+      success: true,
+      message: `Settlement of ₹${settleAmount} recorded for ${friend.name}`,
+      data: {
+        transaction: tx,
+        previousBalance: currentBalance,
+        newBalance
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
 // @route   PUT /api/transactions/:id
-// @desc    Update transaction
+// @desc    Update existing transaction
 exports.updateTransaction = async (req, res) => {
   try {
     const userId = req.user.id;
-    const txId = req.params.id;
-    const { amount, type, category, note, date, time, paymentMethod, receiptNote, friendId } = req.body;
+    const id = req.params.id;
+    const { amount, category, note, date, paymentMethod, receiptNote } = req.body;
 
-    const existing = await prisma.transaction.findFirst({
-      where: { id: txId, userId }
-    });
+    const existing = await Transaction.findOne({ _id: id, userId });
     if (!existing) {
       return res.status(404).json({ success: false, error: 'Transaction not found.' });
     }
 
-    const numAmount = amount !== undefined ? Math.abs(Number(amount)) : existing.amount;
-    const txType = type || existing.type;
-    const targetFriendId = friendId || existing.friendId;
-
-    let impact = 0;
-    if (txType === 'GIVEN' || txType === 'SPLIT') {
-      impact = numAmount;
-    } else if (txType === 'RECEIVED') {
-      impact = -numAmount;
-    } else if (txType === 'SETTLED') {
-      const direction = req.body.settleDirection || (existing.impactOnUser < 0 ? 'RECEIVED_FROM_FRIEND' : 'PAID_TO_FRIEND');
-      impact = direction === 'RECEIVED_FROM_FRIEND' ? -numAmount : numAmount;
-    }
-
-    const updated = await prisma.transaction.update({
-      where: { id: txId },
-      data: {
-        friendId: targetFriendId,
-        type: txType,
-        amount: numAmount,
-        impactOnUser: impact,
-        category: category || existing.category,
-        note: note !== undefined ? note.trim() : existing.note,
-        date: date || existing.date,
-        time: time || existing.time,
-        paymentMethod: paymentMethod || existing.paymentMethod,
-        receiptNote: receiptNote !== undefined ? receiptNote : existing.receiptNote
-      },
-      include: {
-        friend: {
-          select: { id: true, name: true, avatarColor: true, avatarEmoji: true }
-        }
+    if (amount !== undefined) {
+      const numAmount = Math.abs(Number(amount));
+      existing.amount = numAmount;
+      if (existing.type === 'GIVEN' || existing.type === 'SPLIT') {
+        existing.impactOnUser = numAmount;
+      } else if (existing.type === 'RECEIVED') {
+        existing.impactOnUser = -numAmount;
       }
-    });
+    }
+    if (category) existing.category = category;
+    if (note) existing.note = note.trim();
+    if (date) existing.date = date;
+    if (paymentMethod) existing.paymentMethod = paymentMethod;
+    if (receiptNote !== undefined) existing.receiptNote = receiptNote;
+
+    await existing.save();
 
     res.json({
       success: true,
-      message: 'Transaction updated',
-      data: updated
+      message: 'Transaction updated successfully',
+      data: existing
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -236,83 +274,22 @@ exports.updateTransaction = async (req, res) => {
 };
 
 // @route   DELETE /api/transactions/:id
-// @desc    Delete transaction
+// @desc    Delete single transaction
 exports.deleteTransaction = async (req, res) => {
   try {
     const userId = req.user.id;
-    const txId = req.params.id;
+    const id = req.params.id;
 
-    const existing = await prisma.transaction.findFirst({
-      where: { id: txId, userId }
-    });
+    const existing = await Transaction.findOne({ _id: id, userId });
     if (!existing) {
       return res.status(404).json({ success: false, error: 'Transaction not found.' });
     }
 
-    await prisma.transaction.delete({
-      where: { id: txId }
-    });
+    await Transaction.deleteOne({ _id: id });
 
     res.json({
       success: true,
-      message: 'Transaction deleted.'
-    });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-};
-
-// @route   POST /api/transactions/settle
-// @desc    1-Click Quick Settle Up balance
-exports.settleUp = async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const { friendId, amount, paymentMethod = 'UPI', note, date = new Date().toISOString().slice(0, 10) } = req.body;
-
-    const friend = await prisma.friend.findFirst({
-      where: { id: friendId, userId },
-      include: { transactions: true }
-    });
-
-    if (!friend) {
-      return res.status(404).json({ success: false, error: 'Friend not found.' });
-    }
-
-    const currentBal = friend.transactions.reduce((acc, t) => acc + t.impactOnUser, 0);
-    if (currentBal === 0) {
-      return res.status(400).json({ success: false, error: 'Balance is already fully settled (₹0).' });
-    }
-
-    const settleAmount = amount ? Math.abs(Number(amount)) : Math.abs(currentBal);
-    if (isNaN(settleAmount) || settleAmount <= 0) {
-      return res.status(400).json({ success: false, error: 'Invalid settlement amount.' });
-    }
-
-    // If friend owed user (currentBal > 0): Friend pays User -> impact is -settleAmount
-    // If user owed friend (currentBal < 0): User pays Friend -> impact is +settleAmount
-    const impact = currentBal > 0 ? -settleAmount : settleAmount;
-    const desc = note ? note.trim() : (currentBal > 0 ? `Settlement received from ${friend.name}` : `Settlement paid to ${friend.name}`);
-
-    const settleTx = await prisma.transaction.create({
-      data: {
-        userId,
-        friendId,
-        type: 'SETTLED',
-        amount: settleAmount,
-        impactOnUser: impact,
-        category: 'Settlement',
-        note: desc,
-        date,
-        time: new Date().toTimeString().slice(0, 5),
-        paymentMethod,
-        receiptNote: `Settled via ${paymentMethod}`
-      }
-    });
-
-    res.status(201).json({
-      success: true,
-      message: 'Settlement recorded successfully',
-      data: settleTx
+      message: 'Transaction deleted successfully.'
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });

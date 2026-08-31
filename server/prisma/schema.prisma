@@ -3,12 +3,12 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "mongodb"
   url      = env("DATABASE_URL")
 }
 
 model User {
-  id           String        @id @default(uuid())
+  id           String        @id @default(auto()) @map("_id") @db.ObjectId
   name         String
   email        String        @unique
   password     String
@@ -20,8 +20,8 @@ model User {
 }
 
 model Friend {
-  id              String        @id @default(uuid())
-  userId          String
+  id              String        @id @default(auto()) @map("_id") @db.ObjectId
+  userId          String        @db.ObjectId
   user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   name            String
   phone           String?
@@ -36,12 +36,12 @@ model Friend {
 }
 
 model Transaction {
-  id            String   @id @default(uuid())
-  userId        String
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId        String   @db.ObjectId
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  friendId      String
+  friendId      String   @db.ObjectId
   friend        Friend   @relation(fields: [friendId], references: [id], onDelete: Cascade)
-  type          String   // "GIVEN" (You gave money/paid for them), "RECEIVED" (Friend gave you money/paid for you), "SETTLED", "SPLIT"
+  type          String   // "GIVEN", "RECEIVED", "SETTLED", "SPLIT"
   amount        Float
   impactOnUser  Float    // Positive (+) = Friend owes you, Negative (-) = You owe friend
   category      String   @default("Food & Dining")

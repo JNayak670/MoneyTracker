@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 
+const { connectDB } = require('./db');
 const authRoutes = require('./routes/authRoutes');
 const friendRoutes = require('./routes/friendRoutes');
 const transactionRoutes = require('./routes/transactionRoutes');
@@ -9,6 +10,9 @@ const dashboardRoutes = require('./routes/dashboardRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// Connect MongoDB
+connectDB();
 
 // Middlewares
 app.use(cors());

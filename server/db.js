@@ -1,8 +1,27 @@
-const { PrismaClient } = require('@prisma/client');
+const mongoose = require('mongoose');
 require('dotenv').config();
 
-const prisma = new PrismaClient({
-  log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error']
-});
+const MONGO_URI = process.env.DATABASE_URL || 'mongodb://127.0.0.1:27017/moneytracker';
 
-module.exports = prisma;
+const connectDB = async () => {
+  try {
+    const conn = await mongoose.connect(MONGO_URI);
+    console.log(`=======================================================`);
+    console.log(` 🍃 MongoDB Connected: ${conn.connection.host}/${conn.connection.name}`);
+    console.log(`=======================================================`);
+  } catch (error) {
+    console.error(`❌ MongoDB connection error: ${error.message}`);
+    process.exit(1);
+  }
+};
+
+const User = require('./models/User');
+const Friend = require('./models/Friend');
+const Transaction = require('./models/Transaction');
+
+module.exports = {
+  connectDB,
+  User,
+  Friend,
+  Transaction
+};

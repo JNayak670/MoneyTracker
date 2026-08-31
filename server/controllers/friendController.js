@@ -1,4 +1,4 @@
-const prisma = require('../db');
+const { Friend, Transaction } = require('../db');
 
 // @route   GET /api/friends
 // @desc    Get all friends of logged-in user with computed balances
@@ -6,29 +6,25 @@ exports.getAllFriends = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    const friends = await prisma.friend.findMany({
-      where: { userId },
-      include: {
-        transactions: {
-          select: {
-            id: true,
-            type: true,
-            amount: true,
-            impactOnUser: true,
-            date: true
-          }
-        }
-      },
-      orderBy: { name: 'asc' }
-    });
+    const friends = await Friend.find({ userId }).sort({ name: 1 });
+    const transactions = await Transaction.find({ userId });
+
+    // Map transactions by friendId
+    const txByFriend = {};
+    for (const t of transactions) {
+      const fId = t.friendId.toString();
+      if (!txByFriend[fId]) txByFriend[fId] = [];
+      txByFriend[fId].push(t);
+    }
 
     const enriched = friends.map(f => {
+      const fTxs = txByFriend[f.id] || [];
       let totalGiven = 0;
       let totalReceived = 0;
       let balance = 0;
       let lastDate = null;
 
-      for (const t of f.transactions) {
+      for (const t of fTxs) {
         balance += t.impactOnUser;
         if (t.impactOnUser > 0 && t.type !== 'SETTLED') {
           totalGiven += t.amount;
@@ -55,7 +51,7 @@ exports.getAllFriends = async (req, res) => {
         totalReceived: Number(totalReceived.toFixed(2)),
         currentBalance: balance,
         status: balance > 0 ? 'OWES_YOU' : balance < 0 ? 'YOU_OWE' : 'SETTLED',
-        transactionCount: f.transactions.length,
+        transactionCount: fTxs.length,
         lastActivityDate: lastDate,
         createdAt: f.createdAt
       };
@@ -84,39 +80,42 @@ exports.getFriendLedger = async (req, res) => {
     const userId = req.user.id;
     const friendId = req.params.id;
 
-    const friend = await prisma.friend.findFirst({
-      where: { id: friendId, userId },
-      include: {
-        transactions: {
-          orderBy: [
-            { date: 'asc' },
-            { createdAt: 'asc' }
-          ]
-        }
-      }
-    });
-
+    const friend = await Friend.findOne({ _id: friendId, userId });
     if (!friend) {
       return res.status(404).json({ success: false, error: 'Friend not found.' });
     }
+
+    const transactions = await Transaction.find({ friendId, userId }).sort({ date: 1, createdAt: 1 });
 
     // Compute running balance at each point in time
     let runningBalance = 0;
     let totalGiven = 0;
     let totalReceived = 0;
 
-    const ledger = friend.transactions.map(t => {
+    const ledger = transactions.map(t => {
       runningBalance += t.impactOnUser;
       if (t.impactOnUser > 0 && t.type !== 'SETTLED') totalGiven += t.amount;
       if (t.impactOnUser < 0 && t.type !== 'SETTLED') totalReceived += t.amount;
 
       return {
-        ...t,
+        id: t.id,
+        userId: t.userId.toString(),
+        friendId: t.friendId.toString(),
+        type: t.type,
+        amount: t.amount,
+        impactOnUser: t.impactOnUser,
+        category: t.category,
+        note: t.note,
+        date: t.date,
+        time: t.time,
+        paymentMethod: t.paymentMethod,
+        receiptNote: t.receiptNote,
+        splitGroupId: t.splitGroupId,
+        createdAt: t.createdAt,
         runningBalance: Number(runningBalance.toFixed(2))
       };
     });
 
-    // Reverse for descending display in UI, while maintaining chronologically correct running balance
     const reversedTimeline = [...ledger].reverse();
     const finalBalance = Number(runningBalance.toFixed(2));
 
@@ -157,17 +156,15 @@ exports.createFriend = async (req, res) => {
       return res.status(400).json({ success: false, error: 'Friend name is required.' });
     }
 
-    const friend = await prisma.friend.create({
-      data: {
-        userId,
-        name: name.trim(),
-        phone: phone ? phone.trim() : null,
-        email: email ? email.trim() : null,
-        avatarColor: avatarColor || '#6366f1',
-        avatarEmoji: avatarEmoji || '👤',
-        relationshipTag: relationshipTag || 'Friend',
-        notes: notes ? notes.trim() : null
-      }
+    const friend = await Friend.create({
+      userId,
+      name: name.trim(),
+      phone: phone ? phone.trim() : null,
+      email: email ? email.trim() : null,
+      avatarColor: avatarColor || '#6366f1',
+      avatarEmoji: avatarEmoji || '👤',
+      relationshipTag: relationshipTag || 'Friend',
+      notes: notes ? notes.trim() : null
     });
 
     res.status(201).json({
@@ -188,31 +185,25 @@ exports.updateFriend = async (req, res) => {
     const friendId = req.params.id;
     const { name, phone, email, avatarColor, avatarEmoji, relationshipTag, notes } = req.body;
 
-    const existing = await prisma.friend.findFirst({
-      where: { id: friendId, userId }
-    });
-
+    const existing = await Friend.findOne({ _id: friendId, userId });
     if (!existing) {
       return res.status(404).json({ success: false, error: 'Friend not found.' });
     }
 
-    const updated = await prisma.friend.update({
-      where: { id: friendId },
-      data: {
-        name: name ? name.trim() : existing.name,
-        phone: phone !== undefined ? phone : existing.phone,
-        email: email !== undefined ? email : existing.email,
-        avatarColor: avatarColor || existing.avatarColor,
-        avatarEmoji: avatarEmoji || existing.avatarEmoji,
-        relationshipTag: relationshipTag || existing.relationshipTag,
-        notes: notes !== undefined ? notes : existing.notes
-      }
-    });
+    if (name) existing.name = name.trim();
+    if (phone !== undefined) existing.phone = phone;
+    if (email !== undefined) existing.email = email;
+    if (avatarColor) existing.avatarColor = avatarColor;
+    if (avatarEmoji) existing.avatarEmoji = avatarEmoji;
+    if (relationshipTag) existing.relationshipTag = relationshipTag;
+    if (notes !== undefined) existing.notes = notes;
+
+    await existing.save();
 
     res.json({
       success: true,
       message: 'Friend updated',
-      data: updated
+      data: existing
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -226,17 +217,13 @@ exports.deleteFriend = async (req, res) => {
     const userId = req.user.id;
     const friendId = req.params.id;
 
-    const existing = await prisma.friend.findFirst({
-      where: { id: friendId, userId }
-    });
-
+    const existing = await Friend.findOne({ _id: friendId, userId });
     if (!existing) {
       return res.status(404).json({ success: false, error: 'Friend not found.' });
     }
 
-    await prisma.friend.delete({
-      where: { id: friendId }
-    });
+    await Transaction.deleteMany({ friendId, userId });
+    await Friend.deleteOne({ _id: friendId });
 
     res.json({
       success: true,

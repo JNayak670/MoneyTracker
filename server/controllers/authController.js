@@ -1,6 +1,6 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const prisma = require('../db');
+const { User } = require('../db');
 const { JWT_SECRET } = require('../middleware/authMiddleware');
 
 function generateToken(id) {
@@ -21,9 +21,7 @@ exports.register = async (req, res) => {
     }
 
     const cleanEmail = email.toLowerCase().trim();
-    const existing = await prisma.user.findUnique({
-      where: { email: cleanEmail }
-    });
+    const existing = await User.findOne({ email: cleanEmail });
 
     if (existing) {
       return res.status(400).json({
@@ -35,13 +33,11 @@ exports.register = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    const user = await prisma.user.create({
-      data: {
-        name: name.trim(),
-        email: cleanEmail,
-        password: hashedPassword,
-        currency
-      }
+    const user = await User.create({
+      name: name.trim(),
+      email: cleanEmail,
+      password: hashedPassword,
+      currency
     });
 
     const token = generateToken(user.id);
@@ -78,9 +74,7 @@ exports.login = async (req, res) => {
     }
 
     const cleanEmail = email.toLowerCase().trim();
-    const user = await prisma.user.findUnique({
-      where: { email: cleanEmail }
-    });
+    const user = await User.findOne({ email: cleanEmail });
 
     if (!user) {
       return res.status(401).json({
@@ -135,19 +129,24 @@ exports.getMe = async (req, res) => {
 exports.updateSettings = async (req, res) => {
   try {
     const { name, currency } = req.body;
-    const updated = await prisma.user.update({
-      where: { id: req.user.id },
-      data: {
-        name: name ? name.trim() : undefined,
-        currency: currency || undefined
-      },
-      select: { id: true, name: true, email: true, currency: true }
-    });
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    if (name) user.name = name.trim();
+    if (currency) user.currency = currency;
+    await user.save();
 
     res.json({
       success: true,
       message: 'Settings updated successfully',
-      data: updated
+      data: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        currency: user.currency
+      }
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });

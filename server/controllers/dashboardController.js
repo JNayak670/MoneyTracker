@@ -1,4 +1,4 @@
-const prisma = require('../db');
+const { Friend, Transaction } = require('../db');
 
 // @route   GET /api/dashboard/summary
 // @desc    Get dashboard metrics & summary
@@ -6,18 +6,15 @@ exports.getSummary = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    const friends = await prisma.friend.findMany({
-      where: { userId },
-      include: {
-        transactions: {
-          select: {
-            amount: true,
-            impactOnUser: true,
-            type: true
-          }
-        }
-      }
-    });
+    const friends = await Friend.find({ userId });
+    const transactions = await Transaction.find({ userId });
+
+    const txByFriend = {};
+    for (const t of transactions) {
+      const fId = t.friendId.toString();
+      if (!txByFriend[fId]) txByFriend[fId] = [];
+      txByFriend[fId].push(t);
+    }
 
     let totalGiven = 0;      // Total amount user lent/paid
     let totalReceived = 0;   // Total amount user borrowed/received
@@ -27,8 +24,10 @@ exports.getSummary = async (req, res) => {
     let settledCount = 0;
 
     for (const f of friends) {
+      const fTxs = txByFriend[f.id] || [];
       let friendBal = 0;
-      for (const t of f.transactions) {
+
+      for (const t of fTxs) {
         friendBal += t.impactOnUser;
         if (t.impactOnUser > 0 && t.type !== 'SETTLED') {
           totalGiven += t.amount;
@@ -51,28 +50,43 @@ exports.getSummary = async (req, res) => {
 
     const netBalance = totalReceivable - totalPayable;
 
-    // Recent 5 transactions
-    const recentTransactions = await prisma.transaction.findMany({
-      where: { userId },
-      include: {
-        friend: {
-          select: { id: true, name: true, avatarColor: true, avatarEmoji: true }
-        }
-      },
-      orderBy: [
-        { date: 'desc' },
-        { createdAt: 'desc' }
-      ],
-      take: 5
-    });
+    // Recent 5 transactions sorted by date & createdAt
+    const recentTransactionsRaw = await Transaction.find({ userId })
+      .sort({ date: -1, createdAt: -1 })
+      .limit(5)
+      .populate('friendId', 'id name avatarColor avatarEmoji');
+
+    const recentTransactions = recentTransactionsRaw.map(t => ({
+      id: t.id,
+      userId: t.userId.toString(),
+      friendId: t.friendId ? (t.friendId.id || t.friendId._id.toString()) : null,
+      type: t.type,
+      amount: t.amount,
+      impactOnUser: t.impactOnUser,
+      category: t.category,
+      note: t.note,
+      date: t.date,
+      time: t.time,
+      paymentMethod: t.paymentMethod,
+      status: t.status,
+      receiptNote: t.receiptNote,
+      splitGroupId: t.splitGroupId,
+      createdAt: t.createdAt,
+      friend: t.friendId ? {
+        id: t.friendId.id || t.friendId._id.toString(),
+        name: t.friendId.name,
+        avatarColor: t.friendId.avatarColor,
+        avatarEmoji: t.friendId.avatarEmoji
+      } : null
+    }));
 
     res.json({
       success: true,
       data: {
         totalGiven: Number(totalGiven.toFixed(2)),
         totalReceived: Number(totalReceived.toFixed(2)),
-        totalReceivable: Number(totalReceivable.toFixed(2)), // Pending to get
-        totalPayable: Number(totalPayable.toFixed(2)),       // Pending to pay
+        totalReceivable: Number(totalReceivable.toFixed(2)),
+        totalPayable: Number(totalPayable.toFixed(2)),
         netBalance: Number(netBalance.toFixed(2)),
         friendsCount: friends.length,
         activeDuesCount,
@@ -92,16 +106,7 @@ exports.getAnalytics = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    const allTx = await prisma.transaction.findMany({
-      where: { userId },
-      select: {
-        amount: true,
-        impactOnUser: true,
-        type: true,
-        category: true,
-        date: true
-      }
-    });
+    const allTx = await Transaction.find({ userId });
 
     // 1. Group by category (exclude pure settlement)
     const categoryMap = {};
@@ -125,7 +130,8 @@ exports.getAnalytics = async (req, res) => {
     // 2. Group by month (YYYY-MM)
     const monthMap = {};
     for (const t of allTx) {
-      const month = t.date.slice(0, 7); // '2026-08'
+      const month = (t.date || '').slice(0, 7); // '2026-08'
+      if (!month) continue;
       if (!monthMap[month]) {
         monthMap[month] = { month, given: 0, received: 0, settled: 0 };
       }

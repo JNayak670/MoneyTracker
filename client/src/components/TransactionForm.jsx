@@ -126,27 +126,27 @@ export default function TransactionForm({ isOpen, onClose, onSave, friends = [],
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fadeIn">
+      <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-900/50">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/80">
           <div className="flex items-center gap-2">
             <span className="text-xl">💸</span>
-            <h2 className="text-lg font-bold text-white">Record Transaction</h2>
+            <h2 className="text-lg font-bold text-slate-900">Record Transaction</h2>
           </div>
-          <button onClick={onClose} className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors">
+          <button onClick={onClose} className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Tab Selector */}
-        <div className="grid grid-cols-2 p-3 bg-slate-950/60 border-b border-slate-800 gap-2">
+        <div className="grid grid-cols-2 p-2.5 bg-slate-100/70 border-b border-slate-200/80 gap-2">
           <button
             type="button"
             onClick={() => setTab('single')}
             className={`flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-bold transition-all ${
-              tab === 'single' ? 'bg-brand-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
+              tab === 'single' ? 'bg-white text-brand-700 shadow-sm border border-slate-200/80' : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
             }`}
           >
             <User className="w-4 h-4" />
@@ -156,7 +156,7 @@ export default function TransactionForm({ isOpen, onClose, onSave, friends = [],
             type="button"
             onClick={() => setTab('split')}
             className={`flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-bold transition-all ${
-              tab === 'split' ? 'bg-brand-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
+              tab === 'split' ? 'bg-white text-brand-700 shadow-sm border border-slate-200/80' : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
             }`}
           >
             <Users className="w-4 h-4" />
@@ -171,13 +171,13 @@ export default function TransactionForm({ isOpen, onClose, onSave, friends = [],
             <>
               {/* Friend Select */}
               <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                   Select Friend *
                 </label>
                 <select
                   value={friendId}
                   onChange={(e) => setFriendId(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-brand-500"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 focus:bg-white focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
                   required
                 >
                   <option value="">-- Choose a friend --</option>
@@ -191,7 +191,7 @@ export default function TransactionForm({ isOpen, onClose, onSave, friends = [],
 
               {/* Type Switcher (Given vs Received) */}
               <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                   Direction *
                 </label>
                 <div className="grid grid-cols-2 gap-2">
@@ -200,11 +200,11 @@ export default function TransactionForm({ isOpen, onClose, onSave, friends = [],
                     onClick={() => setType('GIVEN')}
                     className={`flex items-center justify-center gap-2 py-3 px-3 rounded-xl border text-xs font-bold transition-all ${
                       type === 'GIVEN'
-                        ? 'bg-emerald-500/15 border-emerald-500 text-emerald-400 shadow-md'
-                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                        ? 'bg-emerald-50 border-emerald-300 text-emerald-800 shadow-sm'
+                        : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 hover:border-slate-300'
                     }`}
                   >
-                    <ArrowUpRight className="w-4 h-4" />
+                    <ArrowUpRight className="w-4 h-4 text-emerald-600" />
                     <span>I Gave (They Owe Me)</span>
                   </button>
 
@@ -213,11 +213,11 @@ export default function TransactionForm({ isOpen, onClose, onSave, friends = [],
                     onClick={() => setType('RECEIVED')}
                     className={`flex items-center justify-center gap-2 py-3 px-3 rounded-xl border text-xs font-bold transition-all ${
                       type === 'RECEIVED'
-                        ? 'bg-rose-500/15 border-rose-500 text-rose-400 shadow-md'
-                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                        ? 'bg-rose-50 border-rose-300 text-rose-800 shadow-sm'
+                        : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 hover:border-slate-300'
                     }`}
                   >
-                    <ArrowDownLeft className="w-4 h-4" />
+                    <ArrowDownLeft className="w-4 h-4 text-rose-600" />
                     <span>I Received (I Owe Them)</span>
                   </button>
                 </div>
@@ -225,11 +225,11 @@ export default function TransactionForm({ isOpen, onClose, onSave, friends = [],
 
               {/* Amount */}
               <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                   Amount *
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-lg font-bold text-slate-500">₹</span>
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-lg font-bold text-slate-400">₹</span>
                   <input
                     type="number"
                     step="0.01"
@@ -237,7 +237,7 @@ export default function TransactionForm({ isOpen, onClose, onSave, friends = [],
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
                     placeholder="0.00"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3.5 py-2.5 text-lg font-extrabold text-slate-100 focus:outline-none focus:border-brand-500"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3.5 py-2.5 text-lg font-extrabold text-slate-900 focus:bg-white focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
                     required
                   />
                 </div>
@@ -245,7 +245,7 @@ export default function TransactionForm({ isOpen, onClose, onSave, friends = [],
 
               {/* Note / Description */}
               <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                   Description / Reason *
                 </label>
                 <input
@@ -253,7 +253,7 @@ export default function TransactionForm({ isOpen, onClose, onSave, friends = [],
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                   placeholder="e.g. Lunch at Swiggy, Uber to airport, WiFi bill"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-brand-500"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 focus:bg-white focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
                   required
                 />
               </div>
@@ -262,11 +262,11 @@ export default function TransactionForm({ isOpen, onClose, onSave, friends = [],
             <>
               {/* Group Split Bill Form */}
               <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                   Total Bill Amount *
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-lg font-bold text-slate-500">₹</span>
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-lg font-bold text-slate-400">₹</span>
                   <input
                     type="number"
                     step="0.01"
@@ -274,14 +274,14 @@ export default function TransactionForm({ isOpen, onClose, onSave, friends = [],
                     value={splitTotal}
                     onChange={(e) => setSplitTotal(e.target.value)}
                     placeholder="0.00"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3.5 py-2.5 text-lg font-extrabold text-slate-100 focus:outline-none focus:border-brand-500"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3.5 py-2.5 text-lg font-extrabold text-slate-900 focus:bg-white focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
                     required
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                   Bill Description *
                 </label>
                 <input
@@ -289,29 +289,29 @@ export default function TransactionForm({ isOpen, onClose, onSave, friends = [],
                   value={splitNote}
                   onChange={(e) => setSplitNote(e.target.value)}
                   placeholder="e.g. Goa Trip Hotel, Team Dinner, Groceries"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-brand-500"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 focus:bg-white focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
                   required
                 />
               </div>
 
               <div className="flex items-center justify-between py-1">
-                <span className="text-xs font-bold text-slate-400 uppercase">Split Among Friends:</span>
-                <label className="flex items-center gap-2 text-xs text-slate-300 font-medium cursor-pointer">
+                <span className="text-xs font-bold text-slate-700 uppercase">Split Among Friends:</span>
+                <label className="flex items-center gap-2 text-xs text-slate-600 font-medium cursor-pointer">
                   <input
                     type="checkbox"
                     checked={includeSelf}
                     onChange={(e) => setIncludeSelf(e.target.checked)}
-                    className="rounded bg-slate-950 border-slate-800 text-brand-600 focus:ring-0"
+                    className="rounded border-slate-300 text-brand-600 focus:ring-brand-500"
                   />
                   <span>Include myself in split</span>
                 </label>
               </div>
 
               {/* Friends checklist */}
-              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-3 max-h-44 overflow-y-auto space-y-2">
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 max-h-44 overflow-y-auto space-y-2">
                 {friends.map(f => (
-                  <div key={f.id} className="flex items-center justify-between text-xs py-1 border-b border-slate-900 last:border-0">
-                    <label className="flex items-center gap-2.5 cursor-pointer text-slate-200">
+                  <div key={f.id} className="flex items-center justify-between text-xs py-1.5 border-b border-slate-200/80 last:border-0">
+                    <label className="flex items-center gap-2.5 cursor-pointer text-slate-800">
                       <input
                         type="checkbox"
                         checked={selectedSplitFriends[f.id]?.selected || false}
@@ -322,11 +322,11 @@ export default function TransactionForm({ isOpen, onClose, onSave, friends = [],
                           }
                           setSelectedSplitFriends(updated);
                         }}
-                        className="rounded bg-slate-900 border-slate-700 text-brand-600 focus:ring-0"
+                        className="rounded border-slate-300 text-brand-600 focus:ring-brand-500"
                       />
                       <span>{f.avatarEmoji || '👤'} <strong>{f.name}</strong></span>
                     </label>
-                    <div className="font-mono text-emerald-400 font-bold">
+                    <div className="font-mono text-emerald-700 font-bold">
                       ₹{selectedSplitFriends[f.id]?.share || 0}
                     </div>
                   </div>
@@ -337,7 +337,7 @@ export default function TransactionForm({ isOpen, onClose, onSave, friends = [],
 
           {/* Category Picker */}
           <div>
-            <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
               Category
             </label>
             <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5">
@@ -348,8 +348,8 @@ export default function TransactionForm({ isOpen, onClose, onSave, friends = [],
                   onClick={() => setCategory(cat.name)}
                   className={`flex flex-col items-center gap-1 p-2 rounded-xl border text-[11px] font-semibold transition-all ${
                     category === cat.name
-                      ? 'bg-brand-600/20 border-brand-500 text-brand-300'
-                      : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
+                      ? 'bg-brand-50 border-brand-300 text-brand-700 shadow-xs'
+                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                   }`}
                 >
                   <span className="text-base">{cat.icon}</span>
@@ -362,26 +362,26 @@ export default function TransactionForm({ isOpen, onClose, onSave, friends = [],
           {/* Date & Payment Mode */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                 Date *
               </label>
               <input
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-brand-500"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 focus:bg-white focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                 Payment Mode
               </label>
               <select
                 value={paymentMethod}
                 onChange={(e) => setPaymentMethod(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-brand-500"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 focus:bg-white focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
               >
                 <option value="UPI">UPI (GPay / PhonePe / Paytm)</option>
                 <option value="Cash">Cash Handoff</option>
@@ -393,7 +393,7 @@ export default function TransactionForm({ isOpen, onClose, onSave, friends = [],
 
           {/* Receipt Note */}
           <div>
-            <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
               Receipt / Ref ID (Optional)
             </label>
             <input
@@ -401,22 +401,22 @@ export default function TransactionForm({ isOpen, onClose, onSave, friends = [],
               value={receiptNote}
               onChange={(e) => setReceiptNote(e.target.value)}
               placeholder="e.g. Order #1234, UPI ref"
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-brand-500"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
             />
           </div>
 
           {/* Footer Actions */}
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-sm font-semibold text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              className="px-4 py-2 rounded-xl text-sm font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="flex items-center gap-2 bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-500 hover:to-brand-600 text-white text-sm font-bold px-6 py-2.5 rounded-xl shadow-lg shadow-brand-500/25 transition-all"
+              className="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold px-6 py-2.5 rounded-xl shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all"
             >
               <Sparkles className="w-4 h-4" />
               <span>Save Record</span>

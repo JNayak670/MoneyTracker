@@ -57,7 +57,19 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
 
   useEffect(() => {
     fetchFriends();
-  }, []);
+
+    const handleUpdate = () => {
+      fetchFriends();
+      if (activeLedger?.friend?.id) {
+        loadFriendLedger(activeLedger.friend.id);
+      }
+    };
+
+    window.addEventListener('transaction-updated', handleUpdate);
+    return () => {
+      window.removeEventListener('transaction-updated', handleUpdate);
+    };
+  }, [activeLedger?.friend?.id]);
 
   useEffect(() => {
     if (editingFriend) {
@@ -104,6 +116,7 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
       setFriendModalOpen(false);
       onCloseFriendModal();
       await fetchFriends();
+      window.dispatchEvent(new Event('transaction-updated'));
     } catch (err) {
       alert(`Save friend error: ${err.message}`);
     }
@@ -115,6 +128,7 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
       await api.delete(`/friends/${id}`);
       if (activeLedger?.friend?.id === id) setActiveLedger(null);
       await fetchFriends();
+      window.dispatchEvent(new Event('transaction-updated'));
     } catch (err) {
       alert(`Delete error: ${err.message}`);
     }
@@ -128,6 +142,7 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
       if (activeLedger) {
         await loadFriendLedger(payload.friendId);
       }
+      window.dispatchEvent(new Event('transaction-updated'));
     } catch (err) {
       alert(`Settlement error: ${err.message}`);
     }
@@ -153,12 +168,12 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
     <div className="space-y-6 animate-fadeIn">
       
       {/* Header & Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-800">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
             Friends Circle
           </h1>
-          <p className="text-sm text-slate-400 mt-1">
+          <p className="text-sm text-slate-500 mt-1">
             Manage peer debts, view individual running ledgers & send WhatsApp reminders
           </p>
         </div>
@@ -176,7 +191,7 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
             });
             setFriendModalOpen(true);
           }}
-          className="flex items-center gap-2 bg-brand-600 hover:bg-brand-500 text-white text-sm font-bold px-4 py-2.5 rounded-xl shadow-lg shadow-brand-500/25 transition-all self-start sm:self-auto"
+          className="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold px-4 py-2.5 rounded-xl shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all self-start sm:self-auto"
         >
           <PlusCircle className="w-4 h-4" />
           <span>Add New Friend</span>
@@ -184,15 +199,15 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
       </div>
 
       {/* Search & Filter Toolbar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-slate-900/60 p-3 rounded-2xl border border-slate-800">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200 shadow-xs">
         <div className="relative flex-1">
-          <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search friend by name, tag, phone number..."
-            className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-4 py-2 text-sm text-slate-200 focus:outline-none focus:border-brand-500"
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2 text-sm text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
           />
         </div>
 
@@ -208,8 +223,8 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
               onClick={() => setFilter(btn.id)}
               className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
                 filter === btn.id
-                  ? 'bg-brand-600 text-white shadow-md shadow-brand-600/30'
-                  : 'bg-slate-950 text-slate-400 hover:text-white border border-slate-800'
+                  ? 'bg-brand-600 text-white shadow-sm'
+                  : 'bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200 border border-slate-200'
               }`}
             >
               {btn.label}
@@ -220,12 +235,12 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
 
       {/* Friends Cards Grid */}
       {loading ? (
-        <div className="py-16 text-center text-slate-400 text-sm">Loading circle...</div>
+        <div className="py-16 text-center text-slate-500 text-sm">Loading circle...</div>
       ) : filteredFriends.length === 0 ? (
         <div className="glass-card rounded-2xl p-12 text-center border-dashed">
-          <Users className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-          <h3 className="font-bold text-base text-white">No Friends Found</h3>
-          <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+          <Users className="w-12 h-12 text-slate-400 mx-auto mb-3" />
+          <h3 className="font-bold text-base text-slate-900">No Friends Found</h3>
+          <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
             No contacts match the filter criteria. Add your first friend to get started!
           </p>
         </div>
@@ -253,28 +268,28 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
       {/* FRIEND LEDGER HISTORY MODAL DRAWER */}
       {/* ------------------------------------------------------------- */}
       {activeLedger && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
             
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-900/60">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/80">
               <div className="flex items-center gap-3">
                 <div 
-                  className="w-10 h-10 rounded-xl flex items-center justify-center text-xl shadow-md border border-white/10"
+                  className="w-10 h-10 rounded-xl flex items-center justify-center text-xl shadow-xs border border-slate-200"
                   style={{ backgroundColor: activeLedger.friend.avatarColor || '#6366f1' }}
                 >
                   {activeLedger.friend.avatarEmoji || '👤'}
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold text-white">{activeLedger.friend.name}</h2>
-                  <span className="text-xs font-semibold text-slate-400">{activeLedger.friend.relationshipTag || 'Friend'}</span>
+                  <h2 className="text-lg font-extrabold text-slate-900">{activeLedger.friend.name}</h2>
+                  <span className="text-xs font-semibold text-slate-500">{activeLedger.friend.relationshipTag || 'Friend'}</span>
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => printFriendStatement(activeLedger)}
-                  className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-colors"
+                  className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors"
                   title="Print Formal Ledger Statement"
                 >
                   <Printer className="w-5 h-5" />
@@ -284,7 +299,7 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
                     setActiveLedger(null);
                     onCloseHistory?.();
                   }}
-                  className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-colors"
+                  className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -293,17 +308,23 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
 
             {/* Balance Status Banner */}
             <div className="p-6 overflow-y-auto space-y-6">
-              <div className="glass-card rounded-2xl p-4 flex items-center justify-between">
+              <div className={`rounded-2xl p-4 flex items-center justify-between border ${
+                activeLedger.currentBalance > 0
+                  ? 'bg-emerald-50 border-emerald-200'
+                  : activeLedger.currentBalance < 0
+                  ? 'bg-rose-50 border-rose-200'
+                  : 'bg-slate-50 border-slate-200'
+              }`}>
                 <div>
-                  <span className="text-xs uppercase font-bold text-slate-400 tracking-wider">
+                  <span className="text-xs uppercase font-extrabold text-slate-500 tracking-wider">
                     Current Running Balance
                   </span>
                   <div className={`text-2xl font-black mt-0.5 ${
                     activeLedger.currentBalance > 0
-                      ? 'text-emerald-400'
+                      ? 'text-emerald-800'
                       : activeLedger.currentBalance < 0
-                      ? 'text-rose-400'
-                      : 'text-cyan-400'
+                      ? 'text-rose-800'
+                      : 'text-slate-800'
                   }`}>
                     {activeLedger.currentBalance > 0 && `Friend Owes You ₹${activeLedger.currentBalance.toLocaleString()}`}
                     {activeLedger.currentBalance < 0 && `You Owe Friend ₹${Math.abs(activeLedger.currentBalance).toLocaleString()}`}
@@ -315,7 +336,7 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
                   {activeLedger.currentBalance !== 0 && (
                     <button
                       onClick={() => setSettleModal({ open: true, friendId: activeLedger.friend.id, friendName: activeLedger.friend.name, amount: Math.abs(activeLedger.currentBalance) })}
-                      className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3.5 py-2 rounded-xl flex items-center gap-1.5 shadow-md shadow-emerald-600/20"
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl flex items-center gap-1.5 shadow-sm transition-all"
                     >
                       <CheckCircle2 className="w-4 h-4" />
                       <span>Settle Up</span>
@@ -324,9 +345,9 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
                   {activeLedger.currentBalance > 0 && (
                     <button
                       onClick={() => setWhatsappModal({ open: true, friendName: activeLedger.friend.name, amount: activeLedger.currentBalance, phone: activeLedger.friend.phone })}
-                      className="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold px-3.5 py-2 rounded-xl flex items-center gap-1.5 border border-slate-700"
+                      className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold px-3.5 py-2 rounded-xl flex items-center gap-1.5 border border-emerald-300 transition-all"
                     >
-                      <MessageSquare className="w-4 h-4 text-emerald-400" />
+                      <MessageSquare className="w-4 h-4 text-emerald-600" />
                       <span>Remind</span>
                     </button>
                   )}
@@ -335,8 +356,8 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
 
               {/* Chronological Timeline */}
               <div>
-                <h3 className="text-sm font-bold text-slate-200 mb-3 flex items-center gap-2">
-                  <History className="w-4 h-4 text-brand-400" />
+                <h3 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
+                  <History className="w-4 h-4 text-brand-600" />
                   <span>Ledger Progression & History ({activeLedger.transactions.length})</span>
                 </h3>
 
@@ -347,11 +368,11 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
                     {activeLedger.transactions.map((t) => {
                       const isGiven = t.type === 'GIVEN' || t.impactOnUser > 0;
                       return (
-                        <div key={t.id} className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800/80 hover:border-slate-700 transition-colors flex items-center justify-between">
+                        <div key={t.id} className="p-3.5 rounded-2xl bg-white border border-slate-200 hover:border-slate-300 shadow-xs transition-all flex items-center justify-between">
                           <div className="space-y-1">
                             <div className="flex items-center gap-2">
-                              <span className="text-xs font-bold text-slate-200">{t.note}</span>
-                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 font-semibold">
+                              <span className="text-xs font-bold text-slate-900">{t.note}</span>
+                              <span className="text-[10px] px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 font-semibold border border-slate-200/60">
                                 {t.category}
                               </span>
                             </div>
@@ -361,10 +382,10 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
                           </div>
 
                           <div className="text-right">
-                            <div className={`text-sm font-extrabold ${isGiven ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            <div className={`text-sm font-extrabold ${isGiven ? 'text-emerald-700' : 'text-rose-700'}`}>
                               {isGiven ? '+' : '-'}₹{t.amount.toLocaleString()}
                             </div>
-                            <div className="text-[11px] text-slate-400 font-semibold mt-0.5">
+                            <div className="text-[11px] text-slate-500 font-semibold mt-0.5">
                               Running: ₹{t.runningBalance.toLocaleString()}
                             </div>
                           </div>
@@ -384,10 +405,10 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
       {/* ADD / EDIT FRIEND MODAL */}
       {/* ------------------------------------------------------------- */}
       {friendModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800">
-              <h2 className="text-lg font-bold text-white">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/80">
+              <h2 className="text-lg font-bold text-slate-900">
                 {editingFriend?.id ? 'Edit Friend Details' : 'Add Friend to Circle'}
               </h2>
               <button
@@ -395,7 +416,7 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
                   setFriendModalOpen(false);
                   onCloseFriendModal?.();
                 }}
-                className="p-1 text-slate-400 hover:text-white"
+                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -403,7 +424,7 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
 
             <form onSubmit={handleSaveFriend} className="p-6 space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                   Full Name *
                 </label>
                 <input
@@ -411,20 +432,20 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   placeholder="e.g. Rahul Sharma"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-brand-500"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
                   required
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                     Tag / Group
                   </label>
                   <select
                     value={formData.relationshipTag}
                     onChange={(e) => setFormData({ ...formData, relationshipTag: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-brand-500"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-sm text-slate-900 focus:bg-white focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
                   >
                     <option value="Roommate">Roommate 🏠</option>
                     <option value="College Friend">College Friend 🎓</option>
@@ -436,7 +457,7 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                     Phone / WhatsApp
                   </label>
                   <input
@@ -444,14 +465,14 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     placeholder="+91 98765 43210"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-brand-500"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-sm text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                     Avatar Emoji
                   </label>
                   <input
@@ -459,25 +480,25 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
                     value={formData.avatarEmoji}
                     onChange={(e) => setFormData({ ...formData, avatarEmoji: e.target.value })}
                     placeholder="🍕, 🚗, ☕, 😎"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-brand-500 text-center text-lg"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-sm text-slate-900 focus:bg-white focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 text-center text-lg"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                     Badge Color
                   </label>
                   <input
                     type="color"
                     value={formData.avatarColor}
                     onChange={(e) => setFormData({ ...formData, avatarColor: e.target.value })}
-                    className="w-full h-10 bg-slate-950 border border-slate-800 rounded-xl px-2 py-1 cursor-pointer"
+                    className="w-full h-10 bg-slate-50 border border-slate-200 rounded-xl px-2 py-1 cursor-pointer"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                   Notes (Optional)
                 </label>
                 <input
@@ -485,24 +506,24 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                   placeholder="e.g. Flat 402, Goa trip group"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-brand-500"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => {
                     setFriendModalOpen(false);
                     onCloseFriendModal?.();
                   }}
-                  className="px-4 py-2 rounded-xl text-sm font-semibold text-slate-400 hover:text-white"
+                  className="px-4 py-2 rounded-xl text-sm font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="bg-brand-600 hover:bg-brand-500 text-white text-sm font-bold px-6 py-2.5 rounded-xl shadow-lg shadow-brand-500/25 transition-all"
+                  className="bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold px-6 py-2.5 rounded-xl shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all"
                 >
                   Save Friend
                 </button>
