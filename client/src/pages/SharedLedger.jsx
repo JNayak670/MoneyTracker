@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
+import { useAuth } from '../context/AuthContext';
 import { 
   Clock, 
   ShieldCheck, 
@@ -20,6 +21,7 @@ import { exportToCSV } from '../services/exportService';
 const API_BASE = '/api';
 
 export default function SharedLedger() {
+  const { user } = useAuth();
   const { code: urlCode } = useParams();
   const navigate = useNavigate();
   
@@ -100,34 +102,48 @@ export default function SharedLedger() {
   const isSettled = balance === 0;
 
   return (
-    <div className="min-h-screen bg-slate-50 py-8 px-4 sm:px-6 lg:px-8">
+    <div className={`${user ? 'py-2' : 'min-h-screen bg-slate-50 py-8 px-4 sm:px-6 lg:px-8'}`}>
       <div className="max-w-4xl mx-auto space-y-6 animate-fadeIn">
         
-        {/* Top Public Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-brand-600 via-indigo-600 to-purple-600 flex items-center justify-center text-2xl shadow-md shadow-brand-500/25">
-              💸
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-xl font-black text-slate-900">MoneyTracker</h1>
-                <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 border border-indigo-200">
-                  Shared Statement
-                </span>
+        {/* Top Public Header (Shown only to non-logged in visitors) */}
+        {!user && (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-brand-600 via-indigo-600 to-purple-600 flex items-center justify-center text-2xl shadow-md shadow-brand-500/25">
+                💸
               </div>
-              <p className="text-xs text-slate-500 font-semibold">Verified Friend Transaction Ledger</p>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-xl font-black text-slate-900">MoneyTracker</h1>
+                  <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 border border-indigo-200">
+                    Shared Statement
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 font-semibold">Verified Friend Transaction Ledger</p>
+              </div>
             </div>
-          </div>
 
-          <Link
-            to="/login"
-            className="inline-flex items-center gap-1.5 text-xs font-bold text-brand-600 hover:text-brand-700 bg-white border border-slate-200 px-3.5 py-2 rounded-xl shadow-xs transition-colors self-start sm:self-auto"
-          >
-            <Wallet className="w-3.5 h-3.5" />
-            <span>Open MoneyTracker App</span>
-          </Link>
-        </div>
+            <Link
+              to="/login"
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-brand-600 hover:text-brand-700 bg-white border border-slate-200 px-3.5 py-2 rounded-xl shadow-xs transition-colors self-start sm:self-auto"
+            >
+              <Wallet className="w-3.5 h-3.5" />
+              <span>Open MoneyTracker App</span>
+            </Link>
+          </div>
+        )}
+
+        {/* In-App Title Banner when user is logged in */}
+        {user && (
+          <div className="pb-2 border-b border-slate-200">
+            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+              Shared Ledger Portal
+            </h1>
+            <p className="text-sm text-slate-500 mt-1">
+              Inspect time-limited friend statements & verify mutual cross-settlements
+            </p>
+          </div>
+        )}
 
         {/* Code Search bar if not loaded or switching code */}
         {(!urlCode || error) && (

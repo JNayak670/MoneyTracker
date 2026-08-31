@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import ProtectedRoute from './components/ProtectedRoute';
 import Navbar from './components/Navbar';
 import Dashboard from './pages/Dashboard';
 import Friends from './pages/Friends';
@@ -48,7 +47,6 @@ function AppLayout() {
       await api.post('/transactions', payload);
       setAddTxModalOpen(false);
       await fetchFriends();
-      // Reload current page data by dispatching custom event or state
       window.dispatchEvent(new Event('transaction-updated'));
     } catch (err) {
       alert(`Save error: ${err.message}`);
@@ -102,6 +100,14 @@ function AppLayout() {
             path="/analytics" 
             element={<Analytics />} 
           />
+          <Route 
+            path="/share" 
+            element={<SharedLedger />} 
+          />
+          <Route 
+            path="/share/:code" 
+            element={<SharedLedger />} 
+          />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
@@ -118,6 +124,35 @@ function AppLayout() {
   );
 }
 
+function MainRouter() {
+  const { user, loading } = useAuth();
+  const location = useLocation();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-slate-500 font-semibold text-xs">Loading MoneyTracker...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // 1. Authenticated User -> Render full AppLayout with Navbar & active route
+  if (user) {
+    return <AppLayout />;
+  }
+
+  // 2. Unauthenticated visitor accessing /share or /share/:code -> Render public SharedLedger
+  if (location.pathname.startsWith('/share')) {
+    return <SharedLedger />;
+  }
+
+  // 3. Otherwise redirect to login
+  return <Navigate to="/login" replace />;
+}
+
 export default function App() {
   return (
     <AuthProvider>
@@ -126,19 +161,13 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           
-          {/* Public Time-Limited Shared Ledger View */}
-          <Route path="/share" element={<SharedLedger />} />
-          <Route path="/share/:code" element={<SharedLedger />} />
-          
           {/* Dedicated Independent Admin Portal (Protected by Gmail & Passkey) */}
           <Route path="/admin" element={<Admin />} />
           
-          <Route element={<ProtectedRoute />}>
-            <Route path="/*" element={<AppLayout />} />
-          </Route>
+          {/* Universal Main Router for App & Public Share */}
+          <Route path="/*" element={<MainRouter />} />
         </Routes>
       </Router>
     </AuthProvider>
   );
 }
-
