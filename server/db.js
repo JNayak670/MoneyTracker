@@ -18,10 +18,12 @@ const connectDB = async () => {
 const User = require('./models/User');
 const Friend = require('./models/Friend');
 const Transaction = require('./models/Transaction');
+const ShareCode = require('./models/ShareCode');
 
 module.exports = {
   connectDB,
   User,
   Friend,
-  Transaction
+  Transaction,
+  ShareCode
 };

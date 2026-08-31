@@ -3,6 +3,7 @@ import api from '../services/api';
 import FriendCard from '../components/FriendCard';
 import SettleModal from '../components/SettleModal';
 import WhatsAppModal from '../components/WhatsAppModal';
+import ShareCodeModal from '../components/ShareCodeModal';
 import { printFriendStatement } from '../services/exportService';
 import { 
   Users, 
@@ -14,7 +15,8 @@ import {
   History, 
   MessageSquare,
   ArrowUpRight,
-  ArrowDownLeft
+  ArrowDownLeft,
+  Share2
 } from 'lucide-react';
 
 export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, onCloseFriendModal, historyFriendId, onCloseHistory }) {
@@ -42,6 +44,7 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
   // Action Modals
   const [settleModal, setSettleModal] = useState({ open: false, friendId: '', friendName: '', amount: 0 });
   const [whatsappModal, setWhatsappModal] = useState({ open: false, friendName: '', amount: 0, phone: '' });
+  const [shareModal, setShareModal] = useState({ open: false, friendId: '', friendName: '' });
 
   const fetchFriends = async () => {
     try {
@@ -254,6 +257,7 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
               onViewHistory={(id) => loadFriendLedger(id)}
               onSettle={(id, amt, name) => setSettleModal({ open: true, friendId: id, friendName: name, amount: amt })}
               onRemind={(id, amt, name, phone) => setWhatsappModal({ open: true, friendName: name, amount: amt, phone })}
+              onShareCode={(id, name) => setShareModal({ open: true, friendId: id, friendName: name })}
               onEdit={(f) => {
                 setFormData(f);
                 setFriendModalOpen(true);
@@ -287,6 +291,14 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
               </div>
 
               <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShareModal({ open: true, friendId: activeLedger.friend.id, friendName: activeLedger.friend.name })}
+                  className="flex items-center gap-1 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-3 py-1.5 rounded-xl transition-colors"
+                  title="Generate Share Code"
+                >
+                  <Share2 className="w-3.5 h-3.5" />
+                  <span>Share Code</span>
+                </button>
                 <button
                   onClick={() => printFriendStatement(activeLedger)}
                   className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors"
@@ -550,6 +562,14 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
         friendName={whatsappModal.friendName}
         amount={whatsappModal.amount}
         phone={whatsappModal.phone}
+      />
+
+      {/* Share Code Modal */}
+      <ShareCodeModal
+        isOpen={shareModal.open}
+        onClose={() => setShareModal({ open: false, friendId: '', friendName: '' })}
+        friendId={shareModal.friendId}
+        friendName={shareModal.friendName}
       />
 
     </div>

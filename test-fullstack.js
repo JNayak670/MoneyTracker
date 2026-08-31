@@ -131,7 +131,34 @@ async function runTests() {
     if (!analyticsRes.success) throw new Error('Analytics failed');
     console.log('✅ Test 9 Passed\n');
 
-    console.log('🎉 ALL FULL-STACK TESTS PASSED WITH 100% SUCCESS!');
+    // 10. POST /api/share/generate (Generate 60-min share code for Vikram)
+    console.log('Test 10: POST /api/share/generate (Time-limited share code)');
+    const shareGenRes = await fetch(`${BASE}/share/generate`, {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({
+        friendId: newFriendId,
+        durationMinutes: 60
+      })
+    }).then(r => r.json());
+    console.log('Generated Share Code:', shareGenRes.data);
+    if (!shareGenRes.success || !shareGenRes.data.code) throw new Error('Share code generation failed: ' + shareGenRes.error);
+    const shareCode = shareGenRes.data.code;
+    console.log(`✅ Test 10 Passed (Code: ${shareCode})\n`);
+
+    // 11. GET /api/share/:code (Public access without authentication token)
+    console.log(`Test 11: GET /api/share/${shareCode} (Public Access without Auth)`);
+    const publicLedgerRes = await fetch(`${BASE}/share/${shareCode}`).then(r => r.json());
+    console.log('Public Ledger Summary:', publicLedgerRes.data?.summary);
+    console.log('Public Ledger Owner:', publicLedgerRes.data?.owner?.name);
+    console.log('Public Ledger Friend:', publicLedgerRes.data?.friend?.name);
+    console.log(`Public Ledger Transactions count: ${publicLedgerRes.data?.transactions?.length}`);
+    if (!publicLedgerRes.success || publicLedgerRes.data?.transactions?.length < 2) {
+      throw new Error('Public ledger fetch failed or transactions missing');
+    }
+    console.log('✅ Test 11 Passed\n');
+
+    console.log('🎉 ALL FULL-STACK & SHARING TESTS PASSED WITH 100% SUCCESS!');
   } catch (err) {
     console.error('❌ Test failed:', err);
   } finally {

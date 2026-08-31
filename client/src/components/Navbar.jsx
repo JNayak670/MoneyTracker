@@ -9,7 +9,9 @@ import {
   LogOut, 
   Wallet,
   Menu,
-  X
+  X,
+  Share2,
+  Sparkles
 } from 'lucide-react';
 
 export default function Navbar({ onOpenAddModal }) {
@@ -19,9 +21,10 @@ export default function Navbar({ onOpenAddModal }) {
 
   const navLinks = [
     { name: 'Dashboard', path: '/', icon: Wallet },
-    { name: 'Friends Circle', path: '/friends', icon: Users },
+    { name: 'Friends', path: '/friends', icon: Users },
     { name: 'Transactions', path: '/transactions', icon: Receipt },
     { name: 'Analytics', path: '/analytics', icon: BarChart3 },
+    { name: 'Share Ledger', path: '/share', icon: Share2 },
   ];
 
   const isActive = (path) => {
@@ -29,28 +32,35 @@ export default function Navbar({ onOpenAddModal }) {
     return location.pathname.startsWith(path);
   };
 
+  const userInitial = user?.name ? user.name.charAt(0).toUpperCase() : 'U';
+
   return (
-    <header className="sticky top-0 z-40 glass-header">
+    <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-200/80 shadow-xs">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+        <div className="flex items-center justify-between h-16 sm:h-18">
           
-          {/* Logo */}
-          <Link to="/" className="flex items-center gap-3 group">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-emerald-500 flex items-center justify-center text-xl shadow-md shadow-brand-500/20 group-hover:scale-105 transition-transform">
+          {/* Logo Branding */}
+          <Link to="/" className="flex items-center gap-2.5 group flex-shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 via-indigo-600 to-purple-600 flex items-center justify-center text-xl shadow-md shadow-brand-500/20 group-hover:scale-105 transition-transform">
               💸
             </div>
             <div>
-              <span className="text-lg font-black tracking-tight text-slate-900">
-                MoneyTracker
-              </span>
-              <span className="ml-2 text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 border border-brand-200">
-                Easy Ledger
-              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-base sm:text-lg font-black tracking-tight text-slate-900">
+                  MoneyTracker
+                </span>
+                <span className="text-[9px] uppercase font-black tracking-wider px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                  INR ₹
+                </span>
+              </div>
+              <p className="hidden sm:block text-[10px] text-slate-500 font-semibold leading-none mt-0.5">
+                Smart Expense & Debt Ledger
+              </p>
             </div>
           </Link>
 
           {/* Desktop Navigation Links */}
-          <nav className="hidden md:flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-xl border border-slate-200">
+          <nav className="hidden lg:flex items-center gap-1 bg-slate-100/90 p-1 rounded-2xl border border-slate-200/80 shadow-inner">
             {navLinks.map((item) => {
               const Icon = item.icon;
               const active = isActive(item.path);
@@ -58,13 +68,13 @@ export default function Navbar({ onOpenAddModal }) {
                 <Link
                   key={item.name}
                   to={item.path}
-                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
                     active
-                      ? 'bg-white text-brand-700 shadow-sm border border-slate-200/80'
+                      ? 'bg-white text-brand-700 shadow-xs border border-slate-200/90'
                       : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
                   }`}
                 >
-                  <Icon className="w-4 h-4" />
+                  <Icon className={`w-3.5 h-3.5 ${active ? 'text-brand-600' : 'text-slate-400'}`} />
                   <span>{item.name}</span>
                 </Link>
               );
@@ -72,53 +82,64 @@ export default function Navbar({ onOpenAddModal }) {
           </nav>
 
           {/* Right Action Buttons */}
-          <div className="hidden md:flex items-center gap-3">
+          <div className="hidden sm:flex items-center gap-3">
             <button
               onClick={onOpenAddModal}
-              className="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all"
+              className="flex items-center gap-1.5 bg-gradient-to-r from-brand-600 via-indigo-600 to-purple-600 hover:from-brand-700 hover:to-purple-700 text-white text-xs font-black px-3.5 py-2 rounded-xl shadow-md shadow-brand-500/20 hover:shadow-lg hover:-translate-y-0.5 transition-all"
             >
-              <PlusCircle className="w-4 h-4" />
-              <span>+ Record Transaction</span>
+              <PlusCircle className="w-3.5 h-3.5" />
+              <span>Record Expense</span>
             </button>
 
-            {/* User Profile & Logout */}
-            <div className="flex items-center gap-3 pl-3 border-l border-slate-200">
-              <div className="text-right">
-                <div className="text-xs font-bold text-slate-800">{user?.name || 'User'}</div>
-                <div className="text-[11px] text-slate-500 font-semibold">{user?.currency || '₹'} Wallet</div>
+            {/* User Profile & Sign Out */}
+            <div className="flex items-center gap-2.5 pl-2.5 border-l border-slate-200">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 text-white flex items-center justify-center font-black text-xs shadow-xs border border-white">
+                  {userInitial}
+                </div>
+                <div className="hidden md:block text-left">
+                  <div className="text-xs font-black text-slate-800 leading-tight truncate max-w-[100px]">
+                    {user?.name || 'Account'}
+                  </div>
+                  <div className="text-[10px] text-slate-400 font-semibold leading-none">
+                    Signed in
+                  </div>
+                </div>
               </div>
+
               <button
                 onClick={logout}
                 title="Sign Out"
-                className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors"
+                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
               >
                 <LogOut className="w-4 h-4" />
               </button>
             </div>
           </div>
 
-          {/* Mobile menu toggle */}
-          <div className="md:hidden flex items-center gap-2">
+          {/* Mobile menu & Quick Action toggle */}
+          <div className="sm:hidden flex items-center gap-2">
             <button
               onClick={onOpenAddModal}
-              className="bg-brand-600 text-white p-2 rounded-lg text-sm font-semibold"
+              className="bg-brand-600 hover:bg-brand-700 text-white p-2 rounded-xl text-xs font-bold shadow-xs"
+              title="Add Transaction"
             >
-              <PlusCircle className="w-5 h-5" />
+              <PlusCircle className="w-4 h-4" />
             </button>
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="text-slate-600 hover:text-slate-900 p-2"
+              className="p-2 text-slate-600 hover:text-slate-900 rounded-xl hover:bg-slate-100 transition-colors"
             >
-              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
           </div>
 
         </div>
       </div>
 
-      {/* Mobile menu dropdown */}
+      {/* Mobile Menu Dropdown */}
       {mobileMenuOpen && (
-        <div className="md:hidden px-4 pt-2 pb-4 space-y-1 bg-white border-b border-slate-200 animate-fadeIn">
+        <div className="sm:hidden px-4 pt-2 pb-4 space-y-1.5 bg-white border-b border-slate-200 animate-fadeIn shadow-lg">
           {navLinks.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.path);
@@ -127,22 +148,31 @@ export default function Navbar({ onOpenAddModal }) {
                 key={item.name}
                 to={item.path}
                 onClick={() => setMobileMenuOpen(false)}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-bold ${
-                  active ? 'bg-brand-50 text-brand-700' : 'text-slate-700 hover:bg-slate-50'
+                className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-colors ${
+                  active 
+                    ? 'bg-brand-50 text-brand-700 border border-brand-200' 
+                    : 'text-slate-700 hover:bg-slate-50'
                 }`}
               >
-                <Icon className="w-4 h-4" />
+                <Icon className={`w-4 h-4 ${active ? 'text-brand-600' : 'text-slate-400'}`} />
                 <span>{item.name}</span>
               </Link>
             );
           })}
-          <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-            <div className="text-xs text-slate-600">
-              Signed in as <strong className="text-slate-900">{user?.name}</strong>
+
+          <div className="pt-3 mt-2 border-t border-slate-100 flex items-center justify-between px-1">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-full bg-indigo-600 text-white flex items-center justify-center font-black text-xs">
+                {userInitial}
+              </div>
+              <div className="text-xs font-bold text-slate-800">
+                {user?.name || 'Demo Account'}
+              </div>
             </div>
+
             <button
               onClick={logout}
-              className="flex items-center gap-1.5 text-xs text-rose-600 font-bold hover:underline"
+              className="flex items-center gap-1.5 text-xs text-rose-600 font-bold hover:underline bg-rose-50 px-3 py-1.5 rounded-lg"
             >
               <LogOut className="w-3.5 h-3.5" />
               <span>Sign Out</span>
@@ -153,3 +183,4 @@ export default function Navbar({ onOpenAddModal }) {
     </header>
   );
 }
+

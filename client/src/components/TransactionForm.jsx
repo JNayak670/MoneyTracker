@@ -191,34 +191,44 @@ export default function TransactionForm({ isOpen, onClose, onSave, friends = [],
 
               {/* Type Switcher (Given vs Received) */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Direction *
+                <label className="block text-xs font-black text-slate-700 uppercase tracking-wider mb-2">
+                  Who paid the money? *
                 </label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-2.5">
                   <button
                     type="button"
                     onClick={() => setType('GIVEN')}
-                    className={`flex items-center justify-center gap-2 py-3 px-3 rounded-xl border text-xs font-bold transition-all ${
+                    className={`flex flex-col items-start p-3.5 rounded-2xl border text-left transition-all ${
                       type === 'GIVEN'
-                        ? 'bg-emerald-50 border-emerald-300 text-emerald-800 shadow-sm'
+                        ? 'bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-300 text-emerald-900 shadow-sm ring-2 ring-emerald-500/20'
                         : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 hover:border-slate-300'
                     }`}
                   >
-                    <ArrowUpRight className="w-4 h-4 text-emerald-600" />
-                    <span>I Gave (They Owe Me)</span>
+                    <div className="flex items-center gap-1.5 font-black text-xs text-emerald-700 mb-1">
+                      <ArrowUpRight className="w-4 h-4 text-emerald-600" />
+                      <span>I GAVE (LENT)</span>
+                    </div>
+                    <span className="text-[11px] font-semibold text-slate-500">
+                      Friend owes me this money
+                    </span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setType('RECEIVED')}
-                    className={`flex items-center justify-center gap-2 py-3 px-3 rounded-xl border text-xs font-bold transition-all ${
+                    className={`flex flex-col items-start p-3.5 rounded-2xl border text-left transition-all ${
                       type === 'RECEIVED'
-                        ? 'bg-rose-50 border-rose-300 text-rose-800 shadow-sm'
+                        ? 'bg-gradient-to-br from-rose-50 to-orange-50 border-rose-300 text-rose-900 shadow-sm ring-2 ring-rose-500/20'
                         : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 hover:border-slate-300'
                     }`}
                   >
-                    <ArrowDownLeft className="w-4 h-4 text-rose-600" />
-                    <span>I Received (I Owe Them)</span>
+                    <div className="flex items-center gap-1.5 font-black text-xs text-rose-700 mb-1">
+                      <ArrowDownLeft className="w-4 h-4 text-rose-600" />
+                      <span>I RECEIVED (BORROWED)</span>
+                    </div>
+                    <span className="text-[11px] font-semibold text-slate-500">
+                      I need to pay friend back
+                    </span>
                   </button>
                 </div>
               </div>
@@ -341,21 +351,34 @@ export default function TransactionForm({ isOpen, onClose, onSave, friends = [],
               Category
             </label>
             <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5">
-              {CATEGORIES.map(cat => (
-                <button
-                  key={cat.name}
-                  type="button"
-                  onClick={() => setCategory(cat.name)}
-                  className={`flex flex-col items-center gap-1 p-2 rounded-xl border text-[11px] font-semibold transition-all ${
-                    category === cat.name
-                      ? 'bg-brand-50 border-brand-300 text-brand-700 shadow-xs'
-                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                  }`}
-                >
-                  <span className="text-base">{cat.icon}</span>
-                  <span className="truncate w-full text-center">{cat.name}</span>
-                </button>
-              ))}
+              {CATEGORIES.map(cat => {
+                const isSelected = category === cat.name;
+                const catColorClasses = {
+                  'Food & Dining': isSelected ? 'bg-amber-100 border-amber-300 text-amber-900 ring-2 ring-amber-500/20' : '',
+                  'Rent & Bills': isSelected ? 'bg-blue-100 border-blue-300 text-blue-900 ring-2 ring-blue-500/20' : '',
+                  'Travel & Trips': isSelected ? 'bg-purple-100 border-purple-300 text-purple-900 ring-2 ring-purple-500/20' : '',
+                  'Entertainment': isSelected ? 'bg-pink-100 border-pink-300 text-pink-900 ring-2 ring-pink-500/20' : '',
+                  'Loans & Cash': isSelected ? 'bg-emerald-100 border-emerald-300 text-emerald-900 ring-2 ring-emerald-500/20' : '',
+                  'Shopping': isSelected ? 'bg-indigo-100 border-indigo-300 text-indigo-900 ring-2 ring-indigo-500/20' : '',
+                  'General': isSelected ? 'bg-slate-200 border-slate-400 text-slate-900 ring-2 ring-slate-500/20' : ''
+                }[cat.name] || '';
+
+                return (
+                  <button
+                    key={cat.name}
+                    type="button"
+                    onClick={() => setCategory(cat.name)}
+                    className={`flex flex-col items-center gap-1 p-2.5 rounded-xl border text-[11px] font-bold transition-all ${
+                      isSelected
+                        ? catColorClasses + ' shadow-xs'
+                        : 'bg-slate-50 border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                    }`}
+                  >
+                    <span className="text-lg">{cat.icon}</span>
+                    <span className="truncate w-full text-center">{cat.name}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 

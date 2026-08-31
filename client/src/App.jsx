@@ -9,6 +9,7 @@ import Transactions from './pages/Transactions';
 import Analytics from './pages/Analytics';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import SharedLedger from './pages/SharedLedger';
 import TransactionForm from './components/TransactionForm';
 import api from './services/api';
 
@@ -123,6 +124,10 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          {/* Public Time-Limited Shared Ledger View */}
+          <Route path="/share" element={<SharedLedger />} />
+          <Route path="/share/:code" element={<SharedLedger />} />
+          
           <Route element={<ProtectedRoute />}>
             <Route path="/*" element={<AppLayout />} />
           </Route>
@@ -131,3 +136,4 @@ export default function App() {
     </AuthProvider>
   );
 }
+

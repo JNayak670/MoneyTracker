@@ -5,6 +5,7 @@ import SummaryCard from '../components/SummaryCard';
 import FriendCard from '../components/FriendCard';
 import SettleModal from '../components/SettleModal';
 import WhatsAppModal from '../components/WhatsAppModal';
+import ShareCodeModal from '../components/ShareCodeModal';
 import { exportToCSV } from '../services/exportService';
 import { 
   Users, 
@@ -24,6 +25,7 @@ export default function Dashboard({ onOpenAddTx, onOpenAddFriend, onViewFriendHi
   // Modal states
   const [settleModal, setSettleModal] = useState({ open: false, friendId: '', friendName: '', amount: 0 });
   const [whatsappModal, setWhatsappModal] = useState({ open: false, friendName: '', amount: 0, phone: '' });
+  const [shareModal, setShareModal] = useState({ open: false, friendId: '', friendName: '' });
 
   const fetchData = async () => {
     try {
@@ -195,6 +197,7 @@ export default function Dashboard({ onOpenAddTx, onOpenAddFriend, onViewFriendHi
                 onViewHistory={(id) => onViewFriendHistory(id)}
                 onSettle={(id, amt, name) => setSettleModal({ open: true, friendId: id, friendName: name, amount: amt })}
                 onRemind={(id, amt, name, phone) => setWhatsappModal({ open: true, friendName: name, amount: amt, phone })}
+                onShareCode={(id, name) => setShareModal({ open: true, friendId: id, friendName: name })}
                 onEdit={(f) => onOpenAddFriend(f)}
                 onDelete={handleDeleteFriend}
               />
@@ -227,28 +230,40 @@ export default function Dashboard({ onOpenAddTx, onOpenAddFriend, onViewFriendHi
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase tracking-wider font-bold">
+                <thead className="bg-slate-100/80 border-b border-slate-200 text-slate-700 uppercase tracking-wider font-extrabold">
                   <tr>
-                    <th className="px-5 py-3.5">Date</th>
-                    <th className="px-5 py-3.5">Friend</th>
-                    <th className="px-5 py-3.5">Type</th>
-                    <th className="px-5 py-3.5">Note</th>
-                    <th className="px-5 py-3.5">Category</th>
-                    <th className="px-5 py-3.5 text-right">Amount</th>
+                    <th className="px-5 py-4">Date</th>
+                    <th className="px-5 py-4">Friend</th>
+                    <th className="px-5 py-4">Flow / Type</th>
+                    <th className="px-5 py-4">Description</th>
+                    <th className="px-5 py-4">Category</th>
+                    <th className="px-5 py-4 text-right">Amount</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-slate-100 bg-white">
                   {summary.recentTransactions.map(t => {
                     const isGiven = t.type === 'GIVEN' || t.impactOnUser > 0;
+                    const isSettled = t.type === 'SETTLED';
+
+                    const categoryColors = {
+                      'Food & Dining': 'bg-amber-50 text-amber-800 border-amber-200',
+                      'Rent & Bills': 'bg-blue-50 text-blue-800 border-blue-200',
+                      'Travel & Trips': 'bg-purple-50 text-purple-800 border-purple-200',
+                      'Entertainment': 'bg-pink-50 text-pink-800 border-pink-200',
+                      'Loans & Cash': 'bg-emerald-50 text-emerald-800 border-emerald-200',
+                      'Settlement': 'bg-cyan-50 text-cyan-800 border-cyan-200',
+                      'Shopping': 'bg-indigo-50 text-indigo-800 border-indigo-200',
+                    }[t.category] || 'bg-slate-100 text-slate-700 border-slate-200';
+
                     return (
                       <tr key={t.id} className="hover:bg-slate-50/80 transition-colors">
-                        <td className="px-5 py-3.5 text-slate-500 font-mono">
+                        <td className="px-5 py-4 text-slate-500 font-mono font-medium">
                           {t.date}
                         </td>
-                        <td className="px-5 py-3.5 font-bold text-slate-900">
-                          <div className="flex items-center gap-2">
+                        <td className="px-5 py-4 font-black text-slate-900">
+                          <div className="flex items-center gap-2.5">
                             <span 
-                              className="w-6 h-6 rounded-full flex items-center justify-center text-xs text-white shadow-xs"
+                              className="w-7 h-7 rounded-xl flex items-center justify-center text-sm shadow-xs border border-black/5"
                               style={{ backgroundColor: t.friend?.avatarColor || '#6366f1' }}
                             >
                               {t.friend?.avatarEmoji || '👤'}
@@ -256,29 +271,29 @@ export default function Dashboard({ onOpenAddTx, onOpenAddFriend, onViewFriendHi
                             <span>{t.friend?.name || 'Friend'}</span>
                           </div>
                         </td>
-                        <td className="px-5 py-3.5">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full font-bold text-[10px] ${
-                            t.type === 'SETTLED'
-                              ? 'bg-cyan-50 text-cyan-700 border border-cyan-200'
+                        <td className="px-5 py-4">
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg font-black text-[11px] border ${
+                            isSettled
+                              ? 'bg-cyan-50 text-cyan-700 border-cyan-200'
                               : isGiven
-                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                              : 'bg-rose-50 text-rose-700 border border-rose-200'
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              : 'bg-rose-50 text-rose-700 border-rose-200'
                           }`}>
-                            {t.type}
+                            {isSettled ? '🤝 Settled' : isGiven ? '↗️ Lent (You Paid)' : '↙️ Borrowed (They Paid)'}
                           </span>
                         </td>
-                        <td className="px-5 py-3.5 text-slate-700 font-medium max-w-xs truncate">
-                          {t.note}
+                        <td className="px-5 py-4 text-slate-700 font-medium max-w-xs truncate">
+                          {t.note || '-'}
                         </td>
-                        <td className="px-5 py-3.5 text-slate-500">
-                          <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md font-medium text-[11px] border border-slate-200/60">
+                        <td className="px-5 py-4">
+                          <span className={`px-2.5 py-1 rounded-lg font-bold text-[11px] border ${categoryColors}`}>
                             {t.category}
                           </span>
                         </td>
-                        <td className={`px-5 py-3.5 text-right font-extrabold text-sm ${
-                          isGiven ? 'text-emerald-700' : 'text-rose-700'
+                        <td className={`px-5 py-4 text-right font-black text-sm ${
+                          isSettled ? 'text-cyan-700' : isGiven ? 'text-emerald-700' : 'text-rose-700'
                         }`}>
-                          {isGiven ? '+' : '-'}{currency}{t.amount.toLocaleString()}
+                          {isSettled ? '' : isGiven ? '+' : '-'}{currency}{t.amount.toLocaleString()}
                         </td>
                       </tr>
                     );
@@ -308,6 +323,15 @@ export default function Dashboard({ onOpenAddTx, onOpenAddFriend, onViewFriendHi
         friendName={whatsappModal.friendName}
         amount={whatsappModal.amount}
         phone={whatsappModal.phone}
+        currency={currency}
+      />
+
+      {/* Share Code Modal */}
+      <ShareCodeModal
+        isOpen={shareModal.open}
+        onClose={() => setShareModal({ open: false, friendId: '', friendName: '' })}
+        friendId={shareModal.friendId}
+        friendName={shareModal.friendName}
         currency={currency}
       />
 
