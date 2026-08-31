@@ -1,0 +1,15 @@
+{
+  "name": "money-tracker",
+  "version": "1.0.0",
+  "description": "Full-Stack Friend Money Tracker (React + Node + Express + PostgreSQL/Prisma)",
+  "scripts": {
+    "dev": "concurrently \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
+    "start": "npm start --prefix server",
+    "build": "npm run build --prefix client",
+    "db:setup": "npm run db:setup --prefix server",
+    "test:api": "node test-fullstack.js"
+  },
+  "dependencies": {
+    "concurrently": "^9.2.4"
+  }
+}
