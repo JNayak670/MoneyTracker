@@ -7,6 +7,8 @@ router.post('/login', adminController.adminLogin);
 
 // Protected admin endpoints
 router.use(adminController.requireAdminAuth);
+router.get('/profile', adminController.getAdminProfile);
+router.put('/change-password', adminController.changeAdminPassword);
 router.get('/stats', adminController.getAdminStats);
 router.get('/users', adminController.getAdminUsers);
 router.put('/users/:id/unlock', adminController.unlockAdminUser);

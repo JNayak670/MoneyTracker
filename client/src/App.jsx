@@ -9,6 +9,7 @@ import Analytics from './pages/Analytics';
 import Admin from './pages/Admin';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import Landing from './pages/Landing';
 import SharedLedger from './pages/SharedLedger';
 import TransactionForm from './components/TransactionForm';
 import api from './services/api';
@@ -149,8 +150,13 @@ function MainRouter() {
     return <SharedLedger />;
   }
 
-  // 3. Otherwise redirect to login
-  return <Navigate to="/login" replace />;
+  // 3. Unauthenticated visitor on root "/" -> Render colorful Landing Page
+  if (location.pathname === '/' || location.pathname === '') {
+    return <Landing />;
+  }
+
+  // 4. Otherwise redirect unknown unauthenticated paths to landing page "/"
+  return <Navigate to="/" replace />;
 }
 
 export default function App() {

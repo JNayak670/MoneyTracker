@@ -19,11 +19,13 @@ const User = require('./models/User');
 const Friend = require('./models/Friend');
 const Transaction = require('./models/Transaction');
 const ShareCode = require('./models/ShareCode');
+const AdminSetting = require('./models/AdminSetting');
 
 module.exports = {
   connectDB,
   User,
   Friend,
   Transaction,
-  ShareCode
+  ShareCode,
+  AdminSetting
 };

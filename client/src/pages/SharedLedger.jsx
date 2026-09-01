@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { 
@@ -22,23 +22,30 @@ const API_BASE = '/api';
 
 export default function SharedLedger() {
   const { user } = useAuth();
-  const { code: urlCode } = useParams();
+  const { code: routeParamCode } = useParams();
+  const location = useLocation();
   const navigate = useNavigate();
   
-  const [codeInput, setCodeInput] = useState(urlCode || '');
+  // Robust code extraction from param or pathname (e.g., /share/398652 or /share/398652/)
+  const pathParts = location.pathname.split('/').filter(Boolean);
+  const pathCode = pathParts[0] === 'share' && pathParts[1] ? pathParts[1] : '';
+  const currentCode = (routeParamCode || pathCode || '').trim().toUpperCase();
+
+  const [codeInput, setCodeInput] = useState(currentCode);
   const [ledgerData, setLedgerData] = useState(null);
-  const [loading, setLoading] = useState(Boolean(urlCode));
+  const [loading, setLoading] = useState(Boolean(currentCode));
   const [error, setError] = useState('');
   const [isExpired, setIsExpired] = useState(false);
   const [timeLeft, setTimeLeft] = useState('');
 
   const fetchLedger = async (codeToFetch) => {
-    if (!codeToFetch) return;
+    const cleanCode = (codeToFetch || '').trim().toUpperCase();
+    if (!cleanCode) return;
     try {
       setLoading(true);
       setError('');
       setIsExpired(false);
-      const res = await axios.get(`${API_BASE}/share/${codeToFetch.trim().toUpperCase()}`);
+      const res = await axios.get(`${API_BASE}/share/${cleanCode}`);
       if (res.data.success) {
         setLedgerData(res.data.data);
       }
@@ -56,10 +63,11 @@ export default function SharedLedger() {
   };
 
   useEffect(() => {
-    if (urlCode) {
-      fetchLedger(urlCode);
+    if (currentCode) {
+      setCodeInput(currentCode);
+      fetchLedger(currentCode);
     }
-  }, [urlCode]);
+  }, [currentCode]);
 
   // Live Countdown Timer
   useEffect(() => {
@@ -92,7 +100,9 @@ export default function SharedLedger() {
   const handleSearchCode = (e) => {
     e.preventDefault();
     if (!codeInput.trim()) return;
-    navigate(`/share/${codeInput.trim().toUpperCase()}`);
+    const clean = codeInput.trim().toUpperCase();
+    navigate(`/share/${clean}`);
+    fetchLedger(clean);
   };
 
   const currency = ledgerData?.owner?.currency || '₹';
@@ -146,7 +156,7 @@ export default function SharedLedger() {
         )}
 
         {/* Code Search bar if not loaded or switching code */}
-        {(!urlCode || error) && (
+        {(!currentCode || error) && (
           <div className="glass-card rounded-3xl p-6 sm:p-8 text-center space-y-4 border border-slate-200 shadow-lg">
             <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-200 text-indigo-600 flex items-center justify-center mx-auto text-xl">
               🔑

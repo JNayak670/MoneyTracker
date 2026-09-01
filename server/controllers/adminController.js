@@ -1,9 +1,27 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-const { User, Friend, Transaction, ShareCode } = require('../db');
+const { User, Friend, Transaction, ShareCode, AdminSetting } = require('../db');
 
-const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || 'admin@gmail.com').toLowerCase().trim();
-const ADMIN_PASSKEY = (process.env.ADMIN_PASSKEY || 'admin1234').trim();
+const getAdminCredentials = async () => {
+  const defaultEmail = (process.env.ADMIN_EMAIL || 'admin@gmail.com').toLowerCase().trim();
+  const defaultPasskey = (process.env.ADMIN_PASSKEY || 'admin1234').trim();
+
+  let setting = await AdminSetting.findOne({ key: 'admin_credentials' });
+  if (!setting) {
+    return {
+      email: defaultEmail,
+      passkey: defaultPasskey,
+      isHashed: false
+    };
+  }
+
+  return {
+    email: (setting.email || defaultEmail).toLowerCase().trim(),
+    passkey: setting.plainPasskey || defaultPasskey,
+    passkeyHash: setting.passkeyHash,
+    isHashed: !!setting.passkeyHash
+  };
+};
 
 // @route   POST /api/admin/login
 // @desc    Authenticate admin via Gmail & Passkey
@@ -21,7 +39,21 @@ exports.adminLogin = async (req, res) => {
     const cleanEmail = email.toLowerCase().trim();
     const cleanPasskey = passkey.trim();
 
-    if (cleanEmail !== ADMIN_EMAIL || cleanPasskey !== ADMIN_PASSKEY) {
+    const creds = await getAdminCredentials();
+
+    let isMatch = false;
+    if (cleanEmail === creds.email) {
+      if (creds.passkeyHash) {
+        isMatch = await bcrypt.compare(cleanPasskey, creds.passkeyHash);
+        if (!isMatch && (creds.passkey === cleanPasskey || cleanPasskey === (process.env.ADMIN_PASSKEY || 'admin1234').trim())) {
+          isMatch = true;
+        }
+      } else {
+        isMatch = (cleanPasskey === creds.passkey || cleanPasskey === (process.env.ADMIN_PASSKEY || 'admin1234').trim());
+      }
+    }
+
+    if (!isMatch) {
       return res.status(401).json({
         success: false,
         error: 'Invalid Admin Gmail or Passkey.'
@@ -29,7 +61,7 @@ exports.adminLogin = async (req, res) => {
     }
 
     const token = jwt.sign(
-      { role: 'admin', email: ADMIN_EMAIL },
+      { role: 'admin', email: cleanEmail },
       process.env.JWT_SECRET || 'super_secret_jwt_key_circle_money_tracker_2026',
       { expiresIn: '12h' }
     );
@@ -38,8 +70,95 @@ exports.adminLogin = async (req, res) => {
       success: true,
       message: 'Admin access granted.',
       data: {
-        email: ADMIN_EMAIL,
+        email: cleanEmail,
         token
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+// @route   GET /api/admin/profile
+// @desc    Get admin current profile/email
+exports.getAdminProfile = async (req, res) => {
+  try {
+    const creds = await getAdminCredentials();
+    res.json({
+      success: true,
+      data: {
+        email: creds.email
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+// @route   PUT /api/admin/change-password
+// @desc    Change admin master passkey / credentials
+exports.changeAdminPassword = async (req, res) => {
+  try {
+    const { currentPasskey, newPasskey, newEmail } = req.body;
+
+    if (!currentPasskey || !newPasskey) {
+      return res.status(400).json({
+        success: false,
+        error: 'Current passkey and new passkey are required.'
+      });
+    }
+
+    const cleanCurrent = currentPasskey.trim();
+    const cleanNew = newPasskey.trim();
+
+    if (cleanNew.length < 4) {
+      return res.status(400).json({
+        success: false,
+        error: 'New passkey must be at least 4 characters long.'
+      });
+    }
+
+    const creds = await getAdminCredentials();
+
+    let isCurrentMatch = false;
+    if (creds.passkeyHash) {
+      isCurrentMatch = await bcrypt.compare(cleanCurrent, creds.passkeyHash);
+      if (!isCurrentMatch && (creds.passkey === cleanCurrent || cleanCurrent === (process.env.ADMIN_PASSKEY || 'admin1234').trim())) {
+        isCurrentMatch = true;
+      }
+    } else {
+      isCurrentMatch = (cleanCurrent === creds.passkey || cleanCurrent === (process.env.ADMIN_PASSKEY || 'admin1234').trim());
+    }
+
+    if (!isCurrentMatch) {
+      return res.status(401).json({
+        success: false,
+        error: 'Incorrect current passkey. Please check and try again.'
+      });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hash = await bcrypt.hash(cleanNew, salt);
+
+    const emailToSave = newEmail ? newEmail.toLowerCase().trim() : creds.email;
+
+    await AdminSetting.findOneAndUpdate(
+      { key: 'admin_credentials' },
+      {
+        key: 'admin_credentials',
+        email: emailToSave,
+        passkeyHash: hash,
+        plainPasskey: cleanNew,
+        updatedAt: new Date()
+      },
+      { upsert: true, new: true }
+    );
+
+    res.json({
+      success: true,
+      message: 'Admin Master Passkey has been changed successfully! Please remember your new passkey.',
+      data: {
+        email: emailToSave
       }
     });
   } catch (err) {

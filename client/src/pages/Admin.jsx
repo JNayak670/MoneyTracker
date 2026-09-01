@@ -44,6 +44,7 @@ export default function Admin() {
 
   // Dashboard state
   const [activeTab, setActiveTab] = useState('users');
+  const [adminEmail, setAdminEmail] = useState('admin@gmail.com');
   const [stats, setStats] = useState(null);
   const [users, setUsers] = useState([]);
   const [transactions, setTransactions] = useState([]);
@@ -53,6 +54,17 @@ export default function Admin() {
   const [deletingId, setDeletingId] = useState(null);
   const [actionLoadingId, setActionLoadingId] = useState(null);
   const [message, setMessage] = useState('');
+
+  // Change Admin Password state
+  const [pwdCurrent, setPwdCurrent] = useState('');
+  const [pwdNew, setPwdNew] = useState('');
+  const [pwdConfirm, setPwdConfirm] = useState('');
+  const [pwdEmail, setPwdEmail] = useState('');
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [pwdLoading, setPwdLoading] = useState(false);
+  const [pwdError, setPwdError] = useState('');
+  const [pwdSuccess, setPwdSuccess] = useState('');
 
   // Check health on login page
   useEffect(() => {
@@ -113,16 +125,21 @@ export default function Admin() {
     if (!adminToken) return;
     try {
       setLoading(true);
-      const [statsRes, usersRes, txRes, sharesRes] = await Promise.all([
+      const [statsRes, usersRes, txRes, sharesRes, profileRes] = await Promise.all([
         adminApi.get('/admin/stats'),
         adminApi.get('/admin/users'),
         adminApi.get('/admin/transactions'),
-        adminApi.get('/admin/shares')
+        adminApi.get('/admin/shares'),
+        adminApi.get('/admin/profile').catch(() => ({ data: { data: { email: 'admin@gmail.com' } } }))
       ]);
       setStats(statsRes.data.data);
       setUsers(usersRes.data.data);
       setTransactions(txRes.data.data);
       setShares(sharesRes.data.data);
+      if (profileRes?.data?.data?.email) {
+        setAdminEmail(profileRes.data.data.email);
+        setPwdEmail(profileRes.data.data.email);
+      }
     } catch (err) {
       console.error('Failed to load admin data:', err);
       if (err.response?.status === 401 || err.response?.status === 403) {
@@ -139,6 +156,54 @@ export default function Admin() {
       fetchAllData();
     }
   }, [adminToken]);
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    setPwdError('');
+    setPwdSuccess('');
+
+    if (!pwdCurrent.trim()) {
+      setPwdError('Please enter your current master passkey.');
+      return;
+    }
+
+    if (!pwdNew.trim()) {
+      setPwdError('Please enter a new master passkey.');
+      return;
+    }
+
+    if (pwdNew.trim().length < 4) {
+      setPwdError('New passkey must be at least 4 characters long.');
+      return;
+    }
+
+    if (pwdNew.trim() !== pwdConfirm.trim()) {
+      setPwdError('New passkey and confirmation do not match.');
+      return;
+    }
+
+    try {
+      setPwdLoading(true);
+      const res = await adminApi.put('/admin/change-password', {
+        currentPasskey: pwdCurrent.trim(),
+        newPasskey: pwdNew.trim(),
+        newEmail: pwdEmail.trim() || undefined
+      });
+
+      setPwdSuccess(res.data.message || 'Admin Passkey updated successfully!');
+      if (res.data.data?.email) {
+        setAdminEmail(res.data.data.email);
+      }
+      setPwdCurrent('');
+      setPwdNew('');
+      setPwdConfirm('');
+      setTimeout(() => setPwdSuccess(''), 6000);
+    } catch (err) {
+      setPwdError(err.response?.data?.error || 'Failed to change admin passkey. Check current credentials.');
+    } finally {
+      setPwdLoading(false);
+    }
+  };
 
   const handleUnlockUser = async (userId, userName) => {
     try {
@@ -399,9 +464,14 @@ export default function Admin() {
             </div>
 
             <div className="flex items-center gap-3">
-              <span className="hidden sm:inline-block text-xs font-bold text-slate-300 bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-700">
-                👤 admin@gmail.com
-              </span>
+              <button
+                onClick={() => setActiveTab('security')}
+                className="hidden sm:inline-flex items-center gap-1.5 text-xs font-bold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700/80 px-3 py-1.5 rounded-xl border border-slate-700 transition-colors"
+                title="Admin Security & Password Settings"
+              >
+                <KeyRound className="w-3.5 h-3.5 text-purple-400" />
+                <span>{adminEmail || 'admin@gmail.com'}</span>
+              </button>
 
               <button
                 onClick={fetchAllData}
@@ -527,20 +597,33 @@ export default function Admin() {
               <Share2 className="w-3.5 h-3.5" />
               <span>Share Codes ({(shares || []).length})</span>
             </button>
+
+            <button
+              onClick={() => setActiveTab('security')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                activeTab === 'security'
+                  ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <KeyRound className="w-3.5 h-3.5" />
+              <span>Change Password</span>
+            </button>
           </div>
 
-          {/* Search Input */}
-          <div className="relative w-full sm:w-72">
-            <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={`Search ${activeTab}...`}
-              className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-4 py-2 text-xs font-medium text-slate-200 placeholder-slate-500 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20"
-            />
-          </div>
-
+          {/* Search Input (Hidden on Security tab) */}
+          {activeTab !== 'security' && (
+            <div className="relative w-full sm:w-72">
+              <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={`Search ${activeTab}...`}
+                className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-4 py-2 text-xs font-medium text-slate-200 placeholder-slate-500 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20"
+              />
+            </div>
+          )}
         </div>
 
         {/* Tab 1: User Accounts Table */}
@@ -793,6 +876,145 @@ export default function Admin() {
                   )}
                 </tbody>
               </table>
+            </div>
+          </div>
+        )}
+
+        {/* Tab 4: Admin Security & Password Settings */}
+        {activeTab === 'security' && (
+          <div className="max-w-2xl mx-auto space-y-6">
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden">
+              
+              {/* Background ambient glow */}
+              <div className="absolute top-0 right-0 w-64 h-64 bg-purple-600/10 rounded-full blur-3xl pointer-events-none" />
+
+              <div className="flex items-center gap-3.5 pb-6 border-b border-slate-800">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-purple-600 via-indigo-600 to-pink-600 flex items-center justify-center text-white shadow-lg shadow-purple-600/25">
+                  <KeyRound className="w-6 h-6" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-black text-white">Change Master Admin Passkey</h2>
+                  <p className="text-xs text-slate-400 font-medium mt-0.5">
+                    Update your master access passkey and administrator contact credentials
+                  </p>
+                </div>
+              </div>
+
+              {pwdError && (
+                <div className="mt-6 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-semibold flex items-center gap-2.5 animate-fadeIn">
+                  <AlertTriangle className="w-4 h-4 text-rose-400 flex-shrink-0" />
+                  <span>{pwdError}</span>
+                </div>
+              )}
+
+              {pwdSuccess && (
+                <div className="mt-6 p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-semibold flex items-center gap-2.5 animate-fadeIn">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                  <span>{pwdSuccess}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleChangePassword} className="mt-6 space-y-5">
+                <div>
+                  <label className="block text-xs font-black text-slate-300 uppercase tracking-wider mb-1.5">
+                    Admin Gmail Address
+                  </label>
+                  <div className="relative">
+                    <Mail className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="email"
+                      value={pwdEmail}
+                      onChange={(e) => setPwdEmail(e.target.value)}
+                      placeholder="admin@gmail.com"
+                      className="w-full bg-slate-800/80 border border-slate-700 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 font-medium"
+                      required
+                    />
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-1 font-medium">Used for future administrator console sign-ins.</p>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-black text-slate-300 uppercase tracking-wider">
+                      Current Master Passkey
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setShowCurrent(!showCurrent)}
+                      className="text-[11px] text-slate-400 hover:text-slate-200 font-semibold flex items-center gap-1"
+                    >
+                      {showCurrent ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      <span>{showCurrent ? 'Hide' : 'Show'}</span>
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type={showCurrent ? 'text' : 'password'}
+                      value={pwdCurrent}
+                      onChange={(e) => setPwdCurrent(e.target.value)}
+                      placeholder="Enter current passkey (e.g. admin1234)"
+                      className="w-full bg-slate-800/80 border border-slate-700 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 font-mono tracking-wider"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-black text-slate-300 uppercase tracking-wider">
+                      New Master Passkey
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setShowNew(!showNew)}
+                      className="text-[11px] text-slate-400 hover:text-slate-200 font-semibold flex items-center gap-1"
+                    >
+                      {showNew ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      <span>{showNew ? 'Hide' : 'Show'}</span>
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <Key className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type={showNew ? 'text' : 'password'}
+                      value={pwdNew}
+                      onChange={(e) => setPwdNew(e.target.value)}
+                      placeholder="Enter new passkey (min 4 characters)"
+                      className="w-full bg-slate-800/80 border border-slate-700 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 font-mono tracking-wider"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-black text-slate-300 uppercase tracking-wider mb-1.5">
+                    Confirm New Master Passkey
+                  </label>
+                  <div className="relative">
+                    <KeyRound className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type={showNew ? 'text' : 'password'}
+                      value={pwdConfirm}
+                      onChange={(e) => setPwdConfirm(e.target.value)}
+                      placeholder="Re-enter new passkey to confirm"
+                      className="w-full bg-slate-800/80 border border-slate-700 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 font-mono tracking-wider"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-3">
+                  <button
+                    type="submit"
+                    disabled={pwdLoading}
+                    className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white text-xs font-black py-3 px-4 rounded-xl shadow-lg shadow-purple-600/30 hover:shadow-xl hover:-translate-y-0.5 transition-all"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    <span>{pwdLoading ? 'Saving New Passkey...' : 'Update Admin Passkey'}</span>
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}
