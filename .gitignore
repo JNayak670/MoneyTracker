@@ -3,30 +3,47 @@ node_modules/
 .pnp
 .pnp.js
 
-# Production build output
+# Production build outputs
 client/dist/
 dist/
 build/
+dist-ssr/
+*.tsbuildinfo
 
-# Environment variables & secrets
+# Environment variables & secrets (keep .env.example only)
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+*.env
+*.env.*
+!*.env.example
 server/.env
+server/.env.local
+client/.env
+client/.env.local
 
-# Local SQLite databases
+# Local SQLite databases & cache
 *.db
 *.db-journal
 *.db-wal
 *.db-shm
+*.sqlite
+*.sqlite3
 server/dev.db
 server/prisma/dev.db
 server/circle_ledger.db
 circle_ledger.db
 
-# Logs
+# Test scripts & test artifacts (not required for deployment)
+test-*.js
+*.test.js
+*.spec.js
+coverage/
+.nyc_output/
+
+# Logs & debugging
 logs/
 *.log
 npm-debug.log*
@@ -34,7 +51,7 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# Editor & OS files
+# Editor, IDE & OS files
 .vscode/
 .idea/
 .DS_Store
@@ -44,3 +61,7 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
+.vite/
+.cache/
+tmp/
+temp/
