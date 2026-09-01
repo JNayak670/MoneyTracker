@@ -1,7 +1,7 @@
 const bcrypt = require('bcryptjs');
 const { connectDB, User, Friend, Transaction } = require('./db');
 
-async function seed() {
+async function seed(exitOnComplete = true) {
   await connectDB();
 
   console.log('🌱 Seeding MongoDB database with demo user & circle transactions...');
@@ -201,10 +201,17 @@ async function seed() {
   });
 
   console.log('✅ MongoDB database seeding completed successfully!');
-  process.exit(0);
+  if (exitOnComplete) {
+    process.exit(0);
+  }
+  return demoUser;
 }
 
-seed().catch(err => {
-  console.error('❌ MongoDB seed error:', err);
-  process.exit(1);
-});
+if (require.main === module) {
+  seed(true).catch(err => {
+    console.error('❌ MongoDB seed error:', err);
+    process.exit(1);
+  });
+}
+
+module.exports = { seed };

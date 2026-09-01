@@ -83,7 +83,17 @@ exports.login = async (req, res) => {
     }
 
     const cleanEmail = email.toLowerCase().trim();
-    const user = await User.findOne({ email: cleanEmail });
+    let user = await User.findOne({ email: cleanEmail });
+
+    // Auto-provision demo user on-the-fly if needed
+    if (!user && cleanEmail === 'demo@moneytracker.com' && rawPin === '1234') {
+      try {
+        const { seed } = require('../seed-mongo');
+        user = await seed(false);
+      } catch (seedErr) {
+        console.error('Failed to auto-seed demo user on login:', seedErr);
+      }
+    }
 
     if (!user) {
       return res.status(401).json({

@@ -13,8 +13,20 @@ const adminRoutes = require('./routes/adminRoutes');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Connect MongoDB
-connectDB();
+// Connect MongoDB & Auto-Seed Demo User if missing
+connectDB().then(async () => {
+  try {
+    const { User } = require('./db');
+    const demoUser = await User.findOne({ email: 'demo@moneytracker.com' });
+    if (!demoUser) {
+      console.log('🌱 No demo user found. Auto-seeding initial demo data...');
+      const { seed } = require('./seed-mongo');
+      await seed(false);
+    }
+  } catch (seedErr) {
+    console.warn('⚠️ Auto-seed check notice:', seedErr.message);
+  }
+});
 
 // Middlewares
 app.use(cors());
