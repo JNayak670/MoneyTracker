@@ -53,7 +53,7 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
       if (showLoading) setLoading(true);
        const [res] = await Promise.all([
         api.get('/friends'),
-        showLoading ? new Promise(resolve => setTimeout(resolve, 300)) : Promise.resolve()
+        showLoading ? new Promise(resolve => setTimeout(resolve, 200)) : Promise.resolve()
       ]);
       setFriends(res.data);
     } catch (err) {

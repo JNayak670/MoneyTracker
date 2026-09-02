@@ -37,7 +37,7 @@ export default function Analytics() {
       if (showLoading) setLoading(true);
       const [res] = await Promise.all([
         api.get('/dashboard/analytics'),
-        showLoading ? new Promise(resolve => setTimeout(resolve, 500)) : Promise.resolve()
+        showLoading ? new Promise(resolve => setTimeout(resolve, 200)) : Promise.resolve()
       ]);
       setData(res.data);
     } catch (err) {

@@ -41,7 +41,7 @@ export default function Transactions({ onOpenAddTx }) {
       const [txRes, friendsRes] = await Promise.all([
         api.get('/transactions', { params }),
         api.get('/friends'),
-        showLoading ? new Promise(resolve => setTimeout(resolve, 300)) : Promise.resolve()
+        showLoading ? new Promise(resolve => setTimeout(resolve, 100)) : Promise.resolve()
       ]);
 
       setTransactions(txRes.data);
