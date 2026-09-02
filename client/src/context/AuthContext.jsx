@@ -15,8 +15,13 @@ export const AuthProvider = ({ children }) => {
         return;
       }
 
+      const isFirstInit = !sessionStorage.getItem('session_initialized');
       try {
-        const res = await api.get('/auth/me');
+        const [res] = await Promise.all([
+          api.get('/auth/me'),
+          isFirstInit ? new Promise(resolve => setTimeout(resolve, 1400)) : Promise.resolve()
+        ]);
+        sessionStorage.setItem('session_initialized', 'true');
         setUser(res.data);
       } catch (err) {
         console.error('Failed to load user profile:', err);
@@ -35,6 +40,7 @@ export const AuthProvider = ({ children }) => {
     const res = await api.post('/auth/login', { email, pin });
     const { user: userData, token: newToken } = res.data;
     localStorage.setItem('money_tracker_token', newToken);
+    sessionStorage.setItem('first_load_after_login', 'true');
     setToken(newToken);
     setUser(userData);
     return userData;
@@ -44,6 +50,7 @@ export const AuthProvider = ({ children }) => {
     const res = await api.post('/auth/register', { name, email, pin, currency });
     const { user: userData, token: newToken } = res.data;
     localStorage.setItem('money_tracker_token', newToken);
+    sessionStorage.setItem('first_load_after_login', 'true');
     setToken(newToken);
     setUser(userData);
     return userData;
@@ -55,6 +62,8 @@ export const AuthProvider = ({ children }) => {
 
   const logout = () => {
     localStorage.removeItem('money_tracker_token');
+    sessionStorage.removeItem('first_load_after_login');
+    sessionStorage.removeItem('session_initialized');
     setToken(null);
     setUser(null);
   };

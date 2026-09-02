@@ -4,6 +4,7 @@ import FriendCard from '../components/FriendCard';
 import SettleModal from '../components/SettleModal';
 import WhatsAppModal from '../components/WhatsAppModal';
 import ShareCodeModal from '../components/ShareCodeModal';
+import ColorfulLoader from '../components/ColorfulLoader';
 import { printFriendStatement } from '../services/exportService';
 import { 
   Users, 
@@ -47,10 +48,13 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
   const [whatsappModal, setWhatsappModal] = useState({ open: false, friendName: '', amount: 0, phone: '' });
   const [shareModal, setShareModal] = useState({ open: false, friendId: '', friendName: '' });
 
-  const fetchFriends = async () => {
+  const fetchFriends = async (showLoading = true) => {
     try {
-      setLoading(true);
-      const res = await api.get('/friends');
+      if (showLoading) setLoading(true);
+       const [res] = await Promise.all([
+        api.get('/friends'),
+        showLoading ? new Promise(resolve => setTimeout(resolve, 300)) : Promise.resolve()
+      ]);
       setFriends(res.data);
     } catch (err) {
       console.error('Failed to load friends:', err);
@@ -63,9 +67,9 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
     fetchFriends();
 
     const handleUpdate = () => {
-      fetchFriends();
+      fetchFriends(false);
       if (activeLedger?.friend?.id) {
-        loadFriendLedger(activeLedger.friend.id);
+        loadFriendLedger(activeLedger.friend.id, false);
       }
     };
 
@@ -92,9 +96,9 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
     }
   }, [historyFriendId]);
 
-  const loadFriendLedger = async (id) => {
+  const loadFriendLedger = async (id, showLoading = true) => {
     try {
-      setLedgerLoading(true);
+      if (showLoading) setLedgerLoading(true);
       const res = await api.get(`/friends/${id}`);
       setActiveLedger(res.data);
     } catch (err) {
@@ -197,6 +201,10 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
     return true;
   });
 
+  if (loading) {
+    return <ColorfulLoader fullScreen={false} minHeight="min-h-[70vh]" message="Loading Friends Circle..." submessage="Fetching contacts, individual ledgers and shared dues..." />;
+  }
+
   return (
     <div className="space-y-6 animate-fadeIn">
       
@@ -256,9 +264,7 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
       </div>
 
       {/* Friends Cards Grid */}
-      {loading ? (
-        <div className="py-16 text-center text-slate-500 text-sm">Loading circle...</div>
-      ) : friends.length === 0 ? (
+      {friends.length === 0 ? (
         <div className="glass-card rounded-3xl p-12 text-center border-dashed border-indigo-200 bg-gradient-to-br from-indigo-50/40 via-white to-purple-50/30 shadow-sm">
           <div className="w-16 h-16 bg-gradient-to-tr from-indigo-500 to-purple-600 text-white rounded-3xl flex items-center justify-center mx-auto mb-4 text-2xl shadow-lg shadow-indigo-500/25">
             👥
@@ -298,6 +304,15 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
               onDelete={handleDeleteFriend}
             />
           ))}
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------- */}
+      {/* FRIEND LEDGER HISTORY LOADING OVERLAY */}
+      {/* ------------------------------------------------------------- */}
+      {ledgerLoading && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fadeIn">
+          <ColorfulLoader fullScreen={false} message="Loading Friend Ledger..." submessage="Fetching transaction history and statements..." />
         </div>
       )}
 

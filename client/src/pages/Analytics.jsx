@@ -14,6 +14,7 @@ import {
   Legend 
 } from 'recharts';
 import { BarChart3, PieChart as PieIcon, TrendingUp, Sparkles, Flame, ShieldCheck } from 'lucide-react';
+import ColorfulLoader from '../components/ColorfulLoader';
 
 const COLORS = ['#6366f1', '#10b981', '#f43f5e', '#f59e0b', '#06b6d4', '#8b5cf6', '#ec4899', '#3b82f6'];
 
@@ -31,10 +32,13 @@ export default function Analytics() {
   const [data, setData] = useState({ categories: [], monthly: [] });
   const [loading, setLoading] = useState(true);
 
-  const fetchAnalytics = async () => {
+  const fetchAnalytics = async (showLoading = true) => {
     try {
-      setLoading(true);
-      const res = await api.get('/dashboard/analytics');
+      if (showLoading) setLoading(true);
+      const [res] = await Promise.all([
+        api.get('/dashboard/analytics'),
+        showLoading ? new Promise(resolve => setTimeout(resolve, 500)) : Promise.resolve()
+      ]);
       setData(res.data);
     } catch (err) {
       console.error('Failed to load analytics:', err);
@@ -57,7 +61,7 @@ export default function Analytics() {
   }, []);
 
   if (loading) {
-    return <div className="py-20 text-center text-slate-500 text-sm font-semibold">Loading visual analytics...</div>;
+    return <ColorfulLoader fullScreen={false} minHeight="min-h-[70vh]" message="Analyzing Spending Patterns..." submessage="Compiling monthly trends, category shares and group velocity..." />;
   }
 
   const categoryPieData = data.categories.map(c => ({

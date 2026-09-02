@@ -17,6 +17,7 @@ import {
   Wallet
 } from 'lucide-react';
 import { exportToCSV } from '../services/exportService';
+import ColorfulLoader from '../components/ColorfulLoader';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
@@ -202,10 +203,7 @@ export default function SharedLedger() {
 
         {/* Loading State */}
         {loading && (
-          <div className="py-20 text-center space-y-3">
-            <div className="w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-            <p className="text-xs font-bold text-slate-500">Decrypting & loading shared ledger...</p>
-          </div>
+          <ColorfulLoader fullScreen={false} minHeight="min-h-[360px]" message="Decrypting Shared Ledger..." submessage="Validating 6-digit access code and fetching verified peer records..." />
         )}
 
         {/* Loaded Ledger Content */}

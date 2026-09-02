@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
+import ColorfulLoader from '../components/ColorfulLoader';
 import { exportToCSV } from '../services/exportService';
 import { 
   Receipt, 
@@ -26,9 +27,9 @@ export default function Transactions({ onOpenAddTx }) {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
-  const fetchData = async () => {
+  const fetchData = async (showLoading = true) => {
     try {
-      setLoading(true);
+      if (showLoading) setLoading(true);
       const params = {};
       if (search.trim()) params.search = search.trim();
       if (friendId) params.friendId = friendId;
@@ -39,7 +40,8 @@ export default function Transactions({ onOpenAddTx }) {
 
       const [txRes, friendsRes] = await Promise.all([
         api.get('/transactions', { params }),
-        api.get('/friends')
+        api.get('/friends'),
+        showLoading ? new Promise(resolve => setTimeout(resolve, 300)) : Promise.resolve()
       ]);
 
       setTransactions(txRes.data);
@@ -88,6 +90,10 @@ export default function Transactions({ onOpenAddTx }) {
     setStartDate('');
     setEndDate('');
   };
+
+  if (loading) {
+    return <ColorfulLoader fullScreen={false} minHeight="min-h-[70vh]" message="Loading Transaction Ledger..." submessage="Fetching shared bills, repayments, loans and categories..." />;
+  }
 
   return (
     <div className="space-y-6 animate-fadeIn">
@@ -192,9 +198,7 @@ export default function Transactions({ onOpenAddTx }) {
 
       {/* Transaction Table */}
       <div className="glass-card rounded-2xl overflow-hidden shadow-sm">
-        {loading ? (
-          <div className="py-16 text-center text-slate-500 text-sm">Loading transactions...</div>
-        ) : transactions.length === 0 ? (
+        {transactions.length === 0 ? (
           <div className="py-16 text-center space-y-2 px-4">
             <Receipt className="w-10 h-10 text-slate-400 mx-auto" />
             <h3 className="text-base font-bold text-slate-900">

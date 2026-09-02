@@ -129,19 +129,14 @@ function AppLayout() {
   );
 }
 
+import ColorfulLoader from './components/ColorfulLoader';
+
 function MainRouter() {
   const { user, loading } = useAuth();
   const location = useLocation();
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-slate-500 font-semibold text-xs">Loading MoneyTracker...</p>
-        </div>
-      </div>
-    );
+    return <ColorfulLoader fullScreen={true} message="Initializing MoneyTracker..." submessage="Restoring session & securing ledger connections..." />;
   }
 
   // 1. Authenticated User -> Render full AppLayout with Navbar & active route

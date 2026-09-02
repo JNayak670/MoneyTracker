@@ -6,6 +6,7 @@ import FriendCard from '../components/FriendCard';
 import SettleModal from '../components/SettleModal';
 import WhatsAppModal from '../components/WhatsAppModal';
 import ShareCodeModal from '../components/ShareCodeModal';
+import ColorfulLoader from '../components/ColorfulLoader';
 import { exportToCSV } from '../services/exportService';
 import { 
   Users, 
@@ -57,15 +58,22 @@ export default function Dashboard({ onOpenAddTx, onOpenAddFriend, onViewFriendHi
   const [whatsappModal, setWhatsappModal] = useState({ open: false, friendName: '', amount: 0, phone: '' });
   const [shareModal, setShareModal] = useState({ open: false, friendId: '', friendName: '' });
 
-  const fetchData = async () => {
+  const fetchData = async (showLoading = true) => {
     try {
-      setLoading(true);
+      const isFirstLogin = sessionStorage.getItem('first_load_after_login') === 'true';
+      if (showLoading) setLoading(true);
+      
+      const delay = isFirstLogin ? 1500 : 0;
       const [sumRes, friendsRes] = await Promise.all([
         api.get('/dashboard/summary'),
-        api.get('/friends')
+        api.get('/friends'),
+        delay > 0 ? new Promise(resolve => setTimeout(resolve, delay)) : Promise.resolve()
       ]);
       setSummary(sumRes.data);
       setFriends(friendsRes.data);
+      if (isFirstLogin) {
+        sessionStorage.removeItem('first_load_after_login');
+      }
     } catch (err) {
       console.error('Failed to load dashboard:', err);
     } finally {
@@ -74,10 +82,10 @@ export default function Dashboard({ onOpenAddTx, onOpenAddFriend, onViewFriendHi
   };
 
   useEffect(() => {
-    fetchData();
+    fetchData(true);
 
     const handleUpdate = () => {
-      fetchData();
+      fetchData(false);
     };
 
     window.addEventListener('transaction-updated', handleUpdate);
@@ -109,14 +117,7 @@ export default function Dashboard({ onOpenAddTx, onOpenAddFriend, onViewFriendHi
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-sm font-bold text-slate-500">Loading colorful money tracker...</p>
-        </div>
-      </div>
-    );
+    return <ColorfulLoader fullScreen={false} minHeight="min-h-[70vh]" message="Loading Financial Dashboard..." submessage="Fetching real-time debt balances, circle stats & activity..." />;
   }
 
   const currency = summary?.currency || '₹';
