@@ -195,10 +195,16 @@ export default function Transactions({ onOpenAddTx }) {
         {loading ? (
           <div className="py-16 text-center text-slate-500 text-sm">Loading transactions...</div>
         ) : transactions.length === 0 ? (
-          <div className="py-16 text-center space-y-2">
+          <div className="py-16 text-center space-y-2 px-4">
             <Receipt className="w-10 h-10 text-slate-400 mx-auto" />
-            <h3 className="text-base font-bold text-slate-900">No Transactions Found</h3>
-            <p className="text-xs text-slate-500">Try modifying your filters or recording a new expense.</p>
+            <h3 className="text-base font-bold text-slate-900">
+              {friends.length === 0 ? 'No Transactions or Friends Yet' : 'No Transactions Found'}
+            </h3>
+            <p className="text-xs text-slate-500 max-w-sm mx-auto">
+              {friends.length === 0 
+                ? 'Add a friend to your circle first so you can start recording shared expenses and settlements.' 
+                : 'Try modifying your search or filters, or record a new entry.'}
+            </p>
           </div>
         ) : (
           <div className="overflow-x-auto">

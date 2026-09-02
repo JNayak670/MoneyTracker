@@ -11,7 +11,7 @@ const CATEGORIES = [
   { name: 'General', icon: '🏷️' }
 ];
 
-export default function TransactionForm({ isOpen, onClose, onSave, friends = [], preselectedFriendId = '' }) {
+export default function TransactionForm({ isOpen, onClose, onSave, friends = [], preselectedFriendId = '', onOpenAddFriend }) {
   const [tab, setTab] = useState('single'); // 'single' | 'split'
   const [friendId, setFriendId] = useState(preselectedFriendId || '');
   const [type, setType] = useState('GIVEN'); // 'GIVEN' (You gave / paid) | 'RECEIVED' (Friend gave / paid)
@@ -166,6 +166,27 @@ export default function TransactionForm({ isOpen, onClose, onSave, friends = [],
 
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-4 flex-1">
+          {friends.length === 0 && (
+            <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">⚠️</span>
+                <div>
+                  <p className="font-bold text-xs">No friends found</p>
+                  <p className="text-[11px] text-amber-700">Add a friend to your circle before recording transactions.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onOpenAddFriend?.();
+                }}
+                className="text-xs font-black bg-amber-600 hover:bg-amber-700 text-white px-3.5 py-1.5 rounded-xl shadow-xs transition-all whitespace-nowrap self-stretch sm:self-auto text-center"
+              >
+                + Add Friend Now
+              </button>
+            </div>
+          )}
           
           {tab === 'single' ? (
             <>

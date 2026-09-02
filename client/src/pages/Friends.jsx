@@ -77,17 +77,11 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
 
   useEffect(() => {
     if (editingFriend) {
-      setCurrentEditingFriend(editingFriend);
-      setFormData({
-        name: editingFriend.name || '',
-        phone: editingFriend.phone || '',
-        email: editingFriend.email || '',
-        relationshipTag: editingFriend.relationshipTag || 'Friend',
-        avatarEmoji: editingFriend.avatarEmoji || '👤',
-        avatarColor: editingFriend.avatarColor || '#6366f1',
-        notes: editingFriend.notes || ''
-      });
-      setFriendModalOpen(true);
+      if (editingFriend.isNew || !editingFriend.name) {
+        handleOpenCreateModal();
+      } else {
+        handleOpenEditModal(editingFriend);
+      }
     }
   }, [editingFriend]);
 
@@ -264,12 +258,29 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
       {/* Friends Cards Grid */}
       {loading ? (
         <div className="py-16 text-center text-slate-500 text-sm">Loading circle...</div>
+      ) : friends.length === 0 ? (
+        <div className="glass-card rounded-3xl p-12 text-center border-dashed border-indigo-200 bg-gradient-to-br from-indigo-50/40 via-white to-purple-50/30 shadow-sm">
+          <div className="w-16 h-16 bg-gradient-to-tr from-indigo-500 to-purple-600 text-white rounded-3xl flex items-center justify-center mx-auto mb-4 text-2xl shadow-lg shadow-indigo-500/25">
+            👥
+          </div>
+          <h3 className="font-black text-xl text-slate-900">Your Friends Circle is Empty</h3>
+          <p className="text-sm text-slate-500 mt-1.5 max-w-md mx-auto font-medium leading-relaxed">
+            Add friends, flatmates, travel buddies, or colleagues to keep tabs on who paid what and settle up seamlessly.
+          </p>
+          <button
+            onClick={handleOpenCreateModal}
+            className="mt-5 inline-flex items-center gap-2 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-700 hover:to-pink-700 text-white text-xs font-black px-6 py-3 rounded-xl shadow-md shadow-indigo-500/20 hover:scale-105 transition-all"
+          >
+            <PlusCircle className="w-4 h-4" />
+            <span>Add Your First Friend</span>
+          </button>
+        </div>
       ) : filteredFriends.length === 0 ? (
         <div className="glass-card rounded-2xl p-12 text-center border-dashed">
           <Users className="w-12 h-12 text-slate-400 mx-auto mb-3" />
-          <h3 className="font-bold text-base text-slate-900">No Friends Found</h3>
+          <h3 className="font-bold text-base text-slate-900">No Friends Match Filters</h3>
           <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-            No contacts match the filter criteria. Add your first friend to get started!
+            No contacts match the filter criteria. Try adjusting your search query or filter tags.
           </p>
         </div>
       ) : (

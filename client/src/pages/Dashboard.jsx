@@ -9,6 +9,7 @@ import ShareCodeModal from '../components/ShareCodeModal';
 import { exportToCSV } from '../services/exportService';
 import { 
   Users, 
+  UserPlus,
   Receipt, 
   ArrowRight, 
   Sparkles, 
@@ -123,6 +124,7 @@ export default function Dashboard({ onOpenAddTx, onOpenAddFriend, onViewFriendHi
   const netBalance = summary?.netBalance || 0;
   const isNetPositive = netBalance >= 0;
   const totalVolume = (summary?.totalGiven || 0) + (summary?.totalReceived || 0);
+  const hasNoTransactions = !summary?.recentTransactions || summary.recentTransactions.length === 0;
 
   const givenRatio = totalVolume > 0 ? Math.round(((summary?.totalGiven || 0) / totalVolume) * 100) : 50;
 
@@ -189,19 +191,27 @@ export default function Dashboard({ onOpenAddTx, onOpenAddFriend, onViewFriendHi
           {/* Quick Action Buttons */}
           <div className="flex flex-wrap sm:flex-nowrap lg:flex-col gap-2.5 self-start lg:self-auto">
             <button
-              onClick={onOpenAddTx}
-              className="flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 text-slate-950 font-black text-xs sm:text-sm px-5 py-3 rounded-2xl shadow-xl shadow-emerald-500/30 hover:scale-105 transition-all"
+              onClick={() => onOpenAddTx('')}
+              className={`flex items-center justify-center gap-2 font-black text-xs sm:text-sm px-5 py-3 rounded-2xl transition-all ${
+                friends.length > 0 && hasNoTransactions
+                  ? 'bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400 hover:from-emerald-500 hover:to-cyan-500 text-slate-950 shadow-xl shadow-emerald-500/40 scale-105 animate-pulse'
+                  : 'bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 text-slate-950 shadow-xl shadow-emerald-500/30 hover:scale-105'
+              }`}
             >
               <PlusCircle className="w-4 h-4" />
-              <span>+ Record New Entry</span>
+              <span>+ Record New Entry {friends.length > 0 && hasNoTransactions ? '(Next Step)' : ''}</span>
             </button>
 
             <button
               onClick={onOpenAddFriend}
-              className="flex items-center justify-center gap-2 bg-white/15 hover:bg-white/25 border border-white/30 text-white font-bold text-xs px-4 py-2.5 rounded-2xl backdrop-blur-md transition-all"
+              className={`flex items-center justify-center gap-2 font-bold text-xs px-4 py-2.5 rounded-2xl backdrop-blur-md transition-all ${
+                friends.length === 0
+                  ? 'bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white shadow-lg shadow-purple-500/30 scale-105 animate-pulse'
+                  : 'bg-white/15 hover:bg-white/25 border border-white/30 text-white'
+              }`}
             >
               <span>👤+</span>
-              <span>Add New Friend</span>
+              <span>Add New Friend {friends.length === 0 ? '(Start Here)' : ''}</span>
             </button>
 
             <button
@@ -215,6 +225,82 @@ export default function Dashboard({ onOpenAddTx, onOpenAddFriend, onViewFriendHi
 
         </div>
       </div>
+
+      {/* ------------------------------------------------------------- */}
+      {/* ONBOARDING STEP 1: SUGGESTION BANNER (WHEN USER HAS NO FRIENDS) */}
+      {/* ------------------------------------------------------------- */}
+      {friends.length === 0 && (
+        <div className="relative overflow-hidden rounded-3xl p-6 sm:p-8 bg-gradient-to-r from-amber-500/10 via-indigo-500/10 to-purple-500/10 border-2 border-indigo-400/40 shadow-xl backdrop-blur-md animate-fadeIn">
+          <div className="absolute top-0 right-0 -mt-8 -mr-8 w-48 h-48 bg-gradient-to-br from-indigo-500/20 to-pink-500/20 rounded-full blur-2xl pointer-events-none" />
+          <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+            <div className="space-y-2 max-w-xl">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-100 text-indigo-800 text-xs font-black">
+                <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+                <span>Step 1 of 2 • Add Your First Friend</span>
+              </div>
+              <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                👋 Add your first friend to get started!
+              </h3>
+              <p className="text-sm text-slate-600 font-medium leading-relaxed">
+                You don't have any friends in your circle yet. MoneyTracker helps you split bills, track who owes you money, and manage shared expenses seamlessly. Add your first friend to begin recording transactions!
+              </p>
+              <div className="flex flex-wrap items-center gap-4 text-xs font-bold text-slate-600 pt-1">
+                <span className="flex items-center gap-1.5">🍕 Split bills & dinners</span>
+                <span className="flex items-center gap-1.5">💰 Track who owes what</span>
+                <span className="flex items-center gap-1.5">💬 WhatsApp reminders</span>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row md:flex-col gap-3 w-full md:w-auto flex-shrink-0">
+              <button
+                onClick={onOpenAddFriend}
+                className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-700 hover:to-pink-700 text-white font-black text-sm px-6 py-3.5 rounded-2xl shadow-lg shadow-indigo-500/30 hover:scale-105 hover:shadow-indigo-500/50 transition-all cursor-pointer"
+              >
+                <UserPlus className="w-4 h-4" />
+                <span>+ Add Your First Friend</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------- */}
+      {/* ONBOARDING STEP 2: SUGGESTION BANNER (FRIENDS EXIST, NO RECORDS YET) */}
+      {/* ------------------------------------------------------------- */}
+      {friends.length > 0 && hasNoTransactions && (
+        <div className="relative overflow-hidden rounded-3xl p-6 sm:p-8 bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-cyan-500/10 border-2 border-emerald-400/40 shadow-xl backdrop-blur-md animate-fadeIn">
+          <div className="absolute top-0 right-0 -mt-8 -mr-8 w-48 h-48 bg-gradient-to-br from-emerald-500/20 to-teal-500/20 rounded-full blur-2xl pointer-events-none" />
+          <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+            <div className="space-y-2 max-w-xl">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-black">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Step 2 of 2 • Record First Entry</span>
+              </div>
+              <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                🎉 Friends added! Now record your first transaction
+              </h3>
+              <p className="text-sm text-slate-600 font-medium leading-relaxed">
+                Great job adding {friends.length} friend{friends.length > 1 ? 's' : ''} to your circle! You haven't recorded any entries yet. Record a shared bill, lunch split, or loan to start tracking balances and settlements.
+              </p>
+              <div className="flex flex-wrap items-center gap-4 text-xs font-bold text-slate-600 pt-1">
+                <span className="flex items-center gap-1.5">⚡ Live debt & credit balance</span>
+                <span className="flex items-center gap-1.5">👥 Split evenly across group</span>
+                <span className="flex items-center gap-1.5">🧾 Generate shareable passcodes</span>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row md:flex-col gap-3 w-full md:w-auto flex-shrink-0">
+              <button
+                onClick={() => onOpenAddTx('')}
+                className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-700 hover:to-cyan-700 text-white font-black text-sm px-6 py-3.5 rounded-2xl shadow-lg shadow-emerald-500/30 hover:scale-105 hover:shadow-emerald-500/50 transition-all cursor-pointer"
+              >
+                <PlusCircle className="w-4 h-4" />
+                <span>+ Record First Entry</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ------------------------------------------------------------- */}
       {/* 4 VIBRANT SUMMARY METRIC CARDS */}
@@ -274,19 +360,40 @@ export default function Dashboard({ onOpenAddTx, onOpenAddFriend, onViewFriendHi
           </Link>
         </div>
 
-        {activeFriends.length === 0 ? (
-          <div className="glass-card rounded-3xl p-10 text-center border-dashed border-emerald-200 bg-gradient-to-br from-emerald-50/50 via-white to-teal-50/30">
-            <span className="text-4xl mb-2 block animate-bounce">🎉</span>
-            <h3 className="font-black text-lg text-slate-900">All Friend Dues Are 100% Settled!</h3>
-            <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto font-medium">
-              Zero debts pending across your circle. Record a new bill split or expense below to start tracking.
+        {friends.length === 0 ? (
+          <div className="glass-card rounded-3xl p-10 text-center border-dashed border-indigo-200 bg-gradient-to-br from-indigo-50/50 via-white to-purple-50/30">
+            <div className="w-16 h-16 bg-gradient-to-tr from-indigo-500 to-purple-600 text-white rounded-3xl flex items-center justify-center mx-auto mb-4 text-2xl shadow-lg shadow-indigo-500/25">
+              👥
+            </div>
+            <h3 className="font-black text-xl text-slate-900">Your Friends Circle is Empty</h3>
+            <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-md mx-auto font-medium">
+              You haven't added any friends yet. Add your friends, flatmates, or travel buddies to start tracking shared expenses and balances.
             </p>
             <button
-              onClick={onOpenAddTx}
+              onClick={onOpenAddFriend}
+              className="mt-5 inline-flex items-center gap-2 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-700 hover:to-pink-700 text-white text-xs font-black px-6 py-3 rounded-xl shadow-md shadow-indigo-500/20 hover:scale-105 transition-all"
+            >
+              <PlusCircle className="w-4 h-4" />
+              <span>Add Your First Friend</span>
+            </button>
+          </div>
+        ) : activeFriends.length === 0 ? (
+          <div className="glass-card rounded-3xl p-10 text-center border-dashed border-emerald-200 bg-gradient-to-br from-emerald-50/50 via-white to-teal-50/30">
+            <span className="text-4xl mb-2 block animate-bounce">🎉</span>
+            <h3 className="font-black text-lg text-slate-900">
+              {hasNoTransactions ? 'Friends Ready • No Transactions Yet' : 'All Friend Dues Are 100% Settled!'}
+            </h3>
+            <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto font-medium">
+              {hasNoTransactions 
+                ? `You have ${friends.length} friend${friends.length > 1 ? 's' : ''} ready. Record an expense or bill split to activate live balance tracking.`
+                : 'Zero debts pending across your circle. Record a new bill split or expense below to start tracking.'}
+            </p>
+            <button
+              onClick={() => onOpenAddTx('')}
               className="mt-4 inline-flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-black px-5 py-2.5 rounded-xl shadow-md shadow-emerald-500/20 hover:scale-105 transition-all"
             >
               <PlusCircle className="w-4 h-4" />
-              <span>Record Expense Entry</span>
+              <span>{hasNoTransactions ? 'Record First Entry' : 'Record Expense Entry'}</span>
             </button>
           </div>
         ) : (
@@ -334,9 +441,29 @@ export default function Dashboard({ onOpenAddTx, onOpenAddFriend, onViewFriendHi
         </div>
 
         <div className="glass-card rounded-3xl overflow-hidden shadow-xl border border-slate-200">
-          {(!summary?.recentTransactions || summary.recentTransactions.length === 0) ? (
-            <div className="py-16 text-center text-slate-500 text-xs">
-              No transactions recorded yet. Click <strong>Record Entry</strong> to begin!
+          {friends.length === 0 ? (
+            <div className="py-16 text-center text-slate-500 text-xs px-4">
+              <p className="font-semibold mb-2">No transactions recorded yet.</p>
+              <button
+                onClick={onOpenAddFriend}
+                className="text-xs font-bold text-indigo-600 hover:text-indigo-800 underline underline-offset-2"
+              >
+                Add a friend first to record your first expense or loan &rarr;
+              </button>
+            </div>
+          ) : hasNoTransactions ? (
+            <div className="py-16 text-center text-slate-500 text-xs px-4 space-y-2">
+              <p className="font-bold text-slate-800 text-sm">Your friends circle is ready!</p>
+              <p className="text-slate-500 max-w-sm mx-auto">
+                No entries recorded yet. Record your first bill split, loan, or expense to start tracking dues.
+              </p>
+              <button
+                onClick={() => onOpenAddTx('')}
+                className="mt-3 inline-flex items-center gap-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black text-xs px-5 py-2.5 rounded-xl shadow-md shadow-emerald-500/20 hover:scale-105 transition-all"
+              >
+                <PlusCircle className="w-3.5 h-3.5" />
+                <span>+ Record First Entry</span>
+              </button>
             </div>
           ) : (
             <div className="overflow-x-auto">

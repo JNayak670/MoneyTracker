@@ -60,7 +60,7 @@ function AppLayout() {
   };
 
   const handleOpenAddFriend = (friendObj = null) => {
-    setEditingFriend(friendObj);
+    setEditingFriend(friendObj || { isNew: true });
     navigate('/friends');
   };
 
@@ -120,6 +120,10 @@ function AppLayout() {
         onSave={handleSaveTransaction}
         friends={friendsList}
         preselectedFriendId={preselectedFriendId}
+        onOpenAddFriend={() => {
+          setAddTxModalOpen(false);
+          handleOpenAddFriend(null);
+        }}
       />
     </div>
   );
