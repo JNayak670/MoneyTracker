@@ -61,7 +61,7 @@ export default function Analytics() {
   }, []);
 
   if (loading) {
-    return <ColorfulLoader fullScreen={false} minHeight="min-h-[70vh]" message="Analyzing Spending Patterns..." submessage="Compiling monthly trends, category shares and group velocity..." />;
+    return <ColorfulLoader fullScreen={false} minHeight="min-h-[260px] sm:min-h-[400px]" message="Analyzing Spending Patterns..." submessage="Compiling monthly trends, category shares and group velocity..." />;
   }
 
   const categoryPieData = data.categories.map(c => ({

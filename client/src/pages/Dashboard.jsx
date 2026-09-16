@@ -117,7 +117,7 @@ export default function Dashboard({ onOpenAddTx, onOpenAddFriend, onViewFriendHi
   };
 
   if (loading) {
-    return <ColorfulLoader fullScreen={false} minHeight="min-h-[70vh]" message="Loading Financial Dashboard..." submessage="Fetching real-time debt balances, circle stats & activity..." />;
+    return <ColorfulLoader fullScreen={false} minHeight="min-h-[260px] sm:min-h-[400px]" message="Loading Financial Dashboard..." submessage="Fetching real-time debt balances, circle stats & activity..." />;
   }
 
   const currency = summary?.currency || '₹';

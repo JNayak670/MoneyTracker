@@ -202,7 +202,7 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
   });
 
   if (loading) {
-    return <ColorfulLoader fullScreen={false} minHeight="min-h-[70vh]" message="Loading Friends Circle..." submessage="Fetching contacts, individual ledgers and shared dues..." />;
+    return <ColorfulLoader fullScreen={false} minHeight="min-h-[260px] sm:min-h-[400px]" message="Loading Friends Circle..." submessage="Fetching contacts, individual ledgers and shared dues..." />;
   }
 
   return (

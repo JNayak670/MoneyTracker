@@ -92,7 +92,7 @@ export default function Transactions({ onOpenAddTx }) {
   };
 
   if (loading) {
-    return <ColorfulLoader fullScreen={false} minHeight="min-h-[70vh]" message="Loading Transaction Ledger..." submessage="Fetching shared bills, repayments, loans and categories..." />;
+    return <ColorfulLoader fullScreen={false} minHeight="min-h-[260px] sm:min-h-[400px]" message="Loading Transaction Ledger..." submessage="Fetching shared bills, repayments, loans and categories..." />;
   }
 
   return (

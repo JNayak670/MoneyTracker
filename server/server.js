@@ -32,6 +32,30 @@ connectDB().then(async () => {
 app.use(cors());
 app.use(express.json());
 
+// Live Terminal Event Logger Middleware with Full Timestamp
+app.use((req, res, next) => {
+  const start = Date.now();
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+  const cleanIp = ip.replace(/^.*:/, ''); // Strip IPv6 prefix if any
+  const isLocal = cleanIp === '1' || cleanIp === '127.0.0.1';
+  const deviceTag = isLocal ? '💻 Localhost' : `📱 Device (${cleanIp})`;
+
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    const status = res.statusCode;
+    const statusEmoji = status < 300 ? '🟢' : status < 400 ? '🔵' : status < 500 ? '🟡' : '🔴';
+    
+    const now = new Date();
+    const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${now.toLocaleTimeString('en-US', { hour12: true })}`;
+    
+    console.log(
+      `[API EVENT • ${timestamp}] ${statusEmoji} ${status} ${req.method.padEnd(6)} ${req.originalUrl} (${duration}ms) • ${deviceTag}`
+    );
+  });
+
+  next();
+});
+
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/friends', friendRoutes);
