@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Search, X, User, ArrowRight, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
@@ -9,6 +10,17 @@ export default function SearchModal({ isOpen, onClose, onViewFriend, onOpenAddTx
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -51,8 +63,8 @@ export default function SearchModal({ isOpen, onClose, onViewFriend, onOpenAddTx
     (t.category && t.category.toLowerCase().includes(query.toLowerCase()))
   );
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-12 sm:pt-20 px-4 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-start justify-center pt-8 sm:pt-20 px-3 sm:px-4 bg-slate-900/60 backdrop-blur-md animate-fadeIn overflow-y-auto">
       <div className="w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[80vh]">
         {/* Search Input Bar */}
         <div className="p-4 border-b border-slate-100 flex items-center gap-3">
@@ -178,6 +190,7 @@ export default function SearchModal({ isOpen, onClose, onViewFriend, onOpenAddTx
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

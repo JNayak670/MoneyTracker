@@ -62,11 +62,11 @@ export default function Landing() {
       {/* ------------------------------------------------------------- */}
       {/* TOP NAVIGATION BAR */}
       {/* ------------------------------------------------------------- */}
-      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-xl border-b border-slate-200/80 shadow-xs">
+      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-xl border-b border-slate-200/80 shadow-xs flex-shrink-0">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 flex items-center justify-between gap-2 sm:gap-4">
           
           {/* Logo Branding */}
-          <AppLogo to="/" className="scale-90 sm:scale-100 origin-left" />
+          <AppLogo to="/" className="scale-85 xs:scale-95 sm:scale-100 origin-left" />
 
           {/* Nav Actions */}
           <div className="flex items-center gap-1.5 sm:gap-2.5">
@@ -75,7 +75,7 @@ export default function Landing() {
               className="flex items-center gap-1 sm:gap-1.5 text-[11px] sm:text-xs font-black text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl transition-all shadow-2xs"
             >
               <Share2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-purple-600" />
-              <span className="hidden xs:inline">Statement Code</span>
+              <span className="hidden xs:inline">Statement</span>
               <span className="xs:hidden">Code</span>
             </Link>
 
@@ -110,20 +110,20 @@ export default function Landing() {
       {/* ------------------------------------------------------------- */}
       {/* HERO SECTION */}
       {/* ------------------------------------------------------------- */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-3.5 sm:px-6 lg:px-8 py-8 sm:py-14 lg:py-20 space-y-10 sm:space-y-16 relative z-10">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-20 space-y-16 relative z-10">
         
-        <div className="text-center max-w-4xl mx-auto space-y-4 sm:space-y-6">
+        <div className="text-center max-w-4xl mx-auto space-y-6">
           
           {/* Badge */}
-          <div className="inline-flex items-center gap-1.5 sm:gap-2 px-3 py-1 sm:px-4 sm:py-1.5 rounded-full bg-gradient-to-r from-indigo-50 via-purple-50 to-pink-50 border border-purple-200 shadow-xs">
-            <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-600" />
-            <span className="text-[10px] sm:text-xs font-black bg-gradient-to-r from-indigo-700 to-pink-600 bg-clip-text text-transparent uppercase tracking-wider">
-              Smart Peer Debt & Shared Expense Circle
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-gradient-to-r from-indigo-50 via-purple-50 to-pink-50 border border-purple-200 shadow-sm animate-pulseGlow">
+            <Sparkles className="w-4 h-4 text-purple-600" />
+            <span className="text-xs font-black bg-gradient-to-r from-indigo-700 to-pink-600 bg-clip-text text-transparent uppercase tracking-wider">
+              The Next-Gen Peer Debt & Expense Circle
             </span>
           </div>
 
           {/* Main Headline */}
-          <h1 className="text-3xl xs:text-4xl sm:text-6xl lg:text-7xl font-black text-slate-900 tracking-tight leading-tight sm:leading-none">
+          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black text-slate-900 tracking-tight leading-none">
             Never lose track of <br className="hidden sm:inline" />
             <span className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
               who owes whom money
@@ -131,17 +131,17 @@ export default function Landing() {
           </h1>
 
           {/* Subtitle */}
-          <p className="text-xs sm:text-base lg:text-lg text-slate-600 font-medium max-w-2xl mx-auto leading-relaxed px-2">
+          <p className="text-base sm:text-xl text-slate-600 font-medium max-w-2xl mx-auto leading-relaxed">
             Record splits with friends, roommates, and colleagues. Settle debts in 1-click, send direct WhatsApp reminders, and share time-limited verified statement codes.
           </p>
 
-          {/* 3 Action Buttons (Mobile Full Width Stack / Desktop Inline) */}
-          <div className="flex flex-col xs:flex-row flex-wrap items-center justify-center gap-2.5 sm:gap-3 pt-2 w-full max-w-md xs:max-w-none mx-auto">
+          {/* 4 Action Buttons */}
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
             
             {/* 1. Register / Get Started */}
             <Link
               to="/register"
-              className="w-full xs:w-auto flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-700 hover:to-pink-700 text-white font-black text-xs sm:text-sm md:text-base px-6 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl shadow-lg shadow-indigo-500/25 transition-all"
+              className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-700 hover:to-pink-700 text-white font-black text-sm sm:text-base px-7 py-3.5 rounded-2xl shadow-xl shadow-indigo-500/30 hover:scale-105 transition-all"
             >
               <span>Create Free Account</span>
               <ArrowRight className="w-4 h-4" />
@@ -151,16 +151,16 @@ export default function Landing() {
             <button
               onClick={handleDemoLogin}
               disabled={demoLoading}
-              className="w-full xs:w-auto flex items-center justify-center gap-2 bg-white hover:bg-slate-50 border-2 border-indigo-200 hover:border-indigo-400 text-indigo-700 font-black text-xs sm:text-sm md:text-base px-5 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl shadow-xs transition-all"
+              className="flex items-center gap-2 bg-white hover:bg-slate-50 border-2 border-indigo-200 hover:border-indigo-400 text-indigo-700 font-black text-sm sm:text-base px-6 py-3.5 rounded-2xl shadow-md hover:shadow-lg transition-all"
             >
               <Zap className="w-4 h-4 text-indigo-600" />
-              <span>{demoLoading ? 'Starting Tour...' : '1-Click Demo'}</span>
+              <span>{demoLoading ? 'Starting Tour...' : 'Live Demo View'}</span>
             </button>
 
             {/* 3. Sign In */}
             <Link
               to="/login"
-              className="w-full xs:w-auto flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs sm:text-sm md:text-base px-5 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl shadow-xs transition-all"
+              className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-sm sm:text-base px-6 py-3.5 rounded-2xl shadow-md hover:shadow-lg transition-all"
             >
               <KeyRound className="w-4 h-4 text-purple-300" />
               <span>Sign In with PIN</span>
@@ -169,19 +169,19 @@ export default function Landing() {
           </div>
 
           {/* Instant 6-Digit Share Code Inspector */}
-          <div className="max-w-xl mx-auto pt-4 sm:pt-6 px-1">
-            <div className="bg-white/95 border border-purple-200 rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 shadow-lg backdrop-blur-md space-y-2.5 sm:space-y-3">
+          <div className="max-w-xl mx-auto pt-6">
+            <div className="bg-white/95 border-2 border-purple-200/90 rounded-3xl p-5 sm:p-6 shadow-xl backdrop-blur-md space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] sm:text-xs font-black text-purple-900 uppercase tracking-wider flex items-center gap-1.5">
-                  <Share2 className="w-3.5 h-3.5 text-purple-600" />
-                  <span>Inspect Statement Code</span>
+                <span className="text-xs font-black text-purple-900 uppercase tracking-wider flex items-center gap-1.5">
+                  <Share2 className="w-4 h-4 text-purple-600" />
+                  <span>Inspect Friend Statement via Code</span>
                 </span>
-                <span className="text-[9px] sm:text-[10px] font-extrabold bg-purple-100 text-purple-800 px-2 py-0.5 rounded-md">
+                <span className="text-[10px] font-extrabold bg-purple-100 text-purple-800 px-2 py-0.5 rounded-md">
                   No Login Needed
                 </span>
               </div>
 
-              <form onSubmit={handleCodeSearch} className="flex flex-col xs:flex-row gap-2">
+              <form onSubmit={handleCodeSearch} className="flex gap-2">
                 <div className="relative flex-1">
                   <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
@@ -190,13 +190,13 @@ export default function Landing() {
                     onChange={(e) => setShareCode(e.target.value.toUpperCase())}
                     placeholder="Enter 6-digit code (e.g. 432492)"
                     maxLength={8}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl sm:rounded-2xl pl-10 pr-3 py-2.5 sm:py-3 text-xs sm:text-sm font-mono font-black text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 tracking-wider"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-10 pr-4 py-3 text-sm font-mono font-black text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 tracking-wider"
                     required
                   />
                 </div>
                 <button
                   type="submit"
-                  className="w-full xs:w-auto bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-black px-5 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl text-xs shadow-md shadow-purple-500/25 transition-all flex items-center justify-center gap-1.5 flex-shrink-0"
+                  className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-black px-6 py-3 rounded-2xl text-xs shadow-md shadow-purple-500/25 transition-all flex items-center gap-1.5 flex-shrink-0"
                 >
                   <span>Open Statement</span>
                   <ExternalLink className="w-3.5 h-3.5" />

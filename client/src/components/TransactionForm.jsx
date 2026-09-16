@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Users, User, ArrowUpRight, ArrowDownLeft, Calendar, Tag, CreditCard, Sparkles } from 'lucide-react';
 
 const CATEGORIES = [
@@ -27,6 +28,17 @@ export default function TransactionForm({ isOpen, onClose, onSave, friends = [],
   const [splitNote, setSplitNote] = useState('');
   const [includeSelf, setIncludeSelf] = useState(true);
   const [selectedSplitFriends, setSelectedSplitFriends] = useState({});
+
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen]);
 
   useEffect(() => {
     if (preselectedFriendId) {
@@ -126,8 +138,8 @@ export default function TransactionForm({ isOpen, onClose, onSave, friends = [],
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-2.5 sm:p-4 pt-3 sm:pt-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn overflow-y-auto">
+      <div className="bg-white border border-slate-200 rounded-2xl sm:rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[92vh] my-auto sm:my-0">
         
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/80">
@@ -469,6 +481,7 @@ export default function TransactionForm({ isOpen, onClose, onSave, friends = [],
 
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
