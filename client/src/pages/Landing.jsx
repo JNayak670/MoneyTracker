@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import AppLogo from '../components/AppLogo';
 import { 
   ArrowRight, 
   Sparkles, 
@@ -65,24 +66,7 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between gap-4">
           
           {/* Logo Branding */}
-          <Link to="/" className="flex items-center gap-2.5 group flex-shrink-0">
-            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-tr from-violet-600 via-indigo-600 to-pink-500 flex items-center justify-center text-xl sm:text-2xl shadow-lg shadow-indigo-500/25 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
-              💸
-            </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-lg sm:text-xl font-black tracking-tight bg-gradient-to-r from-indigo-700 via-purple-700 to-pink-600 bg-clip-text text-transparent">
-                  MoneyTracker
-                </span>
-                <span className="text-[10px] uppercase font-black tracking-wider px-2 py-0.5 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-xs">
-                  ₹ INR
-                </span>
-              </div>
-              <p className="text-[10px] text-slate-500 font-semibold leading-none mt-0.5 hidden xs:block">
-                Smart Peer Debt & Shared Expense Ledger
-              </p>
-            </div>
-          </Link>
+          <AppLogo to="/" size="lg" />
 
           {/* Nav Actions */}
           <div className="flex items-center gap-2 sm:gap-2.5">
@@ -406,11 +390,7 @@ export default function Landing() {
       {/* ------------------------------------------------------------- */}
       <footer className="border-t border-slate-200/80 bg-white/80 backdrop-blur-md py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500 font-semibold">
-          <div className="flex items-center gap-2">
-            <span className="text-base">💸</span>
-            <span className="font-bold text-slate-800">MoneyTracker</span>
-            <span>• Smart Peer Debt Management</span>
-          </div>
+          <AppLogo to="/" size="sm" showBadge={false} subtitleText="Smart Peer Debt Management" />
 
           <div className="flex items-center gap-4">
             <Link to="/login" className="hover:text-indigo-600 transition-colors">Sign In</Link>

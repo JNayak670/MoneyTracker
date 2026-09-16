@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { exportToCSV } from '../services/exportService';
 import ColorfulLoader from '../components/ColorfulLoader';
+import AppLogo from '../components/AppLogo';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
@@ -119,20 +120,12 @@ export default function SharedLedger() {
         {/* Top Public Header (Shown only to non-logged in visitors) */}
         {!user && (
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-brand-600 via-indigo-600 to-purple-600 flex items-center justify-center text-2xl shadow-md shadow-brand-500/25">
-                💸
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h1 className="text-xl font-black text-slate-900">MoneyTracker</h1>
-                  <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 border border-indigo-200">
-                    Shared Statement
-                  </span>
-                </div>
-                <p className="text-xs text-slate-500 font-semibold">Verified Friend Transaction Ledger</p>
-              </div>
-            </div>
+            <AppLogo 
+              to="/" 
+              badgeText="Shared Statement" 
+              badgeVariant="indigo" 
+              subtitleText="Verified Friend Transaction Ledger" 
+            />
 
             <Link
               to="/login"

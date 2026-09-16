@@ -1,8 +1,12 @@
 import React, { useState } from 'react';
-import { X, Lock, KeyRound, Check, AlertCircle, Sparkles } from 'lucide-react';
+import { X, Lock, KeyRound, Check, AlertCircle, Sparkles, ShieldAlert } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 
 export default function ChangePinModal({ isOpen, onClose }) {
+  const { user } = useAuth();
+  const isDemo = user?.email === 'demo@moneytracker.com';
+
   const [currentPin, setCurrentPin] = useState('');
   const [newPin, setNewPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
@@ -16,6 +20,11 @@ export default function ChangePinModal({ isOpen, onClose }) {
     e.preventDefault();
     setError('');
     setSuccess('');
+
+    if (isDemo) {
+      setError('Demo Account PIN is fixed to 1234 and cannot be changed. Please register your own personal account.');
+      return;
+    }
 
     if (newPin !== confirmPin) {
       setError('New PIN and Confirm PIN do not match.');
@@ -79,6 +88,16 @@ export default function ChangePinModal({ isOpen, onClose }) {
         {/* Body */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           
+          {isDemo && (
+            <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start gap-2.5 shadow-2xs">
+              <ShieldAlert className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <strong className="font-black block text-amber-950">Demo Account PIN is Protected</strong>
+                <span>The Demo PIN is permanently fixed to <strong className="font-mono font-bold">1234</strong> to allow other guests to explore. Register your own personal account to set a custom PIN.</span>
+              </div>
+            </div>
+          )}
+
           {error && (
             <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2">
               <AlertCircle className="w-4 h-4 flex-shrink-0" />
@@ -153,21 +172,27 @@ export default function ChangePinModal({ isOpen, onClose }) {
             </div>
           </div>
 
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+          <div className="pt-2 flex items-center justify-end gap-3">
             <button
               type="button"
               onClick={handleClose}
-              className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+              className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
-              disabled={loading}
-              className="flex items-center gap-1.5 bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-700 hover:to-indigo-700 text-white text-xs font-black px-5 py-2.5 rounded-xl shadow-md shadow-brand-500/20 hover:shadow-lg hover:-translate-y-0.5 transition-all"
+              disabled={loading || isDemo}
+              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-700 hover:to-pink-700 text-white text-xs font-black shadow-md shadow-indigo-500/20 hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>{loading ? 'Updating...' : 'Update PIN'}</span>
+              {loading ? (
+                <>
+                  <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span>Updating...</span>
+                </>
+              ) : (
+                <span>Update Security PIN</span>
+              )}
             </button>
           </div>
 

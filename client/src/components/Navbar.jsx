@@ -1,8 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import ChangePinModal from './ChangePinModal';
 import SearchModal from './SearchModal';
+import AppLogo from './AppLogo';
 import { 
   Users, 
   Receipt, 
@@ -62,22 +63,8 @@ export default function Navbar({ onOpenAddModal, onViewFriend }) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 sm:h-18">
             
-            {/* Logo Branding */}
-            <Link to="/" className="flex items-center gap-2.5 group flex-shrink-0">
-              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-violet-600 via-indigo-600 to-pink-500 flex items-center justify-center text-xl shadow-lg shadow-indigo-500/30 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
-                🧭
-              </div>
-              <div>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-base sm:text-lg font-black tracking-tight bg-gradient-to-r from-indigo-700 via-purple-700 to-pink-600 bg-clip-text text-transparent">
-                    MoneyTracker
-                  </span>
-                </div>
-                <p className="text-[10px] text-slate-500 font-semibold leading-none mt-0.5">
-                  Smart Peer Debt & Expense Circle
-                </p>
-              </div>
-            </Link>
+            {/* Unified App Logo */}
+            <AppLogo to="/" />
 
             {/* Desktop Navigation Links */}
             <nav className="hidden lg:flex items-center gap-1.5 bg-slate-100/90 p-1.5 rounded-2xl border border-slate-200/80 shadow-inner">

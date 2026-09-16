@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import AppLogo from '../components/AppLogo';
 import { 
   Lock, 
   Mail, 
@@ -59,24 +60,7 @@ export default function Login() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-4">
           
           {/* Logo Branding */}
-          <Link to="/" className="flex items-center gap-2.5 group flex-shrink-0">
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-tr from-violet-600 via-indigo-600 to-pink-500 flex items-center justify-center text-xl shadow-lg shadow-indigo-500/25 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
-              💸
-            </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-lg sm:text-xl font-black tracking-tight bg-gradient-to-r from-indigo-700 via-purple-700 to-pink-600 bg-clip-text text-transparent">
-                  MoneyTracker
-                </span>
-                <span className="text-[10px] uppercase font-black tracking-wider px-2 py-0.5 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-xs">
-                  ₹ INR
-                </span>
-              </div>
-              <p className="text-[10px] text-slate-500 font-semibold leading-none mt-0.5 hidden xs:block">
-                Smart Peer Debt & Shared Expense Ledger
-              </p>
-            </div>
-          </Link>
+          <AppLogo to="/" />
 
           {/* Nav Actions */}
           <div className="flex items-center gap-2 sm:gap-2.5">

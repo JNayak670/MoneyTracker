@@ -3,8 +3,8 @@ const jwt = require('jsonwebtoken');
 const { User } = require('../db');
 const { JWT_SECRET } = require('../middleware/authMiddleware');
 
-function generateToken(id) {
-  return jwt.sign({ id }, JWT_SECRET, { expiresIn: '30d' });
+function generateToken(id, expiresIn = '30d') {
+  return jwt.sign({ id }, JWT_SECRET, { expiresIn });
 }
 
 // @route   POST /api/auth/register
@@ -48,7 +48,7 @@ exports.register = async (req, res) => {
       currency
     });
 
-    const token = generateToken(user.id);
+    const token = generateToken(user.id, '30d');
 
     res.status(201).json({
       success: true,
@@ -148,7 +148,10 @@ exports.login = async (req, res) => {
       await user.save();
     }
 
-    const token = generateToken(user.id);
+    // Demo account active time set to 5 minutes ('5m')
+    const isDemo = cleanEmail === 'demo@moneytracker.com';
+    const tokenExpiry = isDemo ? '5m' : '30d';
+    const token = generateToken(user.id, tokenExpiry);
 
     res.json({
       success: true,
@@ -158,7 +161,9 @@ exports.login = async (req, res) => {
           id: user.id,
           name: user.name,
           email: user.email,
-          currency: user.currency
+          currency: user.currency,
+          isDemo,
+          expiresInSeconds: isDemo ? 300 : 2592000
         },
         token
       }
@@ -172,9 +177,16 @@ exports.login = async (req, res) => {
 // @desc    Get current user profile
 exports.getMe = async (req, res) => {
   try {
+    const isDemo = req.user.email === 'demo@moneytracker.com';
     res.json({
       success: true,
-      data: req.user
+      data: {
+        id: req.user.id,
+        name: req.user.name,
+        email: req.user.email,
+        currency: req.user.currency,
+        isDemo
+      }
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -202,7 +214,8 @@ exports.updateSettings = async (req, res) => {
         id: user.id,
         name: user.name,
         email: user.email,
-        currency: user.currency
+        currency: user.currency,
+        isDemo: user.email === 'demo@moneytracker.com'
       }
     });
   } catch (err) {
@@ -217,6 +230,19 @@ exports.changePin = async (req, res) => {
   try {
     const { currentPin, newPin } = req.body;
 
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    // Disallow password/PIN changes for demo account
+    if (user.email === 'demo@moneytracker.com') {
+      return res.status(403).json({
+        success: false,
+        error: 'Demo Account PIN is fixed to 1234 and cannot be changed. Please register your own personal account to set a custom PIN.'
+      });
+    }
+
     if (!currentPin || !newPin) {
       return res.status(400).json({
         success: false,
@@ -230,11 +256,6 @@ exports.changePin = async (req, res) => {
         success: false,
         error: 'New PIN must be 4 to 6 numeric digits.'
       });
-    }
-
-    const user = await User.findById(req.user.id);
-    if (!user) {
-      return res.status(404).json({ success: false, error: 'User not found' });
     }
 
     const storedHash = user.pin || user.password;

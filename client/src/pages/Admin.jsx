@@ -29,6 +29,7 @@ import {
   ArrowLeft
 } from 'lucide-react';
 import axios from 'axios';
+import AppLogo from '../components/AppLogo';
 
 const ADMIN_TOKEN_KEY = 'moneytracker_admin_token';
 const API_URL = import.meta.env.VITE_API_URL || '/api';
@@ -446,22 +447,13 @@ export default function Admin() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-purple-600/30">
-                <Shield className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-base font-black tracking-tight text-white">
-                    MoneyTracker
-                  </span>
-                  <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                    Master Admin
-                  </span>
-                </div>
-                <p className="text-[10px] text-slate-400 font-mono">Core Supervision Node</p>
-              </div>
-            </div>
+            <AppLogo 
+              to="/" 
+              badgeText="Master Admin" 
+              badgeVariant="purple" 
+              subtitleText="Core Supervision Node" 
+              darkTheme={true} 
+            />
 
             <div className="flex items-center gap-3">
               <button

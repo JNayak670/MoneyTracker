@@ -28,6 +28,7 @@ export const AuthProvider = ({ children }) => {
         setToken(null);
         setUser(null);
         localStorage.removeItem('money_tracker_token');
+        localStorage.removeItem('demo_login_time');
       } finally {
         setLoading(false);
       }
@@ -36,11 +37,46 @@ export const AuthProvider = ({ children }) => {
     fetchMe();
   }, [token]);
 
+  // Demo Account 5-Minute Active Session Auto-Logout
+  useEffect(() => {
+    if (!user || user.email !== 'demo@moneytracker.com') {
+      return;
+    }
+
+    const DEMO_DURATION_MS = 5 * 60 * 1000; // 5 minutes (300,000 ms)
+    let loginTime = Number(localStorage.getItem('demo_login_time'));
+    if (!loginTime) {
+      loginTime = Date.now();
+      localStorage.setItem('demo_login_time', loginTime.toString());
+    }
+
+    const elapsed = Date.now() - loginTime;
+    const remainingTime = Math.max(0, DEMO_DURATION_MS - elapsed);
+
+    if (remainingTime <= 0) {
+      alert('⏱️ Your 5-minute Demo Session has expired. Please sign in again or register a free account to continue.');
+      logout();
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      alert('⏱️ Your 5-minute Demo Session has expired. Please sign in again or register a free account to continue.');
+      logout();
+    }, remainingTime);
+
+    return () => clearTimeout(timer);
+  }, [user]);
+
   const login = async (email, pin) => {
     const res = await api.post('/auth/login', { email, pin });
     const { user: userData, token: newToken } = res.data;
     localStorage.setItem('money_tracker_token', newToken);
     sessionStorage.setItem('first_load_after_login', 'true');
+    if (userData.email === 'demo@moneytracker.com') {
+      localStorage.setItem('demo_login_time', Date.now().toString());
+    } else {
+      localStorage.removeItem('demo_login_time');
+    }
     setToken(newToken);
     setUser(userData);
     return userData;
@@ -51,6 +87,7 @@ export const AuthProvider = ({ children }) => {
     const { user: userData, token: newToken } = res.data;
     localStorage.setItem('money_tracker_token', newToken);
     sessionStorage.setItem('first_load_after_login', 'true');
+    localStorage.removeItem('demo_login_time');
     setToken(newToken);
     setUser(userData);
     return userData;
@@ -62,6 +99,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = () => {
     localStorage.removeItem('money_tracker_token');
+    localStorage.removeItem('demo_login_time');
     sessionStorage.removeItem('first_load_after_login');
     sessionStorage.removeItem('session_initialized');
     setToken(null);
