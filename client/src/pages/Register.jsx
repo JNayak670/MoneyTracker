@@ -97,17 +97,13 @@ export default function Register() {
 
             <Link
               to="/login"
-              className="text-xs font-black text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-200 px-3 sm:px-4 py-2 rounded-xl transition-all shadow-xs"
+              className="flex items-center gap-1.5 text-xs font-black text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 px-3 sm:px-3.5 py-2 rounded-xl transition-all shadow-xs"
             >
-              Sign In
+              <span>Sign In</span>
+              <ArrowRight className="w-3.5 h-3.5 hidden sm:inline" />
             </Link>
 
-            <span
-              className="flex items-center gap-1 text-xs font-black text-white bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 px-3.5 sm:px-4 py-2 rounded-xl shadow-md shadow-indigo-500/25 flex-shrink-0"
-            >
-              <span>Register</span>
-              <ArrowRight className="w-3.5 h-3.5 hidden sm:inline" />
-            </span>
+           
           </div>
 
         </div>

@@ -89,11 +89,7 @@ export default function Login() {
               <span className="sm:hidden">Statement</span>
             </Link>
 
-            <span
-              className="text-xs font-black text-indigo-700 bg-indigo-50/80 border border-indigo-200/80 px-3 sm:px-3.5 py-2 rounded-xl shadow-2xs"
-            >
-              Sign In
-            </span>
+           
 
             <Link
               to="/register"

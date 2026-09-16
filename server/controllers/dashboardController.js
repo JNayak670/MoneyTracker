@@ -11,6 +11,7 @@ exports.getSummary = async (req, res) => {
 
     const txByFriend = {};
     for (const t of transactions) {
+      if (!t.friendId) continue;
       const fId = t.friendId.toString();
       if (!txByFriend[fId]) txByFriend[fId] = [];
       txByFriend[fId].push(t);

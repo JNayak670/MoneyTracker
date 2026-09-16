@@ -12,6 +12,7 @@ import Register from './pages/Register';
 import Landing from './pages/Landing';
 import SharedLedger from './pages/SharedLedger';
 import TransactionForm from './components/TransactionForm';
+import ColorfulLoader from './components/ColorfulLoader';
 import api from './services/api';
 
 function AppLayout() {
@@ -128,8 +129,6 @@ function AppLayout() {
     </div>
   );
 }
-
-import ColorfulLoader from './components/ColorfulLoader';
 
 function MainRouter() {
   const { user, loading } = useAuth();
