@@ -133,94 +133,68 @@ export default function Dashboard({ onOpenAddTx, onOpenAddFriend, onViewFriendHi
     <div className="space-y-8 animate-fadeIn">
       
       {/* ------------------------------------------------------------- */}
-      {/* HERO VIBRANT FINANCIAL HEALTH COMMAND CENTER */}
+      {/* HERO FINANCIAL HEALTH CARD (MATCHING PHONE MOCKUP) */}
       {/* ------------------------------------------------------------- */}
-      <div className="relative rounded-3xl overflow-hidden p-6 sm:p-8 bg-gradient-to-r from-violet-900 via-indigo-900 to-purple-950 text-white shadow-2xl border border-indigo-500/30">
+      <div className="relative rounded-3xl overflow-hidden p-5 sm:p-7 bg-[#1c1d42] text-white shadow-xl border border-indigo-500/20">
         
-        {/* Ambient Glowing Orbs */}
-        <div className="absolute -top-20 -right-20 w-80 h-80 bg-pink-500/20 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-20 -left-20 w-80 h-80 bg-emerald-500/20 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute top-1/2 left-1/3 w-64 h-64 bg-cyan-500/15 rounded-full blur-3xl pointer-events-none" />
+        {/* Subtle Ambient Glowing Orbs */}
+        <div className="absolute -top-16 -right-16 w-60 h-60 bg-purple-500/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-16 -left-16 w-60 h-60 bg-emerald-500/15 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5">
           
           {/* Balance & Status */}
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-xs font-black text-emerald-300 shadow-xs">
-                <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-400/30 text-[11px] font-bold text-emerald-300">
+                <span className="text-xs">🔗</span>
                 <span>Peer Ledger Active</span>
               </span>
-              <span className="px-2.5 py-1 rounded-full bg-purple-500/30 text-purple-200 text-xs font-mono font-bold border border-purple-400/30">
-                🇮🇳 INR {currency}
+              <span className="px-2.5 py-0.5 rounded-full bg-purple-500/30 text-purple-200 text-[11px] font-bold border border-purple-400/30">
+                In INR {currency}
               </span>
             </div>
 
             <div>
-              <p className="text-xs font-bold text-indigo-200 uppercase tracking-wider">
-                Overall Circle Net Position
+              <p className="text-[11px] font-bold text-indigo-200 uppercase tracking-wider">
+                OVERALL CIRCLE NET POSITION
               </p>
               <div className="text-3xl sm:text-5xl font-black tracking-tight mt-1 flex items-baseline gap-2">
-                <span className={isNetPositive ? 'text-emerald-400' : 'text-rose-400'}>
+                <span className={isNetPositive ? 'text-[#34d399]' : 'text-rose-400'}>
                   {isNetPositive ? '+' : '-'}{currency}{Math.abs(netBalance).toLocaleString()}
                 </span>
-                <span className="text-sm font-bold text-indigo-200">
+                <span className="text-xs sm:text-sm font-bold text-emerald-300/90">
                   {isNetPositive ? '🟢 (In Surplus)' : '🔴 (Net Payable)'}
                 </span>
               </div>
             </div>
 
-            {/* Ratio Progress Bar */}
-            <div className="space-y-1.5 max-w-md">
-              <div className="flex items-center justify-between text-xs font-bold text-indigo-200">
-                <span className="text-emerald-300">↗️ Lent: {currency}{(summary?.totalGiven || 0).toLocaleString()} ({givenRatio}%)</span>
-                <span className="text-rose-300">↙️ Borrowed: {currency}{(summary?.totalReceived || 0).toLocaleString()} ({100 - givenRatio}%)</span>
-              </div>
-              <div className="w-full h-3 rounded-full bg-white/10 overflow-hidden flex border border-white/10 p-0.5">
-                <div 
-                  className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-teal-400 transition-all duration-500 shadow-sm"
-                  style={{ width: `${givenRatio}%` }}
-                />
-                <div 
-                  className="h-full rounded-full bg-gradient-to-r from-rose-400 to-pink-500 transition-all duration-500 shadow-sm"
-                  style={{ width: `${100 - givenRatio}%` }}
-                />
-              </div>
+            {/* Lent / Borrowed Stats Row */}
+            <div className="flex items-center gap-4 text-xs font-bold pt-0.5">
+              <span className="text-cyan-200">
+                Lent: <span className="text-white font-black">{currency}{(summary?.totalGiven || 0).toLocaleString()}</span>
+              </span>
+              <span className="text-rose-300">
+                Borrowed: <span className="text-white font-black">{currency}{(summary?.totalReceived || 0).toLocaleString()}</span>
+              </span>
             </div>
           </div>
 
           {/* Quick Action Buttons */}
-          <div className="flex flex-wrap sm:flex-nowrap lg:flex-col gap-2.5 self-start lg:self-auto">
+          <div className="flex flex-wrap items-center gap-2 pt-1 md:pt-0">
             <button
               onClick={() => onOpenAddTx('')}
-              className={`flex items-center justify-center gap-2 font-black text-xs sm:text-sm px-5 py-3 rounded-2xl transition-all ${
-                friends.length > 0 && hasNoTransactions
-                  ? 'bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400 hover:from-emerald-500 hover:to-cyan-500 text-slate-950 shadow-xl shadow-emerald-500/40 scale-105 animate-pulse'
-                  : 'bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 text-slate-950 shadow-xl shadow-emerald-500/30 hover:scale-105'
-              }`}
+              className="flex items-center justify-center gap-1.5 bg-[#0f766e] hover:bg-[#0d6d66] text-white font-black text-xs px-4 py-2.5 rounded-xl shadow-md transition-all active:scale-[0.98]"
             >
-              <PlusCircle className="w-4 h-4" />
-              <span>+ Record New Entry {friends.length > 0 && hasNoTransactions ? '(Next Step)' : ''}</span>
+              <PlusCircle className="w-3.5 h-3.5" />
+              <span>+ Record Entry</span>
             </button>
 
             <button
               onClick={onOpenAddFriend}
-              className={`flex items-center justify-center gap-2 font-bold text-xs px-4 py-2.5 rounded-2xl backdrop-blur-md transition-all ${
-                friends.length === 0
-                  ? 'bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white shadow-lg shadow-purple-500/30 scale-105 animate-pulse'
-                  : 'bg-white/15 hover:bg-white/25 border border-white/30 text-white'
-              }`}
+              className="flex items-center justify-center gap-1.5 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold text-xs px-3.5 py-2.5 rounded-xl transition-all"
             >
-              <span>👤+</span>
-              <span>Add New Friend {friends.length === 0 ? '(Start Here)' : ''}</span>
-            </button>
-
-            <button
-              onClick={() => exportToCSV(summary?.recentTransactions || [], 'moneytracker_statement.csv')}
-              className="flex items-center justify-center gap-2 bg-purple-500/20 hover:bg-purple-500/30 border border-purple-400/40 text-purple-200 font-bold text-xs px-4 py-2.5 rounded-2xl transition-all"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span>Export CSV Statement</span>
+              <span>👤+ Add Friend</span>
             </button>
           </div>
 
@@ -304,9 +278,9 @@ export default function Dashboard({ onOpenAddTx, onOpenAddFriend, onViewFriendHi
       )}
 
       {/* ------------------------------------------------------------- */}
-      {/* 4 VIBRANT SUMMARY METRIC CARDS */}
+      {/* SUMMARY METRIC CARDS (SWIPEABLE ON PHONE, GRID ON PC) */}
       {/* ------------------------------------------------------------- */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="flex overflow-x-auto gap-3 pb-2 scrollbar-none snap-x snap-mandatory sm:grid sm:grid-cols-2 lg:grid-cols-4 sm:gap-4 -mx-4 px-4 sm:mx-0 sm:px-0">
         <SummaryCard
           title="Total Given (Lent)"
           amount={summary?.totalGiven || 0}
@@ -315,18 +289,11 @@ export default function Dashboard({ onOpenAddTx, onOpenAddFriend, onViewFriendHi
           subtext={`${friends.filter(f => f.currentBalance > 0).length} friends owe you`}
         />
         <SummaryCard
-          title="Total Received"
-          amount={summary?.totalReceived || 0}
-          type="received"
-          currency={currency}
-          subtext={`You owe ${friends.filter(f => f.currentBalance < 0).length} friends`}
-        />
-        <SummaryCard
           title="Net Circle Position"
           amount={summary?.netBalance || 0}
           type="net"
           currency={currency}
-          subtext={summary?.netBalance >= 0 ? '🟢 In Surplus Profit' : '🔴 In Net Payable'}
+          subtext={summary?.netBalance >= 0 ? 'In Surplus Profit' : 'In Net Payable'}
         />
         <SummaryCard
           title="Pending Dues"
@@ -335,28 +302,39 @@ export default function Dashboard({ onOpenAddTx, onOpenAddFriend, onViewFriendHi
           currency={currency}
           subtext={`${summary?.activeDuesCount || 0} active balances`}
         />
+        <SummaryCard
+          title="Total Received"
+          amount={summary?.totalReceived || 0}
+          type="received"
+          currency={currency}
+          subtext={`You owe ${friends.filter(f => f.currentBalance < 0).length} friends`}
+        />
       </div>
 
       {/* ------------------------------------------------------------- */}
       {/* ACTIVE FRIENDS WITH RUNNING DEBT BALANCES */}
       {/* ------------------------------------------------------------- */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-600 text-white flex items-center justify-center shadow-md shadow-emerald-500/20">
+        <div className="flex items-center justify-between pb-1">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-[#0f766e] text-white flex items-center justify-center shadow-sm">
               <Users className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-lg font-black text-slate-900">Active Debtors & Circles</h2>
-              <p className="text-xs text-slate-500 font-semibold">Friends with pending balances</p>
+              <h2 className="text-base sm:text-lg font-black text-slate-900 leading-tight">
+                Active Debtors & Circles
+              </h2>
+              <p className="text-[11px] text-slate-500 font-semibold">
+                Friends with pending balances
+              </p>
             </div>
           </div>
 
           <Link
             to="/friends"
-            className="flex items-center gap-1.5 text-xs font-black text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-3.5 py-2 rounded-xl transition-all"
+            className="flex items-center gap-1 text-xs font-black text-indigo-700 hover:text-indigo-800 transition-colors"
           >
-            <span>View All Circles ({friends.length})</span>
+            <span>View All</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         </div>

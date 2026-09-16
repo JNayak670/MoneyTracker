@@ -32,6 +32,16 @@
   background: linear-gradient(to bottom, #6366f1, #a855f7, #ec4899);
 }
 
+.scrollbar-none::-webkit-scrollbar,
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none,
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 /* Colorful Card Utilities */
 .glass-card {
   background: rgba(255, 255, 255, 0.92);

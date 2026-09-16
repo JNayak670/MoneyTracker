@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Navbar from './components/Navbar';
+import BottomNav from './components/BottomNav';
 import Dashboard from './pages/Dashboard';
 import Friends from './pages/Friends';
 import Transactions from './pages/Transactions';
@@ -66,10 +67,13 @@ function AppLayout() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900">
-      <Navbar onOpenAddModal={() => handleOpenAddTx('')} />
+    <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 pb-20 sm:pb-8">
+      <Navbar 
+        onOpenAddModal={() => handleOpenAddTx('')} 
+        onViewFriend={handleViewFriendHistory}
+      />
       
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
         <Routes>
           <Route 
             path="/" 
@@ -113,6 +117,9 @@ function AppLayout() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
+
+      {/* Mobile Fixed Bottom Navigation Bar */}
+      <BottomNav />
 
       {/* Global Add Transaction Modal */}
       <TransactionForm
