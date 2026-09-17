@@ -187,13 +187,24 @@ exports.createFriend = async (req, res) => {
     let initialStatus = 'OFFLINE';
 
     if (username && username.trim()) {
-      cleanUsername = username.replace(/^@/, '').toLowerCase().trim();
-      foundUser = await User.findOne({ username: cleanUsername });
+      const rawInput = username.trim();
+      cleanUsername = rawInput.replace(/^@/, '').toLowerCase().trim();
+      
+      const orConditions = [
+        { username: cleanUsername },
+        { email: rawInput.toLowerCase() }
+      ];
+      if (rawInput.match(/^[0-9a-fA-F]{24}$/)) {
+        orConditions.push({ _id: rawInput });
+      }
+
+      foundUser = await User.findOne({ $or: orConditions });
       if (foundUser) {
-        if (foundUser.id === userId) {
+        if (foundUser.id === userId || foundUser._id.toString() === userId) {
           return res.status(400).json({ success: false, error: 'You cannot add yourself as a friend.' });
         }
         initialStatus = 'PENDING_MATCH';
+        cleanUsername = foundUser.username;
       }
     }
 
@@ -201,7 +212,7 @@ exports.createFriend = async (req, res) => {
       userId,
       name: name.trim(),
       phone: phone ? phone.trim() : null,
-      email: email ? email.trim() : null,
+      email: email ? email.trim() : (foundUser ? foundUser.email : null),
       avatarColor: avatarColor || '#6366f1',
       avatarEmoji: avatarEmoji || '👤',
       relationshipTag: relationshipTag || 'Friend',
@@ -212,16 +223,56 @@ exports.createFriend = async (req, res) => {
       permission: 'NORMAL'
     });
 
+    // If a registered MoneyTracker user was matched, send a connection request notification to them!
+    if (foundUser) {
+      let reciprocalFriend = await Friend.findOne({ userId: foundUser._id, connectedUserId: userId });
+      if (!reciprocalFriend && req.user.username) {
+        reciprocalFriend = await Friend.findOne({ userId: foundUser._id, pendingUsername: req.user.username.toLowerCase() });
+      }
+
+      if (!reciprocalFriend) {
+        reciprocalFriend = await Friend.create({
+          userId: foundUser._id,
+          name: req.user.name,
+          connectedUserId: userId,
+          pendingUsername: req.user.username || null,
+          connectionStatus: 'PENDING_MATCH',
+          permission: 'NORMAL',
+          avatarColor: '#10b981',
+          avatarEmoji: '🤝',
+          relationshipTag: 'Friend'
+        });
+      } else {
+        reciprocalFriend.connectedUserId = userId;
+        reciprocalFriend.connectionStatus = 'PENDING_MATCH';
+        await reciprocalFriend.save();
+      }
+
+      // Send friend request notification to foundUser
+      await Notification.create({
+        userId: foundUser._id,
+        type: 'FRIEND_REQUEST',
+        title: '👋 Friend Connection Request',
+        message: `${req.user.name} (@${req.user.username || 'user'}) added you as a friend on MoneyTracker. Connect accounts to enable shared 2-way tracking.`,
+        data: {
+          friendId: reciprocalFriend._id,
+          connectedUserId: userId,
+          username: req.user.username,
+          friendName: req.user.name
+        }
+      });
+    }
+
     res.status(201).json({
       success: true,
       message: foundUser 
-        ? `Friend added! Account @${cleanUsername} found on MoneyTracker.` 
+        ? `Friend added! Account @${cleanUsername} found on MoneyTracker and connection request sent.` 
         : cleanUsername 
         ? `Friend added! @${cleanUsername} saved as pending username.` 
         : 'Friend added to circle',
       data: friend,
       matchedUser: foundUser ? {
-        id: foundUser.id,
+        id: foundUser.id || foundUser._id.toString(),
         name: foundUser.name,
         username: foundUser.username,
         email: foundUser.email
@@ -233,28 +284,37 @@ exports.createFriend = async (req, res) => {
 };
 
 // @route   GET /api/friends/search-user
-// @desc    Search for a MoneyTracker user by @username
+// @desc    Search for a MoneyTracker user by @username, email, or user ID
 exports.searchUserByUsername = async (req, res) => {
   try {
-    const rawUsername = (req.query.username || '').replace(/^@/, '').toLowerCase().trim();
-    if (!rawUsername) {
-      return res.status(400).json({ success: false, error: 'Username is required' });
+    const rawInput = (req.query.username || '').trim();
+    if (!rawInput) {
+      return res.status(400).json({ success: false, error: 'Username, email, or user ID is required' });
     }
 
-    const user = await User.findOne({ username: rawUsername }).select('id name username email currency');
+    const cleanUsername = rawInput.replace(/^@/, '').toLowerCase().trim();
+    const orConditions = [
+      { username: cleanUsername },
+      { email: rawInput.toLowerCase() }
+    ];
+    if (rawInput.match(/^[0-9a-fA-F]{24}$/)) {
+      orConditions.push({ _id: rawInput });
+    }
+
+    const user = await User.findOne({ $or: orConditions }).select('id name username email currency');
     if (!user) {
       return res.json({
         success: true,
         exists: false,
-        username: rawUsername,
-        message: 'No registered MoneyTracker account found with this username.'
+        username: cleanUsername,
+        message: `No registered MoneyTracker account found for "${rawInput}".`
       });
     }
 
-    if (user.id === req.user.id) {
+    if (user.id === req.user.id || user._id.toString() === req.user.id) {
       return res.status(400).json({
         success: false,
-        error: 'This is your own username.'
+        error: 'This is your own account!'
       });
     }
 
@@ -262,7 +322,7 @@ exports.searchUserByUsername = async (req, res) => {
       success: true,
       exists: true,
       user: {
-        id: user.id,
+        id: user.id || user._id.toString(),
         name: user.name,
         username: user.username,
         email: user.email
@@ -299,26 +359,73 @@ exports.linkUsernameToFriend = async (req, res) => {
       });
     }
 
-    const cleanUsername = username.replace(/^@/, '').toLowerCase().trim();
+    const rawInput = username.trim();
+    const cleanUsername = rawInput.replace(/^@/, '').toLowerCase().trim();
     if (cleanUsername === req.user.username) {
       return res.status(400).json({ success: false, error: 'You cannot link your own username to a friend.' });
     }
 
-    const foundUser = await User.findOne({ username: cleanUsername });
+    const orConditions = [
+      { username: cleanUsername },
+      { email: rawInput.toLowerCase() }
+    ];
+    if (rawInput.match(/^[0-9a-fA-F]{24}$/)) {
+      orConditions.push({ _id: rawInput });
+    }
+
+    const foundUser = await User.findOne({ $or: orConditions });
 
     if (foundUser) {
-      friend.pendingUsername = cleanUsername;
+      friend.pendingUsername = foundUser.username;
       friend.connectedUserId = foundUser._id;
       friend.connectionStatus = 'PENDING_MATCH';
       await friend.save();
 
+      // Ensure reciprocal friend entry exists in foundUser circle & notify them
+      let reciprocalFriend = await Friend.findOne({ userId: foundUser._id, connectedUserId: userId });
+      if (!reciprocalFriend && req.user.username) {
+        reciprocalFriend = await Friend.findOne({ userId: foundUser._id, pendingUsername: req.user.username.toLowerCase() });
+      }
+
+      if (!reciprocalFriend) {
+        reciprocalFriend = await Friend.create({
+          userId: foundUser._id,
+          name: req.user.name,
+          connectedUserId: userId,
+          pendingUsername: req.user.username || null,
+          connectionStatus: 'PENDING_MATCH',
+          permission: 'NORMAL',
+          avatarColor: '#10b981',
+          avatarEmoji: '🤝',
+          relationshipTag: 'Friend'
+        });
+      } else {
+        reciprocalFriend.connectedUserId = userId;
+        reciprocalFriend.connectionStatus = 'PENDING_MATCH';
+        await reciprocalFriend.save();
+      }
+
+      // Send friend request notification to foundUser
+      await Notification.create({
+        userId: foundUser._id,
+        type: 'FRIEND_REQUEST',
+        title: '👋 Friend Connection Request',
+        message: `${req.user.name} (@${req.user.username || 'user'}) linked your account on MoneyTracker. Connect accounts to enable shared 2-way tracking.`,
+        data: {
+          friendId: reciprocalFriend._id,
+          connectedUserId: userId,
+          username: req.user.username,
+          friendName: req.user.name
+        }
+      });
+
       return res.json({
         success: true,
         status: 'MATCH_FOUND',
-        message: `Registered user found for @${cleanUsername}! Confirm connection to enable shared features.`,
+        message: `Registered user found for @${foundUser.username}! Connection request sent. Confirm connection to enable shared features.`,
         data: friend,
         matchedUser: {
-          id: foundUser.id,
+          id: foundUser.id || foundUser._id.toString(),
           name: foundUser.name,
           username: foundUser.username,
           email: foundUser.email

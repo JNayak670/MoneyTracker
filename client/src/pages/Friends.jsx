@@ -25,7 +25,11 @@ import {
   AtSign,
   ShieldCheck,
   Zap,
-  Clock
+  Clock,
+  Loader2,
+  AlertCircle,
+  UserCheck,
+  Sparkles
 } from 'lucide-react';
 
 export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, onCloseFriendModal, historyFriendId, onCloseHistory }) {
@@ -51,6 +55,10 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
     avatarColor: '#6366f1',
     notes: ''
   });
+
+  // User search verification state for Add Friend modal
+  const [usernameChecking, setUsernameChecking] = useState(false);
+  const [userCheckResult, setUserCheckResult] = useState(null);
 
   // Action Modals
   const [settleModal, setSettleModal] = useState({ open: false, friendId: '', friendName: '', amount: 0 });
@@ -119,8 +127,37 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
     }
   };
 
+  const handleCheckMoneyTrackerUser = async (rawVal) => {
+    const input = (rawVal !== undefined ? rawVal : formData.username || '').trim();
+    if (!input) {
+      setUserCheckResult({ isEmpty: true });
+      return;
+    }
+    setUsernameChecking(true);
+    try {
+      const res = await api.get(`/friends/search-user?username=${encodeURIComponent(input)}`);
+      const data = res?.exists !== undefined ? res : (res?.data || res);
+      setUserCheckResult(data);
+      if (data?.exists && data?.user?.name) {
+        // Automatically populate Full Name field with user's original name!
+        setFormData(prev => ({ 
+          ...prev, 
+          name: data.user.name,
+          username: data.user.username || input.replace(/^@/, '')
+        }));
+      }
+    } catch (err) {
+      const errorMsg = err.response?.data?.error || err.message || 'No registered MoneyTracker user found with this username.';
+      setUserCheckResult({ exists: false, message: errorMsg, error: errorMsg });
+    } finally {
+      setUsernameChecking(false);
+    }
+  };
+
   const handleOpenCreateModal = () => {
     setCurrentEditingFriend(null);
+    setUserCheckResult(null);
+    setUsernameChecking(false);
     setFormData({
       name: '',
       username: '',
@@ -136,6 +173,8 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
 
   const handleOpenEditModal = (friend) => {
     setCurrentEditingFriend(friend);
+    setUserCheckResult(null);
+    setUsernameChecking(false);
     setFormData({
       name: friend.name || '',
       username: friend.pendingUsername || friend.connectedUser?.username || '',
@@ -165,19 +204,61 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
   const handleCloseFriendModal = () => {
     setFriendModalOpen(false);
     setCurrentEditingFriend(null);
+    setUserCheckResult(null);
+    setUsernameChecking(false);
     onCloseFriendModal?.();
   };
 
   const handleSaveFriend = async (e) => {
     e.preventDefault();
+    
+    // Check if a username is entered
+    const rawUsername = (formData.username || '').trim();
+    if (rawUsername) {
+      const cleanInput = rawUsername.replace(/^@/, '').toLowerCase();
+      // Check if already verified as existing
+      const isAlreadyVerified = userCheckResult?.exists && 
+        (userCheckResult?.user?.username?.toLowerCase() === cleanInput || userCheckResult?.user?.email?.toLowerCase() === rawUsername.toLowerCase() || userCheckResult?.user?.id === rawUsername);
+
+      if (!isAlreadyVerified) {
+        // Run verification check before saving
+        setUsernameChecking(true);
+        try {
+          const res = await api.get(`/friends/search-user?username=${encodeURIComponent(rawUsername)}`);
+          const data = res?.exists !== undefined ? res : (res?.data || res);
+          setUserCheckResult(data);
+
+          if (!data?.exists || !data?.user) {
+            alert(`⚠️ No MoneyTracker user found for "${rawUsername}".\n\nPlease enter a valid username/email, or clear the username field to save as an offline friend.`);
+            setUsernameChecking(false);
+            return;
+          }
+
+          // Update name if empty
+          if (data.user.name && !formData.name.trim()) {
+            formData.name = data.user.name;
+          }
+        } catch (err) {
+          const errorMsg = err.response?.data?.error || err.message || `No user found for "${rawUsername}"`;
+          setUserCheckResult({ exists: false, message: errorMsg, error: errorMsg });
+          alert(`⚠️ ${errorMsg}\n\nPlease enter a valid username/email, or clear the username field to save as an offline friend.`);
+          setUsernameChecking(false);
+          return;
+        } finally {
+          setUsernameChecking(false);
+        }
+      }
+    }
+
     try {
       const editId = currentEditingFriend?.id || currentEditingFriend?._id || editingFriend?.id || editingFriend?._id;
       if (editId) {
         await api.put(`/friends/${editId}`, formData);
       } else {
         const res = await api.post('/friends', formData);
-        if (res.data?.matchedUser) {
-          // Open share history modal if requested
+        const data = res?.data !== undefined ? res.data : res;
+        if (data?.matchedUser) {
+          alert(`🎉 Friend added! Account @${data.matchedUser.username} was found and a connection request has been sent to them.`);
         }
       }
       handleCloseFriendModal();
@@ -528,16 +609,86 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
 
               <div>
                 <label className="block text-[11px] sm:text-xs font-bold text-slate-700 uppercase tracking-wider mb-1 flex items-center justify-between">
-                  <span>MoneyTracker @Username (Optional)</span>
-                  <span className="text-[10px] text-purple-600 font-semibold lowercase">For account linking</span>
+                  <span>MoneyTracker @Username or User ID (Optional)</span>
+                  <span className="text-[10px] text-purple-600 font-semibold">For account linking</span>
                 </label>
-                <input
-                  type="text"
-                  value={formData.username}
-                  onChange={(e) => setFormData({ ...formData, username: e.target.value.replace(/\s+/g, '').toLowerCase() })}
-                  placeholder="e.g. amit456 (Leave blank if offline friend)"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-slate-900 placeholder-slate-400 font-bold focus:bg-white focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20"
-                />
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                      <AtSign className="w-3.5 h-3.5" />
+                    </div>
+                    <input
+                      type="text"
+                      value={formData.username}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\s+/g, '').toLowerCase();
+                        setFormData({ ...formData, username: val });
+                        setUserCheckResult(null);
+                      }}
+                      placeholder="e.g. amit456 (Leave blank if offline friend)"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-3 py-2.5 text-xs sm:text-sm text-slate-900 placeholder-slate-400 font-bold focus:bg-white focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleCheckMoneyTrackerUser(formData.username)}
+                    disabled={usernameChecking || !formData.username.trim()}
+                    className="px-3.5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-black flex items-center gap-1.5 transition-all disabled:opacity-50 flex-shrink-0 shadow-xs"
+                  >
+                    {usernameChecking ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
+                    <span>Check</span>
+                  </button>
+                </div>
+
+                {/* Helper hint if blank */}
+                {!formData.username.trim() && !userCheckResult && (
+                  <p className="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
+                    <span>💡</span>
+                    <span>If you don't know their username, leave this blank to save as a standard offline friend.</span>
+                  </p>
+                )}
+
+                {/* Verification result card */}
+                {userCheckResult && (
+                  <div className="mt-2.5 animate-fadeIn">
+                    {userCheckResult.exists ? (
+                      <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-300 text-xs space-y-1 shadow-2xs">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5 font-black text-emerald-900">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                            <span>User Found: {userCheckResult.user.name}</span>
+                          </div>
+                          <span className="text-[10px] font-mono bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded-md font-extrabold">
+                            @{userCheckResult.user.username}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-emerald-800">
+                          ✓ Full name set to <strong>{userCheckResult.user.name}</strong>. A connection request will be sent when you click Save Friend.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="p-3 rounded-2xl bg-rose-50 border border-rose-300 text-xs space-y-1.5 shadow-2xs">
+                        <div className="flex items-center gap-1.5 font-black text-rose-900">
+                          <AlertCircle className="w-4 h-4 text-rose-600" />
+                          <span>{userCheckResult.error || `No user found for "${formData.username}"`}</span>
+                        </div>
+                        <p className="text-[11px] text-rose-700">
+                          Enter a valid MoneyTracker username, or clear it to save as an offline friend.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFormData(prev => ({ ...prev, username: '' }));
+                            setUserCheckResult(null);
+                          }}
+                          className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-800 bg-rose-200/70 hover:bg-rose-200 px-2.5 py-1 rounded-lg transition-colors mt-1"
+                        >
+                          <span>✕ Clear username (Save as offline friend)</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-1 xs:grid-cols-2 gap-2.5 sm:gap-3">

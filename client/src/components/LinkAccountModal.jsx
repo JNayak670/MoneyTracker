@@ -47,7 +47,8 @@ export default function LinkAccountModal({ isOpen, onClose, friend, onUpdated, o
     setSearching(true);
     try {
       const res = await api.get(`/friends/search-user?username=${clean}`);
-      setSearchResult(res.data);
+      const data = res?.exists !== undefined ? res : (res?.data || res);
+      setSearchResult(data);
     } catch (err) {
       setError(err.message || 'Failed to search for user');
       setSearchResult(null);
@@ -62,24 +63,26 @@ export default function LinkAccountModal({ isOpen, onClose, friend, onUpdated, o
     try {
       const clean = usernameInput.replace(/^@/, '').trim().toLowerCase();
       const res = await api.post(`/friends/${friend.id}/link-username`, { username: clean });
+      const data = res?.status !== undefined ? res : (res?.data || res);
       
-      if (res.data.status === 'MATCH_FOUND') {
+      if (data.status === 'MATCH_FOUND') {
         // User found, offer immediate connection
         const connectRes = await api.post(`/friends/${friend.id}/confirm-connect`);
+        const connectData = connectRes?.data !== undefined ? connectRes.data : connectRes;
         setSuccessMsg(`Connected successfully with @${clean}!`);
         if (onUpdated) onUpdated();
         
         // If there are eligible transactions to share, offer to open share history modal
-        if (connectRes.data.data?.eligibleTransactionsCount > 0 && onOpenShareHistory) {
+        if (connectData?.eligibleTransactionsCount > 0 && onOpenShareHistory) {
           setTimeout(() => {
             onClose();
-            onOpenShareHistory(friend, connectRes.data.data.eligibleTransactions);
+            onOpenShareHistory(friend, connectData.eligibleTransactions);
           }, 800);
         } else {
           setTimeout(() => onClose(), 1200);
         }
       } else {
-        setSuccessMsg(res.data.message || 'Username saved as pending.');
+        setSuccessMsg(data.message || 'Username saved as pending.');
         if (onUpdated) onUpdated();
         setTimeout(() => onClose(), 1400);
       }
