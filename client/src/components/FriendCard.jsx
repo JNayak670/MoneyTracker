@@ -9,7 +9,13 @@ import {
   ArrowUpRight,
   ArrowDownLeft,
   Share2,
-  Sparkles
+  Sparkles,
+  Link2,
+  ShieldCheck,
+  ShieldAlert,
+  Clock,
+  Zap,
+  AtSign
 } from 'lucide-react';
 
 export default function FriendCard({ 
@@ -21,12 +27,18 @@ export default function FriendCard({
   onRemind, 
   onShareCode,
   onEdit, 
-  onDelete 
+  onDelete,
+  onLinkAccount,
+  onTogglePermission
 }) {
   const bal = friend.currentBalance || 0;
   const isOwed = bal > 0;
   const isOwing = bal < 0;
   const isSettled = bal === 0;
+
+  const isConnected = friend.connectionStatus === 'CONNECTED';
+  const isPendingMatch = friend.connectionStatus === 'PENDING_MATCH';
+  const isAuthorized = friend.permission === 'AUTHORIZED';
 
   return (
     <div className={`rounded-3xl p-4 sm:p-5 flex flex-col justify-between border transition-all duration-300 hover:shadow-xl bg-white relative overflow-hidden ${
@@ -43,7 +55,7 @@ export default function FriendCard({
       
       {/* Top Details */}
       <div>
-        <div className="flex items-start justify-between mb-3 pt-1">
+        <div className="flex items-start justify-between mb-2.5 pt-1">
           <div className="flex items-center gap-3">
             <div 
               className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shadow-sm border border-black/5 flex-shrink-0"
@@ -55,7 +67,7 @@ export default function FriendCard({
               <h3 className="font-black text-base text-slate-900 leading-snug">
                 {friend.name}
               </h3>
-              <div className="flex items-center gap-2 mt-0.5">
+              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                 <span className="text-[11px] font-bold px-2 py-0.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200/80">
                   {friend.relationshipTag || 'Friend'}
                 </span>
@@ -93,7 +105,85 @@ export default function FriendCard({
           </div>
         </div>
 
-        {/* Balance Status Box (Matching Phone Mockup 1:1) */}
+        {/* ------------------------------------------------------------- */}
+        {/* ACCOUNT LINKING & CONNECTION BADGE BANNER */}
+        {/* ------------------------------------------------------------- */}
+        <div className="mb-3">
+          {isConnected ? (
+            <div className="p-2.5 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200/80 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5">
+                <div className="w-5 h-5 rounded-lg bg-emerald-600 text-white flex items-center justify-center text-[10px]">
+                  ✓
+                </div>
+                <div>
+                  <p className="text-[11px] font-black text-emerald-950 flex items-center gap-1">
+                    <span>Connected</span>
+                    <span className="text-emerald-700 font-bold">@{friend.connectedUser?.username || friend.pendingUsername}</span>
+                  </p>
+                </div>
+              </div>
+
+              {/* Permission Badge / Toggle */}
+              {onTogglePermission && (
+                <button
+                  onClick={() => onTogglePermission(friend)}
+                  title="Click to toggle sync permission"
+                  className={`text-[10px] font-black px-2 py-0.5 rounded-lg flex items-center gap-1 border transition-all ${
+                    isAuthorized
+                      ? 'bg-amber-100/80 text-amber-900 border-amber-300 hover:bg-amber-200'
+                      : 'bg-indigo-50 text-indigo-800 border-indigo-200 hover:bg-indigo-100'
+                  }`}
+                >
+                  {isAuthorized ? <Zap className="w-3 h-3 text-amber-600" /> : <Clock className="w-3 h-3 text-indigo-600" />}
+                  <span>{isAuthorized ? 'Authorized (Instant)' : 'Normal (Approval)'}</span>
+                </button>
+              )}
+            </div>
+          ) : isPendingMatch ? (
+            <div className="p-2 rounded-xl bg-purple-50 border border-purple-200 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 text-xs">
+                <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+                <span className="text-[11px] font-bold text-purple-900">
+                  Match Found: <strong className="text-purple-700">@{friend.pendingUsername}</strong>
+                </span>
+              </div>
+              <button
+                onClick={() => onLinkAccount(friend)}
+                className="text-[11px] font-black text-purple-700 bg-white hover:bg-purple-100 px-2.5 py-0.5 rounded-lg border border-purple-200 transition-colors shadow-2xs"
+              >
+                Connect
+              </button>
+            </div>
+          ) : friend.pendingUsername ? (
+            <div className="p-1.5 px-2.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 text-[11px] text-slate-600">
+                <AtSign className="w-3 h-3 text-slate-400" />
+                <span>Pending: <strong className="font-mono text-slate-800">@{friend.pendingUsername}</strong></span>
+              </div>
+              <button
+                onClick={() => onLinkAccount(friend)}
+                className="text-[10px] font-bold text-indigo-600 hover:underline"
+              >
+                Change
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between px-1">
+              <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
+                Offline Friend
+              </span>
+              <button
+                onClick={() => onLinkAccount(friend)}
+                className="flex items-center gap-1 text-[11px] font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50/70 hover:bg-indigo-100 px-2.5 py-0.5 rounded-lg transition-colors border border-indigo-100"
+              >
+                <Link2 className="w-3 h-3" />
+                <span>Link Account</span>
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Balance Status Box */}
         <div className={`rounded-2xl p-3.5 sm:p-4 mb-3 border transition-all ${
           isOwed
             ? 'bg-[#eefbf5] border-[#d1f2e1] text-emerald-950'
@@ -211,4 +301,3 @@ export default function FriendCard({
     </div>
   );
 }
-

@@ -82,8 +82,8 @@ export const AuthProvider = ({ children }) => {
     return userData;
   };
 
-  const register = async (name, email, pin, currency = '₹') => {
-    const res = await api.post('/auth/register', { name, email, pin, currency });
+  const register = async (name, username, email, pin, currency = '₹') => {
+    const res = await api.post('/auth/register', { name, username, email, pin, currency });
     const { user: userData, token: newToken } = res.data;
     localStorage.setItem('money_tracker_token', newToken);
     sessionStorage.setItem('first_load_after_login', 'true');

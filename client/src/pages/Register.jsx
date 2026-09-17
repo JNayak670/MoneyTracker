@@ -6,6 +6,7 @@ import {
   Lock, 
   Mail, 
   User, 
+  AtSign,
   ArrowRight, 
   Share2, 
   Eye, 
@@ -16,9 +17,11 @@ import {
   Receipt, 
   Shield
 } from 'lucide-react';
+import api from '../services/api';
 
 export default function Register() {
   const [name, setName] = useState('');
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [pin, setPin] = useState('');
   const [showPin, setShowPin] = useState(false);
@@ -40,7 +43,7 @@ export default function Register() {
     setLoading(true);
 
     try {
-      await register(name, email, pin, '₹');
+      await register(name, username, email, pin, '₹');
       navigate('/');
     } catch (err) {
       setError(err.message || 'Registration failed. Please check your details and try again.');
@@ -246,6 +249,30 @@ export default function Register() {
                       placeholder="e.g. Rahul Sharma"
                       className="w-full bg-slate-50/80 border border-slate-200 rounded-xl pl-11 sm:pl-12 pr-4 py-2 sm:py-2.5 text-xs sm:text-sm text-slate-900 placeholder-slate-400 font-medium focus:bg-white focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/15 transition-all shadow-2xs"
                       required
+                    />
+                  </div>
+                </div>
+
+                {/* Unique Username Field */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1 flex items-center justify-between">
+                    <span>Unique Username</span>
+                    <span className="text-[10px] sm:text-[11px] text-purple-600 font-semibold lowercase">For friend linking</span>
+                  </label>
+                  <div className="relative">
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2 w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-600">
+                      <AtSign className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    </div>
+                    <input
+                      type="text"
+                      autoComplete="username"
+                      value={username}
+                      onChange={(e) => {
+                        setUsername(e.target.value.replace(/\s+/g, '').toLowerCase());
+                        if (error) setError('');
+                      }}
+                      placeholder="e.g. rahul123 or amit456"
+                      className="w-full bg-slate-50/80 border border-slate-200 rounded-xl pl-11 sm:pl-12 pr-4 py-2 sm:py-2.5 text-xs sm:text-sm text-slate-900 placeholder-slate-400 font-bold focus:bg-white focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/15 transition-all shadow-2xs"
                     />
                   </div>
                 </div>

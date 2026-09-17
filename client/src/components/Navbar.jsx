@@ -3,6 +3,8 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import ChangePinModal from './ChangePinModal';
 import SearchModal from './SearchModal';
+import NotificationDrawer from './NotificationDrawer';
+import ShareHistoryModal from './ShareHistoryModal';
 import AppLogo from './AppLogo';
 import { 
   Users, 
@@ -18,18 +20,44 @@ import {
   KeyRound,
   Shield,
   ChevronDown,
-  Search
+  Search,
+  Bell,
+  AtSign
 } from 'lucide-react';
+import api from '../services/api';
 
-export default function Navbar({ onOpenAddModal, onViewFriend }) {
+export default function Navbar({ onOpenAddModal, onViewFriend, onDataChanged }) {
   const { user, logout } = useAuth();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [pinModalOpen, setPinModalOpen] = useState(false);
   const [searchModalOpen, setSearchModalOpen] = useState(false);
+  const [notifDrawerOpen, setNotifDrawerOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // Share history modal state (when user clicks connect from notification)
+  const [shareHistoryModalOpen, setShareHistoryModalOpen] = useState(false);
+  const [shareHistoryFriend, setShareHistoryFriend] = useState(null);
+  const [shareHistoryTxs, setShareHistoryTxs] = useState([]);
 
   const profileRef = useRef(null);
+
+  // Poll for notifications every 30 seconds
+  const fetchUnreadCount = async () => {
+    try {
+      const res = await api.get('/notifications');
+      setUnreadCount(res.data?.unreadCount || 0);
+    } catch (err) {
+      // ignore silent fetch failure
+    }
+  };
+
+  useEffect(() => {
+    fetchUnreadCount();
+    const interval = setInterval(fetchUnreadCount, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Close profile dropdown when clicking outside
   useEffect(() => {
@@ -90,6 +118,23 @@ export default function Navbar({ onOpenAddModal, onViewFriend }) {
 
             {/* Right Action Buttons */}
             <div className="flex items-center gap-2 sm:gap-3">
+              {/* Notification Bell Button */}
+              <button
+                onClick={() => {
+                  setNotifDrawerOpen(true);
+                  fetchUnreadCount();
+                }}
+                className="relative p-2 rounded-xl text-slate-600 hover:text-purple-600 hover:bg-purple-50 transition-colors"
+                title="Notifications"
+              >
+                <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-rose-500 text-white font-black text-[9px] flex items-center justify-center animate-pulse shadow-xs">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </button>
+
               <button
                 onClick={onOpenAddModal}
                 className="hidden sm:flex items-center gap-1.5 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-700 hover:to-pink-700 text-white text-xs font-black px-4 py-2 rounded-xl shadow-md shadow-indigo-500/25 hover:shadow-lg hover:-translate-y-0.5 transition-all"
@@ -116,6 +161,9 @@ export default function Navbar({ onOpenAddModal, onViewFriend }) {
                   <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-2xl border border-slate-200 py-2 z-50 animate-fadeIn divide-y divide-slate-100">
                     <div className="px-4 py-2.5">
                       <p className="text-xs font-black text-slate-900 truncate">{user?.name || 'Demo Account'}</p>
+                      {user?.username && (
+                        <p className="text-[11px] font-bold text-purple-600 truncate">@{user.username}</p>
+                      )}
                       <p className="text-[11px] text-slate-500 truncate">{user?.email || 'user@example.com'}</p>
                       <span className="inline-block mt-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
                         🇮🇳 Indian Rupee (₹)
@@ -245,6 +293,39 @@ export default function Navbar({ onOpenAddModal, onViewFriend }) {
           if (onViewFriend) onViewFriend(id);
         }}
         onOpenAddTx={onOpenAddModal}
+      />
+
+      {/* Real-time Notification Drawer */}
+      <NotificationDrawer
+        isOpen={notifDrawerOpen}
+        onClose={() => {
+          setNotifDrawerOpen(false);
+          fetchUnreadCount();
+        }}
+        onOpenShareHistory={(friendObj, txs) => {
+          setShareHistoryFriend(friendObj);
+          setShareHistoryTxs(txs || []);
+          setShareHistoryModalOpen(true);
+        }}
+        onDataChanged={() => {
+          fetchUnreadCount();
+          if (onDataChanged) onDataChanged();
+        }}
+      />
+
+      {/* Historical Transaction Sharing Modal */}
+      <ShareHistoryModal
+        isOpen={shareHistoryModalOpen}
+        onClose={() => {
+          setShareHistoryModalOpen(false);
+          setShareHistoryFriend(null);
+          setShareHistoryTxs([]);
+        }}
+        friend={shareHistoryFriend}
+        transactions={shareHistoryTxs}
+        onComplete={() => {
+          if (onDataChanged) onDataChanged();
+        }}
       />
     </>
   );

@@ -260,27 +260,41 @@ export default function Transactions({ onOpenAddTx }) {
                       </td>
 
                       <td className="px-5 py-4">
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg font-black text-[11px] border ${
-                          isSettled
-                            ? 'bg-cyan-50 text-cyan-700 border-cyan-200'
-                            : isGiven
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                            : 'bg-rose-50 text-rose-700 border-rose-200'
-                        }`}>
-                          {isSettled ? (
-                            <span>🤝 Settled</span>
-                          ) : isGiven ? (
-                            <>
-                              <ArrowUpRight className="w-3.5 h-3.5 text-emerald-600" />
-                              <span>↗️ Lent</span>
-                            </>
-                          ) : (
-                            <>
-                              <ArrowDownLeft className="w-3.5 h-3.5 text-rose-600" />
-                              <span>↙️ Borrowed</span>
-                            </>
+                        <div className="flex flex-col gap-1 items-start">
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg font-black text-[11px] border ${
+                            isSettled
+                              ? 'bg-cyan-50 text-cyan-700 border-cyan-200'
+                              : isGiven
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              : 'bg-rose-50 text-rose-700 border-rose-200'
+                          }`}>
+                            {isSettled ? (
+                              <span>🤝 Settled</span>
+                            ) : isGiven ? (
+                              <>
+                                <ArrowUpRight className="w-3.5 h-3.5 text-emerald-600" />
+                                <span>↗️ Lent</span>
+                              </>
+                            ) : (
+                              <>
+                                <ArrowDownLeft className="w-3.5 h-3.5 text-rose-600" />
+                                <span>↙️ Borrowed</span>
+                              </>
+                            )}
+                          </span>
+
+                          {t.approvalStatus === 'PENDING' && (
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                              ⏳ Pending Approval
+                            </span>
                           )}
-                        </span>
+
+                          {t.isShared && t.approvalStatus !== 'PENDING' && (
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                              🔗 2-Way Synced
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                       <td className="px-5 py-4 max-w-xs">

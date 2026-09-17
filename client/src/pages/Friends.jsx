@@ -5,6 +5,8 @@ import FriendCard from '../components/FriendCard';
 import SettleModal from '../components/SettleModal';
 import WhatsAppModal from '../components/WhatsAppModal';
 import ShareCodeModal from '../components/ShareCodeModal';
+import LinkAccountModal from '../components/LinkAccountModal';
+import ShareHistoryModal from '../components/ShareHistoryModal';
 import ColorfulLoader from '../components/ColorfulLoader';
 import { printFriendStatement } from '../services/exportService';
 import { 
@@ -18,7 +20,12 @@ import {
   MessageSquare,
   ArrowUpRight,
   ArrowDownLeft,
-  Share2
+  Share2,
+  Link2,
+  AtSign,
+  ShieldCheck,
+  Zap,
+  Clock
 } from 'lucide-react';
 
 export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, onCloseFriendModal, historyFriendId, onCloseHistory }) {
@@ -36,6 +43,7 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
   const [currentEditingFriend, setCurrentEditingFriend] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
+    username: '',
     phone: '',
     email: '',
     relationshipTag: 'Friend',
@@ -48,6 +56,8 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
   const [settleModal, setSettleModal] = useState({ open: false, friendId: '', friendName: '', amount: 0 });
   const [whatsappModal, setWhatsappModal] = useState({ open: false, friendName: '', amount: 0, phone: '' });
   const [shareModal, setShareModal] = useState({ open: false, friendId: '', friendName: '' });
+  const [linkModal, setLinkModal] = useState({ open: false, friend: null });
+  const [shareHistoryModal, setShareHistoryModal] = useState({ open: false, friend: null, transactions: [] });
 
   const fetchFriends = async (showLoading = true) => {
     try {
@@ -113,6 +123,7 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
     setCurrentEditingFriend(null);
     setFormData({
       name: '',
+      username: '',
       phone: '',
       email: '',
       relationshipTag: 'Friend',
@@ -127,6 +138,7 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
     setCurrentEditingFriend(friend);
     setFormData({
       name: friend.name || '',
+      username: friend.pendingUsername || friend.connectedUser?.username || '',
       phone: friend.phone || '',
       email: friend.email || '',
       relationshipTag: friend.relationshipTag || 'Friend',
@@ -135,6 +147,19 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
       notes: friend.notes || ''
     });
     setFriendModalOpen(true);
+  };
+
+  const handleTogglePermission = async (friend) => {
+    const nextPerm = friend.permission === 'AUTHORIZED' ? 'NORMAL' : 'AUTHORIZED';
+    try {
+      await api.put(`/friends/${friend.id}/permission`, { permission: nextPerm });
+      await fetchFriends(false);
+      if (activeLedger?.friend?.id === friend.id) {
+        await loadFriendLedger(friend.id, false);
+      }
+    } catch (err) {
+      alert(err.message || 'Failed to update permission');
+    }
   };
 
   const handleCloseFriendModal = () => {
@@ -150,7 +175,10 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
       if (editId) {
         await api.put(`/friends/${editId}`, formData);
       } else {
-        await api.post('/friends', formData);
+        const res = await api.post('/friends', formData);
+        if (res.data?.matchedUser) {
+          // Open share history modal if requested
+        }
       }
       handleCloseFriendModal();
       await fetchFriends();
@@ -303,6 +331,8 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
               onShareCode={(id, name) => setShareModal({ open: true, friendId: id, friendName: name })}
               onEdit={(f) => handleOpenEditModal(f)}
               onDelete={handleDeleteFriend}
+              onLinkAccount={(f) => setLinkModal({ open: true, friend: f })}
+              onTogglePermission={handleTogglePermission}
             />
           ))}
         </div>
@@ -496,6 +526,20 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
                 />
               </div>
 
+              <div>
+                <label className="block text-[11px] sm:text-xs font-bold text-slate-700 uppercase tracking-wider mb-1 flex items-center justify-between">
+                  <span>MoneyTracker @Username (Optional)</span>
+                  <span className="text-[10px] text-purple-600 font-semibold lowercase">For account linking</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.username}
+                  onChange={(e) => setFormData({ ...formData, username: e.target.value.replace(/\s+/g, '').toLowerCase() })}
+                  placeholder="e.g. amit456 (Leave blank if offline friend)"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-slate-900 placeholder-slate-400 font-bold focus:bg-white focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20"
+                />
+              </div>
+
               <div className="grid grid-cols-1 xs:grid-cols-2 gap-2.5 sm:gap-3">
                 <div>
                   <label className="block text-[11px] sm:text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
@@ -615,6 +659,36 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
         onClose={() => setShareModal({ open: false, friendId: '', friendName: '' })}
         friendId={shareModal.friendId}
         friendName={shareModal.friendName}
+      />
+
+      {/* Link Account Modal */}
+      <LinkAccountModal
+        isOpen={linkModal.open}
+        onClose={() => setLinkModal({ open: false, friend: null })}
+        friend={linkModal.friend}
+        onUpdated={() => {
+          fetchFriends(false);
+          if (activeLedger) loadFriendLedger(activeLedger.friend.id, false);
+        }}
+        onOpenShareHistory={(friendObj, txs) => {
+          setShareHistoryModal({
+            open: true,
+            friend: friendObj,
+            transactions: txs || []
+          });
+        }}
+      />
+
+      {/* Share History Modal */}
+      <ShareHistoryModal
+        isOpen={shareHistoryModal.open}
+        onClose={() => setShareHistoryModal({ open: false, friend: null, transactions: [] })}
+        friend={shareHistoryModal.friend}
+        transactions={shareHistoryModal.transactions}
+        onComplete={() => {
+          fetchFriends(false);
+          if (activeLedger) loadFriendLedger(activeLedger.friend.id, false);
+        }}
       />
 
     </div>

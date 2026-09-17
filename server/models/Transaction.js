@@ -45,6 +45,25 @@ const transactionSchema = new mongoose.Schema({
     type: String,
     default: 'COMPLETED'
   },
+  sharedWithUserId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  approvalStatus: {
+    type: String,
+    enum: ['ACTIVE', 'PENDING_APPROVAL', 'REJECTED'],
+    default: 'ACTIVE'
+  },
+  linkedTransactionId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Transaction',
+    default: null
+  },
+  isShared: {
+    type: Boolean,
+    default: false
+  },
   receiptNote: String,
   splitGroupId: String
 }, {

@@ -1,0 +1,93 @@
+const { Notification } = require('../db');
+
+// @route   GET /api/notifications
+// @desc    Get all notifications for logged-in user with unread count
+exports.getNotifications = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const notifications = await Notification.find({ userId })
+      .sort({ createdAt: -1 })
+      .limit(50);
+
+    const unreadCount = await Notification.countDocuments({ userId, isRead: false });
+
+    res.json({
+      success: true,
+      data: {
+        notifications,
+        unreadCount
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+// @route   PUT /api/notifications/:id/read
+// @desc    Mark single notification as read
+exports.markAsRead = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const id = req.params.id;
+
+    const notif = await Notification.findOneAndUpdate(
+      { _id: id, userId },
+      { isRead: true },
+      { new: true }
+    );
+
+    if (!notif) {
+      return res.status(404).json({ success: false, error: 'Notification not found' });
+    }
+
+    const unreadCount = await Notification.countDocuments({ userId, isRead: false });
+
+    res.json({
+      success: true,
+      data: notif,
+      unreadCount
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+// @route   PUT /api/notifications/read-all
+// @desc    Mark all notifications as read
+exports.markAllAsRead = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    await Notification.updateMany({ userId, isRead: false }, { isRead: true });
+
+    res.json({
+      success: true,
+      message: 'All notifications marked as read',
+      unreadCount: 0
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+// @route   DELETE /api/notifications/:id
+// @desc    Delete notification
+exports.deleteNotification = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const id = req.params.id;
+
+    await Notification.deleteOne({ _id: id, userId });
+
+    const unreadCount = await Notification.countDocuments({ userId, isRead: false });
+
+    res.json({
+      success: true,
+      message: 'Notification deleted',
+      unreadCount
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};

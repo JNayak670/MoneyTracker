@@ -5,13 +5,17 @@ const {
   createTransaction,
   updateTransaction,
   deleteTransaction,
-  settleUp
+  settleUp,
+  approveTransaction,
+  rejectTransaction
 } = require('../controllers/transactionController');
 const { protect } = require('../middleware/authMiddleware');
 
 router.use(protect);
 
 router.post('/settle', settleUp);
+router.post('/:id/approve', approveTransaction);
+router.post('/:id/reject', rejectTransaction);
 
 router.route('/')
   .get(getTransactions)

@@ -20,6 +20,7 @@ const Friend = require('./models/Friend');
 const Transaction = require('./models/Transaction');
 const ShareCode = require('./models/ShareCode');
 const AdminSetting = require('./models/AdminSetting');
+const Notification = require('./models/Notification');
 
 module.exports = {
   connectDB,
@@ -27,5 +28,6 @@ module.exports = {
   Friend,
   Transaction,
   ShareCode,
-  AdminSetting
+  AdminSetting,
+  Notification
 };

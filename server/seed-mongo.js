@@ -15,12 +15,14 @@ async function seed(exitOnComplete = true) {
   if (!demoUser) {
     demoUser = await User.create({
       name: 'Demo Account',
+      username: 'demo',
       email,
       pin: hashedPin,
       currency: '₹'
     });
-    console.log(`Created demo user: ${demoUser.email} (PIN: 1234)`);
+    console.log(`Created demo user: ${demoUser.email} (PIN: 1234, Username: @demo)`);
   } else {
+    demoUser.username = 'demo';
     demoUser.pin = hashedPin;
     await demoUser.save();
     // Clear old transactions & friends for demo user

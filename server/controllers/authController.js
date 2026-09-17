@@ -1,17 +1,45 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { User } = require('../db');
+const { User, Friend, Notification } = require('../db');
 const { JWT_SECRET } = require('../middleware/authMiddleware');
 
 function generateToken(id, expiresIn = '30d') {
   return jwt.sign({ id }, JWT_SECRET, { expiresIn });
 }
 
+// @route   GET /api/auth/check-username
+// @desc    Check if a username is available
+exports.checkUsername = async (req, res) => {
+  try {
+    const rawUsername = (req.query.username || '').replace(/^@/, '').toLowerCase().trim();
+    if (!rawUsername) {
+      return res.status(400).json({ success: false, error: 'Username is required' });
+    }
+    if (!/^[a-zA-Z0-9_]{3,20}$/.test(rawUsername)) {
+      return res.status(400).json({
+        success: false,
+        available: false,
+        error: 'Username must be 3-20 letters, numbers, or underscores.'
+      });
+    }
+
+    const existing = await User.findOne({ username: rawUsername });
+    res.json({
+      success: true,
+      available: !existing,
+      username: rawUsername,
+      message: existing ? 'Username is already taken' : 'Username is available'
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
 // @route   POST /api/auth/register
-// @desc    Register a new user with PIN
+// @desc    Register a new user with PIN & optional unique @username
 exports.register = async (req, res) => {
   try {
-    const { name, email, pin, password, currency = '₹' } = req.body;
+    const { name, username, email, pin, password, currency = '₹' } = req.body;
     const rawPin = (pin || password || '').toString().trim();
 
     if (!name || !email || !rawPin) {
@@ -38,15 +66,81 @@ exports.register = async (req, res) => {
       });
     }
 
+    // Process & validate username
+    let cleanUsername = null;
+    if (username && username.trim()) {
+      cleanUsername = username.replace(/^@/, '').toLowerCase().trim();
+      if (!/^[a-zA-Z0-9_]{3,20}$/.test(cleanUsername)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Username must be 3 to 20 letters, numbers, or underscores (e.g. amit456).'
+        });
+      }
+      const existingUser = await User.findOne({ username: cleanUsername });
+      if (existingUser) {
+        return res.status(400).json({
+          success: false,
+          error: `Username @${cleanUsername} is already taken. Please choose another.`
+        });
+      }
+    } else {
+      // Auto-generate a fallback unique username from email/name
+      const base = cleanEmail.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '').slice(0, 15) || 'user';
+      let candidate = base;
+      let counter = 1;
+      while (await User.findOne({ username: candidate })) {
+        candidate = `${base}${counter}`;
+        counter++;
+      }
+      cleanUsername = candidate;
+    }
+
     const salt = await bcrypt.genSalt(10);
     const hashedPin = await bcrypt.hash(rawPin, salt);
 
     const user = await User.create({
       name: name.trim(),
+      username: cleanUsername,
       email: cleanEmail,
       pin: hashedPin,
       currency
     });
+
+    // -------------------------------------------------------------
+    // AUTOMATIC MATCH DETECTION
+    // Check if any existing users had saved this username for an offline friend
+    // -------------------------------------------------------------
+    try {
+      const matchingFriends = await Friend.find({
+        pendingUsername: cleanUsername,
+        connectedUserId: null
+      });
+
+      for (const f of matchingFriends) {
+        // Prevent user matching themselves if edge case
+        if (f.userId.toString() === user.id) continue;
+
+        f.connectionStatus = 'PENDING_MATCH';
+        f.connectedUserId = user._id;
+        await f.save();
+
+        // Create notification for Rahul (the friend list owner)
+        await Notification.create({
+          userId: f.userId,
+          type: 'USERNAME_MATCH',
+          title: `🔔 ${user.name} joined MoneyTracker!`,
+          message: `${user.name} registered with @${cleanUsername}. Connect accounts to manage shared transactions?`,
+          data: {
+            friendId: f._id,
+            connectedUserId: user._id,
+            username: cleanUsername,
+            friendName: f.name
+          }
+        });
+      }
+    } catch (matchErr) {
+      console.warn('⚠️ Match detection warning:', matchErr.message);
+    }
 
     const token = generateToken(user.id, '30d');
 
@@ -57,6 +151,7 @@ exports.register = async (req, res) => {
         user: {
           id: user.id,
           name: user.name,
+          username: user.username,
           email: user.email,
           currency: user.currency
         },
@@ -160,6 +255,7 @@ exports.login = async (req, res) => {
         user: {
           id: user.id,
           name: user.name,
+          username: user.username,
           email: user.email,
           currency: user.currency,
           isDemo,
@@ -183,6 +279,7 @@ exports.getMe = async (req, res) => {
       data: {
         id: req.user.id,
         name: req.user.name,
+        username: req.user.username,
         email: req.user.email,
         currency: req.user.currency,
         isDemo
@@ -194,10 +291,10 @@ exports.getMe = async (req, res) => {
 };
 
 // @route   PUT /api/auth/settings
-// @desc    Update user profile & currency
+// @desc    Update user profile, username & currency
 exports.updateSettings = async (req, res) => {
   try {
-    const { name, currency } = req.body;
+    const { name, username, currency } = req.body;
     const user = await User.findById(req.user.id);
     if (!user) {
       return res.status(404).json({ success: false, error: 'User not found' });
@@ -205,6 +302,27 @@ exports.updateSettings = async (req, res) => {
 
     if (name) user.name = name.trim();
     if (currency) user.currency = currency;
+
+    if (username && username.trim()) {
+      const cleanUsername = username.replace(/^@/, '').toLowerCase().trim();
+      if (!/^[a-zA-Z0-9_]{3,20}$/.test(cleanUsername)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Username must be 3 to 20 letters, numbers, or underscores.'
+        });
+      }
+      if (cleanUsername !== user.username) {
+        const existing = await User.findOne({ username: cleanUsername });
+        if (existing) {
+          return res.status(400).json({
+            success: false,
+            error: `Username @${cleanUsername} is already taken.`
+          });
+        }
+        user.username = cleanUsername;
+      }
+    }
+
     await user.save();
 
     res.json({
@@ -213,6 +331,7 @@ exports.updateSettings = async (req, res) => {
       data: {
         id: user.id,
         name: user.name,
+        username: user.username,
         email: user.email,
         currency: user.currency,
         isDemo: user.email === 'demo@moneytracker.com'

@@ -215,11 +215,55 @@ export default function TransactionForm({ isOpen, onClose, onSave, friends = [],
                 >
                   <option value="">-- Choose a friend --</option>
                   {friends.map(f => (
-                    <option key={f.id} value={f.id}>
-                      {f.name} ({f.relationshipTag || 'Friend'}) {f.currentBalance > 0 ? `[Owes ${f.currentBalance}]` : f.currentBalance < 0 ? `[You owe ${Math.abs(f.currentBalance)}]` : '[Settled]'}
+                    <option key={f.id || f._id} value={f.id || f._id}>
+                      {f.name} {f.connectionStatus === 'CONNECTED' ? `(@${f.connectedUserId?.username || f.pendingUsername || 'connected'})` : ''} ({f.relationshipTag || 'Friend'}) {f.currentBalance > 0 ? `[Owes ₹${f.currentBalance}]` : f.currentBalance < 0 ? `[You owe ₹${Math.abs(f.currentBalance)}]` : '[Settled]'}
                     </option>
                   ))}
                 </select>
+
+                {(() => {
+                  const selFriend = friends.find(f => (f.id || f._id) === friendId);
+                  if (!selFriend) return null;
+
+                  if (selFriend.connectionStatus === 'CONNECTED') {
+                    const isAuth = selFriend.permission === 'AUTHORIZED';
+                    return (
+                      <div className={`mt-2 p-2.5 rounded-xl border text-xs flex items-center gap-2 ${
+                        isAuth 
+                          ? 'bg-emerald-50 border-emerald-200 text-emerald-800' 
+                          : 'bg-amber-50 border-amber-200 text-amber-800'
+                      }`}>
+                        <span className="text-base">{isAuth ? '⚡' : '⏳'}</span>
+                        <div className="flex-1">
+                          <p className="font-bold">
+                            {isAuth ? 'Instant 2-Way Sync Active' : 'Friend Approval Required (Normal Mode)'}
+                          </p>
+                          <p className="text-[11px] opacity-90">
+                            {isAuth 
+                              ? `Will automatically reflect on @${selFriend.connectedUserId?.username || selFriend.name}'s MoneyTracker balance.`
+                              : `A request will be sent to @${selFriend.connectedUserId?.username || selFriend.name} to approve before it affects their ledger.`}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  if (selFriend.pendingUsername) {
+                    return (
+                      <div className="mt-2 p-2 rounded-xl bg-slate-100 border border-slate-200 text-slate-700 text-xs flex items-center gap-2">
+                        <span>🏷️</span>
+                        <span>Pending username <strong>@{selFriend.pendingUsername}</strong>. Transactions recorded locally until they register.</span>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="mt-2 text-[11px] text-slate-500 flex items-center gap-1">
+                      <span>👤</span>
+                      <span>Offline Friend (tracked only on your device).</span>
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Type Switcher (Given vs Received) */}

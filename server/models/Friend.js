@@ -25,6 +25,31 @@ const friendSchema = new mongoose.Schema({
     type: String,
     default: 'Friend'
   },
+  pendingUsername: {
+    type: String,
+    lowercase: true,
+    trim: true,
+    default: null
+  },
+  connectedUserId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  connectionStatus: {
+    type: String,
+    enum: ['OFFLINE', 'PENDING_MATCH', 'REQUEST_SENT', 'REQUEST_RECEIVED', 'CONNECTED'],
+    default: 'OFFLINE'
+  },
+  permission: {
+    type: String,
+    enum: ['NORMAL', 'AUTHORIZED'],
+    default: 'NORMAL'
+  },
+  linkedAt: {
+    type: Date,
+    default: null
+  },
   notes: String
 }, {
   timestamps: true,
