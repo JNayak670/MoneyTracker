@@ -73,8 +73,10 @@ export default function Dashboard({ onOpenAddTx, onOpenAddFriend, onViewFriendHi
         api.get('/friends'),
         delay > 0 ? new Promise(resolve => setTimeout(resolve, delay)) : Promise.resolve()
       ]);
-      setSummary(sumRes.data);
-      setFriends(friendsRes.data);
+      const sumData = sumRes?.data !== undefined ? sumRes.data : sumRes;
+      const fList = Array.isArray(friendsRes) ? friendsRes : (friendsRes?.data || []);
+      setSummary(sumData);
+      setFriends(Array.isArray(fList) ? fList : []);
       if (isFirstLogin) {
         sessionStorage.removeItem('first_load_after_login');
       }

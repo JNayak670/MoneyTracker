@@ -16,7 +16,26 @@ import TransactionForm from './components/TransactionForm';
 import ColorfulLoader from './components/ColorfulLoader';
 import api from './services/api';
 
-function AppLayout() {
+function AppLayout({ children, onOpenAddTx, onViewFriendHistory }) {
+  return (
+    <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 pb-20 sm:pb-8">
+      <Navbar 
+        onOpenAddModal={() => onOpenAddTx('')} 
+        onViewFriend={onViewFriendHistory}
+      />
+      
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+        {children}
+      </main>
+
+      {/* Mobile Fixed Bottom Navigation Bar */}
+      <BottomNav />
+    </div>
+  );
+}
+
+function MainApp() {
+  const { user, loading } = useAuth();
   const [addTxModalOpen, setAddTxModalOpen] = useState(false);
   const [preselectedFriendId, setPreselectedFriendId] = useState('');
   const [friendsList, setFriendsList] = useState([]);
@@ -30,15 +49,18 @@ function AppLayout() {
   const fetchFriends = async () => {
     try {
       const res = await api.get('/friends');
-      setFriendsList(res.data);
+      const list = Array.isArray(res) ? res : (res?.data || []);
+      setFriendsList(Array.isArray(list) ? list : []);
     } catch (err) {
-      console.error(err);
+      console.error('Failed to load friends in App:', err);
     }
   };
 
   useEffect(() => {
-    fetchFriends();
-  }, [addTxModalOpen]);
+    if (user) {
+      fetchFriends();
+    }
+  }, [user, addTxModalOpen]);
 
   const handleOpenAddTx = (friendId = '') => {
     setPreselectedFriendId(friendId);
@@ -66,118 +88,118 @@ function AppLayout() {
     navigate('/friends');
   };
 
-  return (
-    <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 pb-20 sm:pb-8">
-      <Navbar 
-        onOpenAddModal={() => handleOpenAddTx('')} 
-        onViewFriend={handleViewFriendHistory}
-      />
-      
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
-        <Routes>
-          <Route 
-            path="/" 
-            element={
-              <Dashboard 
-                onOpenAddTx={handleOpenAddTx} 
-                onOpenAddFriend={() => handleOpenAddFriend(null)}
-                onViewFriendHistory={handleViewFriendHistory}
-              />
-            } 
-          />
-          <Route 
-            path="/friends" 
-            element={
-              <Friends 
-                onOpenAddTx={handleOpenAddTx}
-                editingFriend={editingFriend}
-                onOpenAddFriend={handleOpenAddFriend}
-                onCloseFriendModal={() => setEditingFriend(null)}
-                historyFriendId={historyFriendId}
-                onCloseHistory={() => setHistoryFriendId(null)}
-              />
-            } 
-          />
-          <Route 
-            path="/transactions" 
-            element={<Transactions onOpenAddTx={() => handleOpenAddTx('')} />} 
-          />
-          <Route 
-            path="/analytics" 
-            element={<Analytics />} 
-          />
-          <Route 
-            path="/share" 
-            element={<SharedLedger />} 
-          />
-          <Route 
-            path="/share/:code" 
-            element={<SharedLedger />} 
-          />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </main>
-
-      {/* Mobile Fixed Bottom Navigation Bar */}
-      <BottomNav />
-
-      {/* Global Add Transaction Modal */}
-      <TransactionForm
-        isOpen={addTxModalOpen}
-        onClose={() => setAddTxModalOpen(false)}
-        onSave={handleSaveTransaction}
-        friends={friendsList}
-        preselectedFriendId={preselectedFriendId}
-        onOpenAddFriend={() => {
-          setAddTxModalOpen(false);
-          handleOpenAddFriend(null);
-        }}
-      />
-    </div>
-  );
-}
-
-function MainRouter() {
-  const { user, loading } = useAuth();
-  const location = useLocation();
-
   if (loading) {
     return <ColorfulLoader fullScreen={true} message="Initializing MoneyTracker..." submessage="Restoring session & securing ledger connections..." />;
   }
 
-  // 1. Authenticated User -> Render full AppLayout with Navbar & active route
-  if (user) {
-    return <AppLayout />;
-  }
+  return (
+    <>
+      <Routes>
+        {/* Public Landing or Dashboard based on Auth */}
+        <Route 
+          path="/" 
+          element={
+            user ? (
+              <AppLayout onOpenAddTx={handleOpenAddTx} onViewFriendHistory={handleViewFriendHistory}>
+                <Dashboard 
+                  onOpenAddTx={handleOpenAddTx} 
+                  onOpenAddFriend={() => handleOpenAddFriend(null)}
+                  onViewFriendHistory={handleViewFriendHistory}
+                />
+              </AppLayout>
+            ) : (
+              <Landing />
+            )
+          } 
+        />
 
-  // 2. Unauthenticated visitor accessing /share or /share/:code -> Render public SharedLedger
-  if (location.pathname.startsWith('/share')) {
-    return <SharedLedger />;
-  }
+        {/* Friends Route */}
+        <Route 
+          path="/friends" 
+          element={
+            user ? (
+              <AppLayout onOpenAddTx={handleOpenAddTx} onViewFriendHistory={handleViewFriendHistory}>
+                <Friends 
+                  onOpenAddTx={handleOpenAddTx}
+                  editingFriend={editingFriend}
+                  onOpenAddFriend={handleOpenAddFriend}
+                  onCloseFriendModal={() => setEditingFriend(null)}
+                  historyFriendId={historyFriendId}
+                  onCloseHistory={() => setHistoryFriendId(null)}
+                />
+              </AppLayout>
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          } 
+        />
 
-  // 3. Unauthenticated visitor on root "/" -> Render colorful Landing Page
-  if (location.pathname === '/' || location.pathname === '') {
-    return <Landing />;
-  }
+        {/* Transactions Route */}
+        <Route 
+          path="/transactions" 
+          element={
+            user ? (
+              <AppLayout onOpenAddTx={handleOpenAddTx} onViewFriendHistory={handleViewFriendHistory}>
+                <Transactions onOpenAddTx={() => handleOpenAddTx('')} />
+              </AppLayout>
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          } 
+        />
 
-  // 4. Otherwise redirect unknown unauthenticated paths to landing page "/"
-  return <Navigate to="/" replace />;
+        {/* Analytics Route */}
+        <Route 
+          path="/analytics" 
+          element={
+            user ? (
+              <AppLayout onOpenAddTx={handleOpenAddTx} onViewFriendHistory={handleViewFriendHistory}>
+                <Analytics />
+              </AppLayout>
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          } 
+        />
+
+        {/* Public Share Statement Routes */}
+        <Route path="/share" element={<SharedLedger />} />
+        <Route path="/share/:code" element={<SharedLedger />} />
+
+        {/* Auth Routes */}
+        <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
+        <Route path="/register" element={user ? <Navigate to="/" replace /> : <Register />} />
+
+        {/* Dedicated Independent Admin Portal (Protected by Gmail & Passkey) */}
+        <Route path="/admin" element={<Admin />} />
+
+        {/* Fallback Catch-all Route */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+
+      {/* Global Add Transaction Modal */}
+      {user && (
+        <TransactionForm
+          isOpen={addTxModalOpen}
+          onClose={() => setAddTxModalOpen(false)}
+          onSave={handleSaveTransaction}
+          friends={friendsList}
+          preselectedFriendId={preselectedFriendId}
+          onOpenAddFriend={() => {
+            setAddTxModalOpen(false);
+            handleOpenAddFriend(null);
+          }}
+        />
+      )}
+    </>
+  );
 }
 
 export default function App() {
   return (
     <AuthProvider>
       <Router>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          
-          {/* Dedicated Independent Admin Portal (Protected by Gmail & Passkey) */}
-          <Route path="/admin" element={<Admin />} />
-          
-          {/* Universal Main Router for App & Public Share */}
-          <Route path="/*" element={<MainRouter />} />
-        </Routes>
+        <MainApp />
       </Router>
     </AuthProvider>
   );

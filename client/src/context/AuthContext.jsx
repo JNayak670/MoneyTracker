@@ -19,10 +19,11 @@ export const AuthProvider = ({ children }) => {
       try {
         const [res] = await Promise.all([
           api.get('/auth/me'),
-          isFirstInit ? new Promise(resolve => setTimeout(resolve, 1400)) : Promise.resolve()
+          isFirstInit ? new Promise(resolve => setTimeout(resolve, 800)) : Promise.resolve()
         ]);
         sessionStorage.setItem('session_initialized', 'true');
-        setUser(res.data);
+        const userData = res?.data !== undefined ? res.data : (res?.user || res);
+        setUser(userData);
       } catch (err) {
         console.error('Failed to load user profile:', err);
         setToken(null);
@@ -69,7 +70,9 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, pin) => {
     const res = await api.post('/auth/login', { email, pin });
-    const { user: userData, token: newToken } = res.data;
+    const payload = res?.data !== undefined ? res.data : res;
+    const userData = payload.user || payload.data || payload;
+    const newToken = payload.token || res.token;
     localStorage.setItem('money_tracker_token', newToken);
     sessionStorage.setItem('first_load_after_login', 'true');
     if (userData.email === 'demo@moneytracker.com') {
@@ -84,7 +87,9 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (name, username, email, pin, currency = '₹') => {
     const res = await api.post('/auth/register', { name, username, email, pin, currency });
-    const { user: userData, token: newToken } = res.data;
+    const payload = res?.data !== undefined ? res.data : res;
+    const userData = payload.user || payload.data || payload;
+    const newToken = payload.token || res.token;
     localStorage.setItem('money_tracker_token', newToken);
     sessionStorage.setItem('first_load_after_login', 'true');
     localStorage.removeItem('demo_login_time');

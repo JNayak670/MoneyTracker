@@ -70,13 +70,15 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
   const fetchFriends = async (showLoading = true) => {
     try {
       if (showLoading) setLoading(true);
-       const [res] = await Promise.all([
+      const [res] = await Promise.all([
         api.get('/friends'),
         showLoading ? new Promise(resolve => setTimeout(resolve, 200)) : Promise.resolve()
       ]);
-      setFriends(res.data);
+      const list = Array.isArray(res) ? res : (res?.data || []);
+      setFriends(Array.isArray(list) ? list : []);
     } catch (err) {
       console.error('Failed to load friends:', err);
+      setFriends([]);
     } finally {
       setLoading(false);
     }
@@ -119,7 +121,8 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
     try {
       if (showLoading) setLedgerLoading(true);
       const res = await api.get(`/friends/${id}`);
-      setActiveLedger(res.data);
+      const data = res?.friend !== undefined || res?.transactions !== undefined ? res : (res?.data || res);
+      setActiveLedger(data);
     } catch (err) {
       alert(`Failed to load history: ${err.message}`);
     } finally {
@@ -295,7 +298,7 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
     }
   };
 
-  const filteredFriends = friends.filter(f => {
+  const filteredFriends = (friends || []).filter(f => {
     if (filter === 'OWES_YOU' && f.currentBalance <= 0) return false;
     if (filter === 'YOU_OWE' && f.currentBalance >= 0) return false;
     if (filter === 'SETTLED' && f.currentBalance !== 0) return false;
@@ -303,7 +306,7 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
     if (search.trim()) {
       const q = search.toLowerCase();
       return (
-        f.name.toLowerCase().includes(q) ||
+        f.name?.toLowerCase().includes(q) ||
         (f.relationshipTag && f.relationshipTag.toLowerCase().includes(q)) ||
         (f.phone && f.phone.includes(q))
       );

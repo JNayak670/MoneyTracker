@@ -49,8 +49,11 @@ export default function TransactionForm({ isOpen, onClose, onSave, friends = [],
   useEffect(() => {
     // Initialize split friend map
     const initial = {};
-    friends.forEach(f => {
-      initial[f.id] = { selected: true, share: 0 };
+    (Array.isArray(friends) ? friends : []).forEach(f => {
+      const fid = f?.id || f?._id;
+      if (fid) {
+        initial[fid] = { selected: true, share: 0 };
+      }
     });
     setSelectedSplitFriends(initial);
   }, [friends]);
@@ -137,7 +140,7 @@ export default function TransactionForm({ isOpen, onClose, onSave, friends = [],
     }
   };
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-2.5 sm:p-4 pt-3 sm:pt-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn overflow-y-auto">
       <div className="bg-white border border-slate-200 rounded-2xl sm:rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[92vh] my-auto sm:my-0">
         
@@ -396,28 +399,33 @@ export default function TransactionForm({ isOpen, onClose, onSave, friends = [],
 
               {/* Friends checklist */}
               <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 max-h-44 overflow-y-auto space-y-2">
-                {friends.map(f => (
-                  <div key={f.id} className="flex items-center justify-between text-xs py-1.5 border-b border-slate-200/80 last:border-0">
-                    <label className="flex items-center gap-2.5 cursor-pointer text-slate-800">
-                      <input
-                        type="checkbox"
-                        checked={selectedSplitFriends[f.id]?.selected || false}
-                        onChange={(e) => {
-                          const updated = { ...selectedSplitFriends };
-                          if (updated[f.id]) {
-                            updated[f.id].selected = e.target.checked;
-                          }
-                          setSelectedSplitFriends(updated);
-                        }}
-                        className="rounded border-slate-300 text-brand-600 focus:ring-brand-500"
-                      />
-                      <span>{f.avatarEmoji || '👤'} <strong>{f.name}</strong></span>
-                    </label>
-                    <div className="font-mono text-emerald-700 font-bold">
-                      ₹{selectedSplitFriends[f.id]?.share || 0}
+                {friends.map(f => {
+                  const fid = f.id || f._id;
+                  return (
+                    <div key={fid} className="flex items-center justify-between text-xs py-1.5 border-b border-slate-200/80 last:border-0">
+                      <label className="flex items-center gap-2.5 cursor-pointer text-slate-800">
+                        <input
+                          type="checkbox"
+                          checked={selectedSplitFriends[fid]?.selected || false}
+                          onChange={(e) => {
+                            const updated = { ...selectedSplitFriends };
+                            if (updated[fid]) {
+                              updated[fid].selected = e.target.checked;
+                            } else {
+                              updated[fid] = { selected: e.target.checked, share: 0 };
+                            }
+                            setSelectedSplitFriends(updated);
+                          }}
+                          className="rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                        />
+                        <span>{f.avatarEmoji || '👤'} <strong>{f.name}</strong></span>
+                      </label>
+                      <div className="font-mono text-emerald-700 font-bold">
+                        ₹{selectedSplitFriends[fid]?.share || 0}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </>
           )}

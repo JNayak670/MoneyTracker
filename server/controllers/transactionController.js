@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const { Transaction, Friend, User, Notification } = require('../db');
 
 // @route   GET /api/transactions
@@ -137,9 +138,15 @@ exports.createTransaction = async (req, res) => {
       return res.status(400).json({ success: false, error: 'Friend must be selected.' });
     }
 
-    const friend = await Friend.findOne({ _id: friendId, userId });
+    let friend = null;
+    if (mongoose.Types.ObjectId.isValid(friendId)) {
+      friend = await Friend.findOne({ _id: friendId, userId });
+    }
     if (!friend) {
-      return res.status(404).json({ success: false, error: 'Friend not found.' });
+      friend = await Friend.findOne({ userId, $or: [{ id: friendId }, { name: friendId }] });
+    }
+    if (!friend) {
+      return res.status(404).json({ success: false, error: 'Selected friend was not found.' });
     }
 
     let impact = 0;
@@ -148,25 +155,29 @@ exports.createTransaction = async (req, res) => {
     } else if (type === 'RECEIVED') {
       impact = -numAmount; // Friend gave you money -> You owe friend (-)
     } else if (type === 'SETTLED') {
-      const direction = req.body.settleDirection; // "RECEIVED_FROM_FRIEND" or "PAID_TO_FRIEND"
+      const direction = req.body.settleDirection || 'RECEIVED_FROM_FRIEND';
       impact = direction === 'RECEIVED_FROM_FRIEND' ? -numAmount : numAmount;
+    } else {
+      impact = numAmount;
     }
 
     const isConnected = friend.connectionStatus === 'CONNECTED' && friend.connectedUserId;
     const isAuthorized = friend.permission === 'AUTHORIZED';
+    const currentTime = time || new Date().toTimeString().slice(0, 5);
+    const currentDate = date || new Date().toISOString().slice(0, 10);
 
     const tx = await Transaction.create({
       userId,
-      friendId,
-      type,
+      friendId: friend._id,
+      type: type || 'GIVEN',
       amount: numAmount,
       impactOnUser: impact,
-      category,
+      category: category || 'Food & Dining',
       note: note.trim(),
-      date,
-      time,
-      paymentMethod,
-      receiptNote,
+      date: currentDate,
+      time: currentTime,
+      paymentMethod: paymentMethod || 'UPI',
+      receiptNote: receiptNote || null,
       isShared: Boolean(isConnected),
       sharedWithUserId: isConnected ? friend.connectedUserId : null,
       approvalStatus: 'ACTIVE'

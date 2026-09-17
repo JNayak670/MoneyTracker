@@ -44,10 +44,14 @@ export default function Transactions({ onOpenAddTx }) {
         showLoading ? new Promise(resolve => setTimeout(resolve, 100)) : Promise.resolve()
       ]);
 
-      setTransactions(txRes.data);
-      setFriends(friendsRes.data);
+      const txList = Array.isArray(txRes) ? txRes : (txRes?.data || []);
+      const fList = Array.isArray(friendsRes) ? friendsRes : (friendsRes?.data || []);
+      setTransactions(Array.isArray(txList) ? txList : []);
+      setFriends(Array.isArray(fList) ? fList : []);
     } catch (err) {
       console.error('Failed to load transactions:', err);
+      setTransactions([]);
+      setFriends([]);
     } finally {
       setLoading(false);
     }

@@ -39,9 +39,11 @@ export default function Analytics() {
         api.get('/dashboard/analytics'),
         showLoading ? new Promise(resolve => setTimeout(resolve, 200)) : Promise.resolve()
       ]);
-      setData(res.data);
+      const analyticsData = res?.data !== undefined ? res.data : res;
+      setData(analyticsData || { categories: [], monthly: [] });
     } catch (err) {
       console.error('Failed to load analytics:', err);
+      setData({ categories: [], monthly: [] });
     } finally {
       setLoading(false);
     }

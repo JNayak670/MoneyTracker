@@ -47,7 +47,8 @@ export default function Navbar({ onOpenAddModal, onViewFriend, onDataChanged }) 
   const fetchUnreadCount = async () => {
     try {
       const res = await api.get('/notifications');
-      setUnreadCount(res.data?.unreadCount || 0);
+      const count = res?.unreadCount ?? res?.data?.unreadCount ?? 0;
+      setUnreadCount(count);
     } catch (err) {
       // ignore silent fetch failure
     }

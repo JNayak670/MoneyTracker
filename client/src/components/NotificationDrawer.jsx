@@ -26,7 +26,8 @@ export default function NotificationDrawer({ isOpen, onClose, onOpenShareHistory
     try {
       setLoading(true);
       const res = await api.get('/notifications');
-      setNotifications(res.data?.notifications || []);
+      const list = res?.notifications || res?.data?.notifications || (Array.isArray(res) ? res : []);
+      setNotifications(Array.isArray(list) ? list : []);
     } catch (err) {
       console.error('Failed to load notifications:', err);
     } finally {
@@ -58,12 +59,16 @@ export default function NotificationDrawer({ isOpen, onClose, onOpenShareHistory
     setActionLoading(notif.id);
     try {
       const res = await api.post(`/friends/${friendId}/confirm-connect`);
+      const resData = res?.data !== undefined ? res.data : res;
       setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, isActioned: true, actionTaken: 'CONNECTED', isRead: true } : n));
       if (onDataChanged) onDataChanged();
 
-      if (res.data.data?.eligibleTransactionsCount > 0 && onOpenShareHistory) {
+      if (resData?.data?.eligibleTransactionsCount > 0 && onOpenShareHistory) {
         onClose();
-        onOpenShareHistory({ id: friendId, name: notif.data?.friendName }, res.data.data.eligibleTransactions);
+        onOpenShareHistory({ id: friendId, name: notif.data?.friendName }, resData.data.eligibleTransactions);
+      } else if (resData?.eligibleTransactionsCount > 0 && onOpenShareHistory) {
+        onClose();
+        onOpenShareHistory({ id: friendId, name: notif.data?.friendName }, resData.eligibleTransactions);
       }
     } catch (err) {
       alert(err.message || 'Failed to connect friend');
