@@ -8,6 +8,7 @@ import WhatsAppModal from '../components/WhatsAppModal';
 import ShareCodeModal from '../components/ShareCodeModal';
 import LinkAccountModal from '../components/LinkAccountModal';
 import ShareHistoryModal from '../components/ShareHistoryModal';
+import SyncPermissionModal from '../components/SyncPermissionModal';
 import ColorfulLoader from '../components/ColorfulLoader';
 import { exportToCSV } from '../services/exportService';
 import { 
@@ -61,6 +62,7 @@ export default function Dashboard({ onOpenAddTx, onOpenAddFriend, onViewFriendHi
   const [shareModal, setShareModal] = useState({ open: false, friendId: '', friendName: '' });
   const [linkModal, setLinkModal] = useState({ open: false, friend: null });
   const [shareHistoryModal, setShareHistoryModal] = useState({ open: false, friend: null, transactions: [] });
+  const [syncModal, setSyncModal] = useState({ open: false, friend: null });
 
   const fetchData = async (showLoading = true) => {
     try {
@@ -122,13 +124,19 @@ export default function Dashboard({ onOpenAddTx, onOpenAddFriend, onViewFriendHi
     }
   };
 
-  const handleTogglePermission = async (friendId, newPermission) => {
+  const handleTogglePermission = (friend) => {
+    setSyncModal({ open: true, friend });
+  };
+
+  const handleConfirmPermissionChange = async (friend, targetPerm) => {
     try {
-      await api.patch(`/friends/${friendId}/permission`, { permission: newPermission });
+      const fId = friend.id || friend._id;
+      await api.patch(`/friends/${fId}/permission`, { permission: targetPerm });
       await fetchData();
       window.dispatchEvent(new Event('transaction-updated'));
     } catch (err) {
-      alert(err.response?.data?.error || err.message);
+      alert(err.response?.data?.error || err.message || 'Failed to update permission');
+      throw err;
     }
   };
 
@@ -615,6 +623,14 @@ export default function Dashboard({ onOpenAddTx, onOpenAddFriend, onViewFriendHi
         friend={shareHistoryModal.friend}
         transactions={shareHistoryModal.transactions}
         onConfirm={handleShareHistorySubmit}
+      />
+
+      {/* Sync Permission Modal */}
+      <SyncPermissionModal
+        isOpen={syncModal.open}
+        friend={syncModal.friend}
+        onClose={() => setSyncModal({ open: false, friend: null })}
+        onConfirm={handleConfirmPermissionChange}
       />
 
     </div>

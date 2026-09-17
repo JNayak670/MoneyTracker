@@ -7,6 +7,7 @@ import WhatsAppModal from '../components/WhatsAppModal';
 import ShareCodeModal from '../components/ShareCodeModal';
 import LinkAccountModal from '../components/LinkAccountModal';
 import ShareHistoryModal from '../components/ShareHistoryModal';
+import SyncPermissionModal from '../components/SyncPermissionModal';
 import ColorfulLoader from '../components/ColorfulLoader';
 import { printFriendStatement } from '../services/exportService';
 import { 
@@ -37,6 +38,9 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('ALL'); // 'ALL' | 'OWES_YOU' | 'YOU_OWE' | 'SETTLED'
   const [loading, setLoading] = useState(true);
+
+  // Sync Permission Modal State
+  const [syncModal, setSyncModal] = useState({ open: false, friend: null });
 
   // Friend Detail / History Drawer State
   const [activeLedger, setActiveLedger] = useState(null);
@@ -191,16 +195,20 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
     setFriendModalOpen(true);
   };
 
-  const handleTogglePermission = async (friend) => {
-    const nextPerm = friend.permission === 'AUTHORIZED' ? 'NORMAL' : 'AUTHORIZED';
+  const handleTogglePermission = (friend) => {
+    setSyncModal({ open: true, friend });
+  };
+
+  const handleConfirmPermissionChange = async (friend, targetPerm) => {
     try {
-      await api.put(`/friends/${friend.id}/permission`, { permission: nextPerm });
+      await api.put(`/friends/${friend.id}/permission`, { permission: targetPerm });
       await fetchFriends(false);
       if (activeLedger?.friend?.id === friend.id) {
         await loadFriendLedger(friend.id, false);
       }
     } catch (err) {
-      alert(err.message || 'Failed to update permission');
+      alert(err.response?.data?.error || err.message || 'Failed to update permission');
+      throw err;
     }
   };
 
@@ -448,7 +456,23 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
                   {activeLedger.friend.avatarEmoji || '👤'}
                 </div>
                 <div>
-                  <h2 className="text-sm sm:text-lg font-extrabold text-slate-900 truncate max-w-[140px] xs:max-w-[220px]">{activeLedger.friend.name}</h2>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="text-sm sm:text-lg font-extrabold text-slate-900 truncate max-w-[140px] xs:max-w-[220px]">{activeLedger.friend.name}</h2>
+                    {activeLedger.friend.connectionStatus === 'CONNECTED' && (
+                      <button
+                        onClick={() => handleTogglePermission(activeLedger.friend)}
+                        title="Click to toggle sync permission"
+                        className={`text-[10px] font-black px-2 py-0.5 rounded-lg flex items-center gap-1 border transition-all ${
+                          activeLedger.friend.permission === 'AUTHORIZED'
+                            ? 'bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-200'
+                            : 'bg-indigo-50 text-indigo-800 border-indigo-200 hover:bg-indigo-100'
+                        }`}
+                      >
+                        {activeLedger.friend.permission === 'AUTHORIZED' ? <Zap className="w-3 h-3 text-amber-600 fill-amber-500" /> : <Clock className="w-3 h-3 text-indigo-600" />}
+                        <span>{activeLedger.friend.permission === 'AUTHORIZED' ? 'Authorized (Instant)' : 'Normal (Approval)'}</span>
+                      </button>
+                    )}
+                  </div>
                   <span className="text-[10px] sm:text-xs font-semibold text-slate-500">{activeLedger.friend.relationshipTag || 'Friend'}</span>
                 </div>
               </div>
@@ -843,6 +867,14 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
           fetchFriends(false);
           if (activeLedger) loadFriendLedger(activeLedger.friend.id, false);
         }}
+      />
+
+      {/* Sync Permission Modal */}
+      <SyncPermissionModal
+        isOpen={syncModal.open}
+        friend={syncModal.friend}
+        onClose={() => setSyncModal({ open: false, friend: null })}
+        onConfirm={handleConfirmPermissionChange}
       />
 
     </div>

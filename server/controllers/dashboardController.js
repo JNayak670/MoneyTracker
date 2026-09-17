@@ -7,12 +7,12 @@ exports.getSummary = async (req, res) => {
     const userId = req.user.id;
 
     const friends = await Friend.find({ userId });
-    const transactions = await Transaction.find({ userId });
+    const transactions = await Transaction.find({ userId, approvalStatus: { $ne: 'REJECTED' } });
 
     const txByFriend = {};
     for (const t of transactions) {
       if (!t.friendId) continue;
-      const fId = t.friendId.toString();
+      const fId = t.friendId._id ? t.friendId._id.toString() : t.friendId.toString();
       if (!txByFriend[fId]) txByFriend[fId] = [];
       txByFriend[fId].push(t);
     }
@@ -25,7 +25,8 @@ exports.getSummary = async (req, res) => {
     let settledCount = 0;
 
     for (const f of friends) {
-      const fTxs = txByFriend[f.id] || [];
+      const fIdStr = f._id ? f._id.toString() : (f.id || '');
+      const fTxs = txByFriend[fIdStr] || txByFriend[f.id] || [];
       let friendBal = 0;
 
       for (const t of fTxs) {

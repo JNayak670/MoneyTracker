@@ -26,7 +26,14 @@ import {
   EyeOff,
   Server,
   Activity,
-  ArrowLeft
+  ArrowLeft,
+  Zap,
+  Link2,
+  UserCheck,
+  Check,
+  XCircle,
+  Info,
+  ShieldCheck
 } from 'lucide-react';
 import axios from 'axios';
 import AppLogo from '../components/AppLogo';
@@ -50,6 +57,8 @@ export default function Admin() {
   const [users, setUsers] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [shares, setShares] = useState([]);
+  const [connections, setConnections] = useState([]);
+  const [txStatusFilter, setTxStatusFilter] = useState('ALL');
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [deletingId, setDeletingId] = useState(null);
@@ -120,23 +129,26 @@ export default function Admin() {
     setUsers([]);
     setTransactions([]);
     setShares([]);
+    setConnections([]);
   };
 
   const fetchAllData = async () => {
     if (!adminToken) return;
     try {
       setLoading(true);
-      const [statsRes, usersRes, txRes, sharesRes, profileRes] = await Promise.all([
+      const [statsRes, usersRes, txRes, sharesRes, connRes, profileRes] = await Promise.all([
         adminApi.get('/admin/stats'),
         adminApi.get('/admin/users'),
         adminApi.get('/admin/transactions'),
         adminApi.get('/admin/shares'),
+        adminApi.get('/admin/connections').catch(() => ({ data: { data: [] } })),
         adminApi.get('/admin/profile').catch(() => ({ data: { data: { email: 'admin@gmail.com' } } }))
       ]);
       setStats(statsRes.data.data);
       setUsers(usersRes.data.data);
       setTransactions(txRes.data.data);
       setShares(sharesRes.data.data);
+      setConnections(connRes?.data?.data || []);
       if (profileRes?.data?.data?.email) {
         setAdminEmail(profileRes.data.data.email);
         setPwdEmail(profileRes.data.data.email);
@@ -277,17 +289,90 @@ export default function Admin() {
     }
   };
 
+  const handleApproveTx = async (txId, note) => {
+    try {
+      setActionLoadingId(txId);
+      const res = await adminApi.put(`/admin/transactions/${txId}/approve`);
+      setMessage(res.data.message || `Transaction approved.`);
+      await fetchAllData();
+      setTimeout(() => setMessage(''), 3500);
+    } catch (err) {
+      alert(`Approve failed: ${err.response?.data?.error || err.message}`);
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const handleRejectTx = async (txId, note) => {
+    if (!window.confirm(`Decline transaction "${note || 'Transaction'}"? This will mark it as REJECTED on both ledgers.`)) {
+      return;
+    }
+    try {
+      setActionLoadingId(txId);
+      const res = await adminApi.put(`/admin/transactions/${txId}/reject`);
+      setMessage(res.data.message || `Transaction declined.`);
+      await fetchAllData();
+      setTimeout(() => setMessage(''), 3500);
+    } catch (err) {
+      alert(`Decline failed: ${err.response?.data?.error || err.message}`);
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const handleToggleConnectionPermission = async (connId, currentPerm) => {
+    const nextPerm = currentPerm === 'AUTHORIZED' ? 'NORMAL' : 'AUTHORIZED';
+    try {
+      setActionLoadingId(connId);
+      const res = await adminApi.put(`/admin/connections/${connId}/permission`, { permission: nextPerm });
+      setMessage(res.data.message || `Connection permission updated to ${nextPerm === 'AUTHORIZED' ? 'Authorized (Instant)' : 'Normal (Approval)'}.`);
+      await fetchAllData();
+      setTimeout(() => setMessage(''), 3500);
+    } catch (err) {
+      alert(`Permission update failed: ${err.response?.data?.error || err.message}`);
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
   // Filtered lists
   const filteredUsers = (users || []).filter(u => 
     u.name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    u.username?.toLowerCase().includes(searchQuery.toLowerCase()) || 
     u.email?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const filteredTransactions = (transactions || []).filter(t => 
-    t.userName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    t.friendName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    t.note?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    t.category?.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredTransactions = (transactions || []).filter(t => {
+    const matchesSearch = 
+      t.userName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      t.userUsername?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      t.friendName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      t.note?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      t.receiptNote?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      t.category?.toLowerCase().includes(searchQuery.toLowerCase());
+
+    if (!matchesSearch) return false;
+
+    if (txStatusFilter === 'PENDING') {
+      return t.approvalStatus === 'PENDING_APPROVAL';
+    }
+    if (txStatusFilter === 'SYNCED') {
+      return t.isShared;
+    }
+    if (txStatusFilter === 'SETTLED') {
+      return t.type === 'SETTLED';
+    }
+    if (txStatusFilter === 'REJECTED') {
+      return t.approvalStatus === 'REJECTED';
+    }
+    return true;
+  });
+
+  const filteredConnections = (connections || []).filter(c => 
+    c.user?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    c.user?.username?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    c.connectedUser?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    c.connectedUser?.username?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const filteredShares = (shares || []).filter(s => 
@@ -491,54 +576,84 @@ export default function Admin() {
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
         
-        {/* Global Key Metrics Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg relative overflow-hidden">
-            <div className="flex items-center justify-between text-purple-400 text-xs font-bold mb-2">
+        {/* Global Key Metrics Grid (Updated with 2-Way Sync & Approvals) */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-lg relative overflow-hidden">
+            <div className="flex items-center justify-between text-purple-400 text-xs font-bold mb-1.5">
               <span className="flex items-center gap-1.5">
                 <Users className="w-4 h-4" />
-                <span>Total Accounts</span>
+                <span>Accounts</span>
               </span>
               <span className="text-[10px] bg-purple-500/10 px-2 py-0.5 rounded text-purple-300">Live</span>
             </div>
-            <div className="text-3xl font-black text-white">{stats?.totalUsers || 0}</div>
-            <div className="text-[11px] text-slate-500 font-medium mt-1">Active platform users</div>
+            <div className="text-2xl font-black text-white">{stats?.totalUsers || 0}</div>
+            <div className="text-[10px] text-slate-500 font-medium mt-0.5">Active users</div>
           </div>
 
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg relative overflow-hidden">
-            <div className="flex items-center justify-between text-emerald-400 text-xs font-bold mb-2">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-lg relative overflow-hidden">
+            <div className="flex items-center justify-between text-emerald-400 text-xs font-bold mb-1.5">
               <span className="flex items-center gap-1.5">
                 <Coins className="w-4 h-4" />
                 <span>Total Volume</span>
               </span>
               <span className="text-[10px] bg-emerald-500/10 px-2 py-0.5 rounded text-emerald-300">INR</span>
             </div>
-            <div className="text-3xl font-black text-white">₹{(stats?.totalVolume || 0).toLocaleString()}</div>
-            <div className="text-[11px] text-slate-500 font-medium mt-1">All recorded transactions</div>
+            <div className="text-2xl font-black text-white">₹{(stats?.totalVolume || 0).toLocaleString()}</div>
+            <div className="text-[10px] text-slate-500 font-medium mt-0.5">All transactions</div>
           </div>
 
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg relative overflow-hidden">
-            <div className="flex items-center justify-between text-blue-400 text-xs font-bold mb-2">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-lg relative overflow-hidden">
+            <div className="flex items-center justify-between text-blue-400 text-xs font-bold mb-1.5">
               <span className="flex items-center gap-1.5">
                 <Receipt className="w-4 h-4" />
-                <span>Total Ledger Txns</span>
+                <span>Ledger Txns</span>
               </span>
               <span className="text-[10px] bg-blue-500/10 px-2 py-0.5 rounded text-blue-300">{stats?.totalFriends || 0} Circles</span>
             </div>
-            <div className="text-3xl font-black text-white">{stats?.totalTransactions || 0}</div>
-            <div className="text-[11px] text-slate-500 font-medium mt-1">Cross-friend ledger records</div>
+            <div className="text-2xl font-black text-white">{stats?.totalTransactions || 0}</div>
+            <div className="text-[10px] text-slate-500 font-medium mt-0.5">Cross-friend ledger</div>
           </div>
 
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg relative overflow-hidden">
-            <div className="flex items-center justify-between text-amber-400 text-xs font-bold mb-2">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-lg relative overflow-hidden">
+            <div className="flex items-center justify-between text-cyan-400 text-xs font-bold mb-1.5">
               <span className="flex items-center gap-1.5">
-                <Share2 className="w-4 h-4" />
-                <span>Active Share Codes</span>
+                <Link2 className="w-4 h-4" />
+                <span>2-Way Synced</span>
               </span>
-              <span className="text-[10px] bg-amber-500/10 px-2 py-0.5 rounded text-amber-300">Live</span>
+              <span className="text-[10px] bg-cyan-500/10 px-2 py-0.5 rounded text-cyan-300">{stats?.connectedFriends || 0} pairs</span>
             </div>
-            <div className="text-3xl font-black text-white">{stats?.activeShares || 0}</div>
-            <div className="text-[11px] text-slate-500 font-medium mt-1">Time-limited statements</div>
+            <div className="text-2xl font-black text-white">{stats?.syncedTransactions || 0}</div>
+            <div className="text-[10px] text-slate-500 font-medium mt-0.5">Shared records</div>
+          </div>
+
+          <div className={`bg-slate-900 border rounded-2xl p-4 shadow-lg relative overflow-hidden transition-all ${
+            (stats?.pendingApprovals || 0) > 0 ? 'border-amber-500/60 ring-2 ring-amber-500/20' : 'border-slate-800'
+          }`}>
+            <div className="flex items-center justify-between text-amber-400 text-xs font-bold mb-1.5">
+              <span className="flex items-center gap-1.5">
+                <Clock className="w-4 h-4" />
+                <span>Pending Approvals</span>
+              </span>
+              {(stats?.pendingApprovals || 0) > 0 && (
+                <span className="text-[10px] bg-amber-500/20 px-2 py-0.5 rounded text-amber-300 font-black animate-pulse">Action</span>
+              )}
+            </div>
+            <div className={`text-2xl font-black ${(stats?.pendingApprovals || 0) > 0 ? 'text-amber-400' : 'text-white'}`}>
+              {stats?.pendingApprovals || 0}
+            </div>
+            <div className="text-[10px] text-slate-500 font-medium mt-0.5">Awaiting user confirmation</div>
+          </div>
+
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-lg relative overflow-hidden">
+            <div className="flex items-center justify-between text-amber-400 text-xs font-bold mb-1.5">
+              <span className="flex items-center gap-1.5">
+                <Zap className="w-4 h-4 text-amber-400 fill-amber-400" />
+                <span>Authorized Sync</span>
+              </span>
+              <span className="text-[10px] bg-amber-500/10 px-2 py-0.5 rounded text-amber-300">⚡ Instant</span>
+            </div>
+            <div className="text-2xl font-black text-white">{stats?.authorizedFriends || 0}</div>
+            <div className="text-[10px] text-slate-500 font-medium mt-0.5">Instant mode friends</div>
           </div>
         </div>
 
@@ -553,10 +668,10 @@ export default function Admin() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           
           {/* Navigation Tabs */}
-          <div className="flex items-center gap-1.5 bg-slate-900 p-1.5 rounded-2xl border border-slate-800">
+          <div className="flex items-center gap-1.5 bg-slate-900 p-1.5 rounded-2xl border border-slate-800 overflow-x-auto max-w-full">
             <button
               onClick={() => setActiveTab('users')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
                 activeTab === 'users'
                   ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
                   : 'text-slate-400 hover:text-slate-200'
@@ -568,7 +683,7 @@ export default function Admin() {
 
             <button
               onClick={() => setActiveTab('transactions')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
                 activeTab === 'transactions'
                   ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
                   : 'text-slate-400 hover:text-slate-200'
@@ -576,11 +691,28 @@ export default function Admin() {
             >
               <Receipt className="w-3.5 h-3.5" />
               <span>Global Transactions ({(transactions || []).length})</span>
+              {(stats?.pendingApprovals || 0) > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-500 text-slate-950 font-black">
+                  {stats.pendingApprovals}
+                </span>
+              )}
+            </button>
+
+            <button
+              onClick={() => setActiveTab('connections')}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+                activeTab === 'connections'
+                  ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Link2 className="w-3.5 h-3.5" />
+              <span>Connected Circles ({(connections || []).length})</span>
             </button>
 
             <button
               onClick={() => setActiveTab('shares')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
                 activeTab === 'shares'
                   ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
                   : 'text-slate-400 hover:text-slate-200'
@@ -592,14 +724,14 @@ export default function Admin() {
 
             <button
               onClick={() => setActiveTab('security')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
                 activeTab === 'security'
                   ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
               <KeyRound className="w-3.5 h-3.5" />
-              <span>Change Password</span>
+              <span>Change Passkey</span>
             </button>
           </div>
 
@@ -628,7 +760,7 @@ export default function Admin() {
                     <th className="px-5 py-4">User Details</th>
                     <th className="px-5 py-4">Email</th>
                     <th className="px-5 py-4">Status & Security</th>
-                    <th className="px-5 py-4">Friends</th>
+                    <th className="px-5 py-4">Friends & Circles</th>
                     <th className="px-5 py-4">Transactions</th>
                     <th className="px-5 py-4">Joined Date</th>
                     <th className="px-5 py-4 text-right">Admin Controls</th>
@@ -655,6 +787,9 @@ export default function Admin() {
                             </div>
                             <div>
                               <div>{u.name}</div>
+                              {u.username && (
+                                <div className="text-[11px] text-purple-400 font-bold">@{u.username}</div>
+                              )}
                               <div className="text-[10px] text-slate-500 font-mono">ID: {u.id?.substring(0, 8)}...</div>
                             </div>
                           </div>
@@ -678,7 +813,15 @@ export default function Admin() {
                             </span>
                           )}
                         </td>
-                        <td className="px-5 py-4 font-bold text-slate-300">{u.friendsCount} Friends</td>
+                        <td className="px-5 py-4 font-bold text-slate-300">
+                          <div>{u.friendsCount} Friends</div>
+                          {u.connectedCount > 0 && (
+                            <div className="text-[10px] text-emerald-400 font-medium flex items-center gap-1 mt-0.5">
+                              <Link2 className="w-3 h-3" />
+                              <span>{u.connectedCount} 2-Way Connected</span>
+                            </div>
+                          )}
+                        </td>
                         <td className="px-5 py-4 font-bold text-slate-300">{u.txCount} Txns</td>
                         <td className="px-5 py-4 text-slate-500 font-mono">
                           {new Date(u.createdAt).toLocaleDateString()}
@@ -728,65 +871,256 @@ export default function Admin() {
 
         {/* Tab 2: Global Transactions Feed */}
         {activeTab === 'transactions' && (
+          <div className="space-y-3">
+            {/* Filter Pills */}
+            <div className="flex items-center gap-2 flex-wrap text-xs">
+              <span className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Filter Status:</span>
+              {[
+                { id: 'ALL', label: 'All Transactions', count: (transactions || []).length },
+                { id: 'PENDING', label: '⏳ Pending Approval', count: (transactions || []).filter(t => t.approvalStatus === 'PENDING_APPROVAL').length, highlight: true },
+                { id: 'SYNCED', label: '⚡ 2-Way Synced', count: (transactions || []).filter(t => t.isShared).length },
+                { id: 'SETTLED', label: '🤝 Settlements', count: (transactions || []).filter(t => t.type === 'SETTLED').length },
+                { id: 'REJECTED', label: '❌ Declined', count: (transactions || []).filter(t => t.approvalStatus === 'REJECTED').length },
+              ].map((pill) => (
+                <button
+                  key={pill.id}
+                  onClick={() => setTxStatusFilter(pill.id)}
+                  className={`px-3 py-1.5 rounded-xl font-bold transition-all flex items-center gap-1.5 border ${
+                    txStatusFilter === pill.id
+                      ? 'bg-purple-600 text-white border-purple-500 shadow-sm'
+                      : pill.highlight && pill.count > 0
+                      ? 'bg-amber-500/15 text-amber-300 border-amber-500/30 hover:bg-amber-500/25'
+                      : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200 hover:bg-slate-800'
+                  }`}
+                >
+                  <span>{pill.label}</span>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                    txStatusFilter === pill.id ? 'bg-purple-800 text-white' : 'bg-slate-800 text-slate-400'
+                  }`}>
+                    {pill.count}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-800/80 border-b border-slate-700/80 text-slate-400 uppercase tracking-wider font-extrabold">
+                    <tr>
+                      <th className="px-4 py-4">Date & Time</th>
+                      <th className="px-4 py-4">Account Owner</th>
+                      <th className="px-4 py-4">Friend Contact</th>
+                      <th className="px-4 py-4">Flow / Type</th>
+                      <th className="px-4 py-4">Sync & Status</th>
+                      <th className="px-4 py-4">Category & Memo</th>
+                      <th className="px-4 py-4 text-right">Amount</th>
+                      <th className="px-4 py-4 text-right">Admin Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60 bg-slate-900/60">
+                    {filteredTransactions.length === 0 ? (
+                      <tr>
+                        <td colSpan="8" className="p-8 text-center text-slate-500 text-xs">
+                          No transactions match the selected filter.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredTransactions.map((t) => {
+                        const isGiven = t.type === 'GIVEN' || t.impactOnUser > 0;
+                        const isSettled = t.type === 'SETTLED';
+                        const isPending = t.approvalStatus === 'PENDING_APPROVAL';
+                        const isRejected = t.approvalStatus === 'REJECTED';
+                        const isAuth = t.friendPermission === 'AUTHORIZED';
+
+                        return (
+                          <tr key={t.id} className="hover:bg-slate-800/50 transition-colors">
+                            <td className="px-4 py-3.5 text-slate-400 font-mono font-medium">
+                              <div>{t.date}</div>
+                              <div className="text-[10px] text-slate-500">{t.time || ''}</div>
+                            </td>
+                            <td className="px-4 py-3.5 font-bold text-white">
+                              <div>{t.userName}</div>
+                              {t.userUsername && (
+                                <div className="text-[10px] text-purple-400 font-mono">@{t.userUsername}</div>
+                              )}
+                              <div className="text-[10px] text-slate-500 font-normal">{t.userEmail}</div>
+                            </td>
+                            <td className="px-4 py-3.5 font-bold text-slate-200">
+                              <div className="flex items-center gap-1.5">
+                                <span>{t.friendEmoji}</span>
+                                <div>
+                                  <div>{t.friendName}</div>
+                                  {t.friendConnectionStatus === 'CONNECTED' ? (
+                                    <span className="text-[9px] text-emerald-400 font-bold flex items-center gap-0.5">
+                                      <Link2 className="w-2.5 h-2.5" />
+                                      <span>Connected</span>
+                                    </span>
+                                  ) : (
+                                    <span className="text-[9px] text-slate-500">Offline</span>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3.5">
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-md font-bold text-[10px] border ${
+                                isSettled
+                                  ? 'bg-cyan-500/10 text-cyan-300 border-cyan-500/20'
+                                  : isGiven
+                                  ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
+                                  : 'bg-rose-500/10 text-rose-300 border-rose-500/20'
+                              }`}>
+                                {isSettled ? '🤝 Settled' : isGiven ? '↗️ Lent' : '↙️ Borrowed'}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3.5">
+                              {isPending ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 font-bold text-[10px] border border-amber-500/30 animate-pulse">
+                                  <Clock className="w-3 h-3" />
+                                  <span>Pending Approval</span>
+                                </span>
+                              ) : isRejected ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-rose-500/20 text-rose-300 font-bold text-[10px] border border-rose-500/30">
+                                  <XCircle className="w-3 h-3" />
+                                  <span>Declined</span>
+                                </span>
+                              ) : t.isShared ? (
+                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-bold text-[10px] border ${
+                                  isAuth 
+                                    ? 'bg-amber-500/15 text-amber-300 border-amber-500/30' 
+                                    : 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                                }`}>
+                                  {isAuth ? <Zap className="w-3 h-3 fill-amber-400 text-amber-400" /> : <Link2 className="w-3 h-3" />}
+                                  <span>{isAuth ? 'Authorized (Instant)' : '2-Way Synced'}</span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-800 text-slate-400 font-medium text-[10px] border border-slate-700">
+                                  <span>Local Only</span>
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3.5 text-slate-300">
+                              <div className="font-medium text-slate-200">{t.category}</div>
+                              <div className="text-[11px] text-slate-400 truncate max-w-[160px]" title={t.note}>{t.note || '-'}</div>
+                              {t.receiptNote && (
+                                <div className="text-[10px] text-slate-500 italic truncate max-w-[160px]" title={t.receiptNote}>
+                                  📝 {t.receiptNote}
+                                </div>
+                              )}
+                            </td>
+                            <td className={`px-4 py-3.5 text-right font-black text-xs sm:text-sm font-mono ${
+                              isSettled ? 'text-cyan-400' : isGiven ? 'text-emerald-400' : 'text-rose-400'
+                            }`}>
+                              {isSettled ? '' : isGiven ? '+' : '-'}₹{t.amount.toLocaleString()}
+                            </td>
+                            <td className="px-4 py-3.5 text-right">
+                              {isPending ? (
+                                <div className="flex items-center justify-end gap-1">
+                                  <button
+                                    onClick={() => handleApproveTx(t.id, t.note)}
+                                    disabled={actionLoadingId === t.id}
+                                    className="px-2 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-[10px] font-bold transition-all shadow-xs flex items-center gap-0.5"
+                                    title="Admin Force Approve"
+                                  >
+                                    <Check className="w-3 h-3" />
+                                    <span>Approve</span>
+                                  </button>
+                                  <button
+                                    onClick={() => handleRejectTx(t.id, t.note)}
+                                    disabled={actionLoadingId === t.id}
+                                    className="px-2 py-1 bg-rose-600/80 hover:bg-rose-600 text-white rounded-lg text-[10px] font-bold transition-all shadow-xs flex items-center gap-0.5"
+                                    title="Admin Force Decline"
+                                  >
+                                    <XCircle className="w-3 h-3" />
+                                    <span>Decline</span>
+                                  </button>
+                                </div>
+                              ) : (
+                                <span className="text-[10px] text-slate-600 font-mono">Active</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tab 3: Connected Circles Inspector */}
+        {activeTab === 'connections' && (
           <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-800/80 border-b border-slate-700/80 text-slate-400 uppercase tracking-wider font-extrabold">
                   <tr>
-                    <th className="px-5 py-4">Date & Time</th>
-                    <th className="px-5 py-4">Account Owner</th>
-                    <th className="px-5 py-4">Friend Contact</th>
-                    <th className="px-5 py-4">Flow / Type</th>
-                    <th className="px-5 py-4">Category</th>
-                    <th className="px-5 py-4">Description</th>
-                    <th className="px-5 py-4 text-right">Amount</th>
+                    <th className="px-5 py-4">Account A (Initiator)</th>
+                    <th className="px-5 py-4">Connected Friend B</th>
+                    <th className="px-5 py-4">Circle Relationship</th>
+                    <th className="px-5 py-4">Sync Mode & Permission</th>
+                    <th className="px-5 py-4">Linked Since</th>
+                    <th className="px-5 py-4 text-right">Admin Permission Control</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60 bg-slate-900/60">
-                  {filteredTransactions.length === 0 ? (
+                  {filteredConnections.length === 0 ? (
                     <tr>
-                      <td colSpan="7" className="p-8 text-center text-slate-500 text-xs">
-                        No transactions found.
+                      <td colSpan="6" className="p-8 text-center text-slate-500 text-xs">
+                        No connected user pairs found matching query.
                       </td>
                     </tr>
                   ) : (
-                    filteredTransactions.map((t) => {
-                      const isGiven = t.type === 'GIVEN';
-                      const isSettled = t.type === 'SETTLED';
+                    filteredConnections.map((c) => {
+                      const isAuth = c.permission === 'AUTHORIZED';
 
                       return (
-                        <tr key={t.id} className="hover:bg-slate-800/50 transition-colors">
-                          <td className="px-5 py-4 text-slate-400 font-mono font-medium">
-                            <div>{t.date}</div>
-                            <div className="text-[10px] text-slate-500">{t.time || ''}</div>
-                          </td>
+                        <tr key={c.id} className="hover:bg-slate-800/50 transition-colors">
                           <td className="px-5 py-4 font-bold text-white">
-                            <div>{t.userName}</div>
-                            <div className="text-[10px] text-slate-500 font-normal">{t.userEmail}</div>
+                            <div>{c.user?.name}</div>
+                            <div className="text-[10px] text-purple-400 font-mono">@{c.user?.username}</div>
+                            <div className="text-[10px] text-slate-500">{c.user?.email}</div>
                           </td>
                           <td className="px-5 py-4 font-bold text-slate-200">
+                            <div>{c.connectedUser?.name || c.friendName}</div>
+                            <div className="text-[10px] text-emerald-400 font-mono">@{c.connectedUser?.username}</div>
+                            <div className="text-[10px] text-slate-500">{c.connectedUser?.email}</div>
+                          </td>
+                          <td className="px-5 py-4">
                             <div className="flex items-center gap-1.5">
-                              <span>{t.friendEmoji}</span>
-                              <span>{t.friendName}</span>
+                              <span>{c.avatarEmoji || '🤝'}</span>
+                              <span className="font-semibold text-slate-300">{c.relationshipTag || 'Friend'}</span>
                             </div>
                           </td>
                           <td className="px-5 py-4">
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded-md font-bold text-[11px] border ${
-                              isSettled
-                                ? 'bg-cyan-500/10 text-cyan-300 border-cyan-500/20'
-                                : isGiven
-                                ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
-                                : 'bg-rose-500/10 text-rose-300 border-rose-500/20'
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl font-black text-[11px] border ${
+                              isAuth
+                                ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                                : 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40'
                             }`}>
-                              {isSettled ? '🤝 Settled' : isGiven ? '↗️ Lent' : '↙️ Borrowed'}
+                              {isAuth ? <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400" /> : <Clock className="w-3.5 h-3.5 text-indigo-300" />}
+                              <span>{isAuth ? 'Authorized (Instant Sync)' : 'Normal (Requires Approval)'}</span>
                             </span>
                           </td>
-                          <td className="px-5 py-4 text-slate-300 font-medium">{t.category}</td>
-                          <td className="px-5 py-4 text-slate-400 font-medium max-w-xs truncate">{t.note || '-'}</td>
-                          <td className={`px-5 py-4 text-right font-black text-sm ${
-                            isSettled ? 'text-cyan-400' : isGiven ? 'text-emerald-400' : 'text-rose-400'
-                          }`}>
-                            {isSettled ? '' : isGiven ? '+' : '-'}₹{t.amount.toLocaleString()}
+                          <td className="px-5 py-4 text-slate-400 font-mono">
+                            {c.linkedAt ? new Date(c.linkedAt).toLocaleDateString() : 'Connected'}
+                          </td>
+                          <td className="px-5 py-4 text-right">
+                            <button
+                              onClick={() => handleToggleConnectionPermission(c.id, c.permission)}
+                              disabled={actionLoadingId === c.id}
+                              className={`px-3 py-1.5 rounded-xl font-bold text-xs transition-all shadow-xs inline-flex items-center gap-1.5 border ${
+                                isAuth
+                                  ? 'bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border-indigo-500/40'
+                                  : 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border-amber-500/40'
+                              }`}
+                              title="Toggle Sync Permission as Admin"
+                            >
+                              {isAuth ? <Clock className="w-3.5 h-3.5" /> : <Zap className="w-3.5 h-3.5" />}
+                              <span>{isAuth ? 'Switch to Normal' : 'Switch to Authorized'}</span>
+                            </button>
                           </td>
                         </tr>
                       );

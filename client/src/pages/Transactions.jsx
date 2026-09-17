@@ -11,18 +11,27 @@ import {
   ArrowUpRight, 
   ArrowDownLeft, 
   CheckCircle2,
-  Calendar
+  XCircle,
+  Clock,
+  Check,
+  X,
+  Share2,
+  Calendar,
+  Sparkles,
+  Loader2
 } from 'lucide-react';
 
 export default function Transactions({ onOpenAddTx }) {
   const [transactions, setTransactions] = useState([]);
   const [friends, setFriends] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(null);
 
   // Filters
   const [search, setSearch] = useState('');
   const [friendId, setFriendId] = useState('');
   const [type, setType] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
   const [category, setCategory] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -61,7 +70,7 @@ export default function Transactions({ onOpenAddTx }) {
     fetchData();
 
     const handleUpdate = () => {
-      fetchData();
+      fetchData(false);
     };
 
     window.addEventListener('transaction-updated', handleUpdate);
@@ -75,11 +84,38 @@ export default function Transactions({ onOpenAddTx }) {
     fetchData();
   };
 
+  const handleApprove = async (id) => {
+    setActionLoading(id);
+    try {
+      await api.post(`/transactions/${id}/approve`);
+      await fetchData(false);
+      window.dispatchEvent(new Event('transaction-updated'));
+    } catch (err) {
+      alert(`Approval error: ${err.message}`);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleReject = async (id) => {
+    if (!confirm('Are you sure you want to reject/decline this transaction?')) return;
+    setActionLoading(id);
+    try {
+      await api.post(`/transactions/${id}/reject`);
+      await fetchData(false);
+      window.dispatchEvent(new Event('transaction-updated'));
+    } catch (err) {
+      alert(`Reject error: ${err.message}`);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const handleDelete = async (id) => {
     if (!confirm('Are you sure you want to delete this transaction? Balance will be adjusted.')) return;
     try {
       await api.delete(`/transactions/${id}`);
-      await fetchData();
+      await fetchData(false);
       window.dispatchEvent(new Event('transaction-updated'));
     } catch (err) {
       alert(`Delete error: ${err.message}`);
@@ -90,10 +126,20 @@ export default function Transactions({ onOpenAddTx }) {
     setSearch('');
     setFriendId('');
     setType('');
+    setStatusFilter('');
     setCategory('');
     setStartDate('');
     setEndDate('');
   };
+
+  const filteredTransactions = transactions.filter(t => {
+    if (!statusFilter) return true;
+    if (statusFilter === 'PENDING') return t.approvalStatus === 'PENDING_APPROVAL';
+    if (statusFilter === 'REJECTED') return t.approvalStatus === 'REJECTED';
+    if (statusFilter === 'ACTIVE') return t.approvalStatus === 'ACTIVE' || !t.approvalStatus;
+    if (statusFilter === 'SHARED') return t.isShared;
+    return true;
+  });
 
   if (loading) {
     return <ColorfulLoader fullScreen={false} minHeight="min-h-[260px] sm:min-h-[400px]" message="Loading Transaction Ledger..." submessage="Fetching shared bills, repayments, loans and categories..." />;
@@ -109,13 +155,13 @@ export default function Transactions({ onOpenAddTx }) {
             Transaction Ledger
           </h1>
           <p className="text-sm text-slate-500 mt-1">
-            Complete searchable history of all loans, shared splits, and settlements
+            Complete searchable history of all loans, shared splits, approvals & settlements
           </p>
         </div>
 
         <div className="flex items-center gap-2.5">
           <button
-            onClick={() => exportToCSV(transactions)}
+            onClick={() => exportToCSV(filteredTransactions)}
             className="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 text-sm font-semibold px-4 py-2.5 rounded-xl border border-slate-200 shadow-sm transition-all"
           >
             <Download className="w-4 h-4" />
@@ -151,7 +197,7 @@ export default function Transactions({ onOpenAddTx }) {
           </button>
         </form>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-slate-100">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-2 border-t border-slate-100">
           <select
             value={friendId}
             onChange={(e) => setFriendId(e.target.value)}
@@ -176,6 +222,18 @@ export default function Transactions({ onOpenAddTx }) {
           </select>
 
           <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 font-semibold"
+          >
+            <option value="">All Statuses</option>
+            <option value="PENDING">⏳ Pending Approval</option>
+            <option value="ACTIVE">✅ Active / Accepted</option>
+            <option value="REJECTED">❌ Rejected / Declined</option>
+            <option value="SHARED">🔗 2-Way Synced</option>
+          </select>
+
+          <select
             value={category}
             onChange={(e) => setCategory(e.target.value)}
             className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
@@ -193,7 +251,7 @@ export default function Transactions({ onOpenAddTx }) {
           <button
             type="button"
             onClick={handleClearFilters}
-            className="text-xs text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl py-1.5 font-semibold transition-colors"
+            className="text-xs text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl py-1.5 font-semibold transition-colors col-span-2 sm:col-span-1"
           >
             Clear Filters
           </button>
@@ -202,7 +260,7 @@ export default function Transactions({ onOpenAddTx }) {
 
       {/* Transaction Table */}
       <div className="glass-card rounded-2xl overflow-hidden shadow-sm">
-        {transactions.length === 0 ? (
+        {filteredTransactions.length === 0 ? (
           <div className="py-16 text-center space-y-2 px-4">
             <Receipt className="w-10 h-10 text-slate-400 mx-auto" />
             <h3 className="text-base font-bold text-slate-900">
@@ -222,17 +280,20 @@ export default function Transactions({ onOpenAddTx }) {
                   <th className="px-5 py-4">Date</th>
                   <th className="px-5 py-4">Friend</th>
                   <th className="px-5 py-4">Flow / Type</th>
-                  <th className="px-5 py-4">Description & Note</th>
+                  <th className="px-5 py-4">Description & Receipt</th>
+                  <th className="px-5 py-4">Status & Sync</th>
                   <th className="px-5 py-4">Category</th>
-                  <th className="px-5 py-4">Payment Mode</th>
+                  <th className="px-5 py-4">Payment</th>
                   <th className="px-5 py-4 text-right">Amount</th>
-                  <th className="px-5 py-4 text-right">Action</th>
+                  <th className="px-5 py-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 bg-white">
-                {transactions.map(t => {
+                {filteredTransactions.map(t => {
                   const isGiven = t.type === 'GIVEN' || t.impactOnUser > 0;
                   const isSettled = t.type === 'SETTLED';
+                  const isPending = t.approvalStatus === 'PENDING_APPROVAL';
+                  const isRejected = t.approvalStatus === 'REJECTED';
 
                   const categoryColors = {
                     'Food & Dining': 'bg-amber-50 text-amber-800 border-amber-200',
@@ -245,84 +306,102 @@ export default function Transactions({ onOpenAddTx }) {
                   }[t.category] || 'bg-slate-100 text-slate-700 border-slate-200';
 
                   return (
-                    <tr key={t.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="px-5 py-4 text-slate-500 font-mono font-medium">
+                    <tr key={t.id} className={`hover:bg-slate-50/80 transition-colors ${isPending ? 'bg-amber-50/30' : isRejected ? 'bg-rose-50/30 opacity-75' : ''}`}>
+                      <td className="px-5 py-4 text-slate-500 font-mono font-medium whitespace-nowrap">
                         <div>{t.date}</div>
                         {t.time && <div className="text-[10px] text-slate-400 font-bold">{t.time}</div>}
                       </td>
 
-                      <td className="px-5 py-4 font-black text-slate-900">
+                      <td className="px-5 py-4 font-black text-slate-900 whitespace-nowrap">
                         <div className="flex items-center gap-2.5">
                           <span 
-                            className="w-7 h-7 rounded-xl flex items-center justify-center text-sm shadow-xs border border-black/5"
+                            className="w-7 h-7 rounded-xl flex items-center justify-center text-sm shadow-xs border border-black/5 flex-shrink-0"
                             style={{ backgroundColor: t.friend?.avatarColor || '#6366f1' }}
                           >
                             {t.friend?.avatarEmoji || '👤'}
                           </span>
-                          <span>{t.friend?.name || 'Friend'}</span>
+                          <div>
+                            <div>{t.friend?.name || 'Friend'}</div>
+                            {t.friend?.relationshipTag && (
+                              <span className="text-[10px] text-slate-400 font-semibold">{t.friend.relationshipTag}</span>
+                            )}
+                          </div>
                         </div>
                       </td>
 
-                      <td className="px-5 py-4">
-                        <div className="flex flex-col gap-1 items-start">
-                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg font-black text-[11px] border ${
-                            isSettled
-                              ? 'bg-cyan-50 text-cyan-700 border-cyan-200'
-                              : isGiven
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                              : 'bg-rose-50 text-rose-700 border-rose-200'
-                          }`}>
-                            {isSettled ? (
-                              <span>🤝 Settled</span>
-                            ) : isGiven ? (
-                              <>
-                                <ArrowUpRight className="w-3.5 h-3.5 text-emerald-600" />
-                                <span>↗️ Lent</span>
-                              </>
-                            ) : (
-                              <>
-                                <ArrowDownLeft className="w-3.5 h-3.5 text-rose-600" />
-                                <span>↙️ Borrowed</span>
-                              </>
-                            )}
-                          </span>
-
-                          {t.approvalStatus === 'PENDING' && (
-                            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
-                              ⏳ Pending Approval
-                            </span>
+                      <td className="px-5 py-4 whitespace-nowrap">
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg font-black text-[11px] border ${
+                          isSettled
+                            ? 'bg-cyan-50 text-cyan-700 border-cyan-200'
+                            : isGiven
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            : 'bg-rose-50 text-rose-700 border-rose-200'
+                        }`}>
+                          {isSettled ? (
+                            <span>🤝 Settled</span>
+                          ) : isGiven ? (
+                            <>
+                              <ArrowUpRight className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>↗️ Lent</span>
+                            </>
+                          ) : (
+                            <>
+                              <ArrowDownLeft className="w-3.5 h-3.5 text-rose-600" />
+                              <span>↙️ Borrowed</span>
+                            </>
                           )}
-
-                          {t.isShared && t.approvalStatus !== 'PENDING' && (
-                            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
-                              🔗 2-Way Synced
-                            </span>
-                          )}
-                        </div>
+                        </span>
                       </td>
 
                       <td className="px-5 py-4 max-w-xs">
                         <div className="font-bold text-slate-900">{t.note}</div>
                         {t.receiptNote && (
-                          <div className="text-[10px] text-slate-500 mt-0.5 truncate font-mono">
-                            Ref: {t.receiptNote}
+                          <div className="text-[10px] text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md mt-1 inline-flex items-center gap-1 font-mono border border-purple-200/60 max-w-full truncate">
+                            <span>🧾</span>
+                            <span className="truncate">{t.receiptNote}</span>
                           </div>
                         )}
                       </td>
 
-                      <td className="px-5 py-4">
+                      {/* Status & Sync Column */}
+                      <td className="px-5 py-4 whitespace-nowrap">
+                        <div className="flex flex-col gap-1 items-start">
+                          {isPending ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300 animate-pulse">
+                              <Clock className="w-3 h-3 text-amber-700" />
+                              <span>Pending Approval</span>
+                            </span>
+                          ) : isRejected ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300 line-through">
+                              <XCircle className="w-3 h-3 text-rose-600" />
+                              <span>Declined / Rejected</span>
+                            </span>
+                          ) : t.isShared ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black bg-emerald-50 text-emerald-800 border border-emerald-300">
+                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                              <span>2-Way Synced</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+                              <span>📝 Local Entry</span>
+                            </span>
+                          )}
+                        </div>
+                      </td>
+
+                      <td className="px-5 py-4 whitespace-nowrap">
                         <span className={`px-2.5 py-1 rounded-lg font-bold text-[11px] border ${categoryColors}`}>
                           {t.category}
                         </span>
                       </td>
 
-                      <td className="px-5 py-4">
+                      <td className="px-5 py-4 whitespace-nowrap">
                         <span className="bg-slate-100 text-slate-700 px-2.5 py-1 rounded-md text-[11px] font-mono font-bold border border-slate-200">
                           {t.paymentMethod || 'UPI'}
                         </span>
                       </td>
 
-                      <td className={`px-5 py-4 text-right font-black text-sm ${
+                      <td className={`px-5 py-4 text-right font-black text-sm whitespace-nowrap ${
                         isSettled
                           ? 'text-cyan-700'
                           : isGiven
@@ -332,14 +411,40 @@ export default function Transactions({ onOpenAddTx }) {
                         {isSettled ? '' : isGiven ? '+' : '-'}₹{t.amount.toLocaleString()}
                       </td>
 
-                      <td className="px-5 py-4 text-right">
-                        <button
-                          onClick={() => handleDelete(t.id)}
-                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                          title="Delete Record"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                      {/* Action buttons (Approve / Reject / Delete) */}
+                      <td className="px-5 py-4 text-right whitespace-nowrap">
+                        <div className="flex items-center justify-end gap-1.5">
+                          {isPending ? (
+                            <>
+                              <button
+                                onClick={() => handleApprove(t.id)}
+                                disabled={actionLoading === t.id}
+                                className="inline-flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-black px-2.5 py-1 rounded-lg shadow-2xs transition-all disabled:opacity-50"
+                                title="Accept & Confirm this transaction"
+                              >
+                                {actionLoading === t.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                                <span>Accept</span>
+                              </button>
+                              <button
+                                onClick={() => handleReject(t.id)}
+                                disabled={actionLoading === t.id}
+                                className="inline-flex items-center gap-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 text-[11px] font-bold px-2 py-1 rounded-lg transition-all disabled:opacity-50"
+                                title="Decline this transaction"
+                              >
+                                <X className="w-3 h-3" />
+                                <span>Reject</span>
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              onClick={() => handleDelete(t.id)}
+                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                              title="Delete Record"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );

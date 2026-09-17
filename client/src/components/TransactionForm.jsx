@@ -41,10 +41,16 @@ export default function TransactionForm({ isOpen, onClose, onSave, friends = [],
   }, [isOpen]);
 
   useEffect(() => {
-    if (preselectedFriendId) {
-      setFriendId(preselectedFriendId);
+    if (isOpen) {
+      setFriendId(preselectedFriendId || '');
+      setAmount('');
+      setNote('');
+      setSplitTotal('');
+      setSplitNote('');
+      setReceiptNote('');
+      setDate(new Date().toISOString().slice(0, 10));
     }
-  }, [preselectedFriendId]);
+  }, [isOpen, preselectedFriendId]);
 
   useEffect(() => {
     // Initialize split friend map
@@ -243,8 +249,8 @@ export default function TransactionForm({ isOpen, onClose, onSave, friends = [],
                           </p>
                           <p className="text-[11px] opacity-90">
                             {isAuth 
-                              ? `Will automatically reflect on @${selFriend.connectedUserId?.username || selFriend.name}'s MoneyTracker balance.`
-                              : `A request will be sent to @${selFriend.connectedUserId?.username || selFriend.name} to approve before it affects their ledger.`}
+                              ? `Will automatically reflect on @${selFriend.connectedUser?.username || selFriend.connectedUserId?.username || selFriend.pendingUsername || selFriend.name}'s MoneyTracker balance.`
+                              : `A request will be sent to @${selFriend.connectedUser?.username || selFriend.connectedUserId?.username || selFriend.pendingUsername || selFriend.name} to approve before it affects their ledger.`}
                           </p>
                         </div>
                       </div>

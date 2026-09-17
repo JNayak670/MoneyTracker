@@ -97,6 +97,8 @@ exports.createTransaction = async (req, res) => {
     // Handle Group Split Bill
     if (isGroupSplit && Array.isArray(splits) && splits.length > 0) {
       const splitGroupId = 'SPLIT-' + Date.now();
+      const currentTime = time || new Date().toTimeString().slice(0, 5);
+      const currentDate = date || new Date().toISOString().slice(0, 10);
 
       const createdList = [];
       for (const s of splits) {
@@ -105,21 +107,80 @@ exports.createTransaction = async (req, res) => {
         const impact = isPayer ? numShare : -numShare;
         const txType = isPayer ? 'SPLIT' : 'RECEIVED';
 
+        let targetFriend = null;
+        if (mongoose.Types.ObjectId.isValid(s.friendId)) {
+          targetFriend = await Friend.findOne({ _id: s.friendId, userId });
+        }
+        if (!targetFriend) {
+          targetFriend = await Friend.findOne({ userId, $or: [{ id: s.friendId }, { name: s.friendId }] });
+        }
+        if (!targetFriend) continue;
+
         const tx = await Transaction.create({
           userId,
-          friendId: s.friendId,
+          friendId: targetFriend._id,
           type: txType,
           amount: numShare,
           impactOnUser: impact,
           category,
           note: note.trim(),
-          date,
-          time,
+          date: currentDate,
+          time: currentTime,
           paymentMethod,
           receiptNote: receiptNote || `Group split bill: ${note}`,
-          splitGroupId
+          splitGroupId,
+          approvalStatus: 'ACTIVE'
         });
         createdList.push(tx);
+
+        // 2-way sync if friend has connected account
+        if (targetFriend.connectedUserId) {
+          const otherUserId = targetFriend.connectedUserId;
+          let reciprocalFriend = await Friend.findOne({ userId: otherUserId, connectedUserId: userId });
+          if (!reciprocalFriend && req.user.username) {
+            reciprocalFriend = await Friend.findOne({ userId: otherUserId, pendingUsername: req.user.username.toLowerCase() });
+          }
+
+          if (reciprocalFriend) {
+            const mirroredTx = await Transaction.create({
+              userId: otherUserId,
+              friendId: reciprocalFriend._id,
+              type: 'RECEIVED',
+              amount: numShare,
+              impactOnUser: -numShare,
+              category,
+              note: `Split: ${note.trim()}`,
+              date: currentDate,
+              time: currentTime,
+              paymentMethod,
+              receiptNote: `Split from ${req.user.name}: ${note.trim()}`,
+              isShared: true,
+              sharedWithUserId: userId,
+              approvalStatus: 'ACTIVE',
+              linkedTransactionId: tx._id,
+              splitGroupId
+            });
+
+            tx.isShared = true;
+            tx.sharedWithUserId = otherUserId;
+            tx.linkedTransactionId = mirroredTx._id;
+            await tx.save();
+
+            await Notification.create({
+              userId: otherUserId,
+              type: 'TRANSACTION_LOGGED',
+              title: '👥 Group Split Recorded',
+              message: `${req.user.name} recorded a split share of ₹${numShare} for "${note.trim()}".`,
+              data: {
+                friendId: reciprocalFriend._id,
+                connectedUserId: userId,
+                transactionId: mirroredTx._id,
+                friendName: req.user.name,
+                amount: numShare
+              }
+            });
+          }
+        }
       }
 
       return res.status(201).json({
@@ -161,11 +222,13 @@ exports.createTransaction = async (req, res) => {
       impact = numAmount;
     }
 
-    const isConnected = friend.connectionStatus === 'CONNECTED' && friend.connectedUserId;
+    const hasLinkedAccount = Boolean(friend.connectedUserId);
+    const isConnected = friend.connectionStatus === 'CONNECTED' && hasLinkedAccount;
     const isAuthorized = friend.permission === 'AUTHORIZED';
     const currentTime = time || new Date().toTimeString().slice(0, 5);
     const currentDate = date || new Date().toISOString().slice(0, 10);
 
+    // 1. Transaction is ALWAYS created and ACTIVE on creator's ledger!
     const tx = await Transaction.create({
       userId,
       friendId: friend._id,
@@ -178,15 +241,32 @@ exports.createTransaction = async (req, res) => {
       time: currentTime,
       paymentMethod: paymentMethod || 'UPI',
       receiptNote: receiptNote || null,
-      isShared: Boolean(isConnected),
-      sharedWithUserId: isConnected ? friend.connectedUserId : null,
+      isShared: Boolean(hasLinkedAccount),
+      sharedWithUserId: hasLinkedAccount ? friend.connectedUserId : null,
       approvalStatus: 'ACTIVE'
     });
 
-    // Handle connected MoneyTracker Friend Two-Way Sync
-    if (isConnected) {
+    // 2. Handle linked MoneyTracker Friend Two-Way Sync
+    if (hasLinkedAccount) {
       const otherUserId = friend.connectedUserId;
-      const reciprocalFriend = await Friend.findOne({ userId: otherUserId, connectedUserId: userId });
+      let reciprocalFriend = await Friend.findOne({ userId: otherUserId, connectedUserId: userId });
+      if (!reciprocalFriend && req.user.username) {
+        reciprocalFriend = await Friend.findOne({ userId: otherUserId, pendingUsername: req.user.username.toLowerCase() });
+      }
+
+      if (!reciprocalFriend) {
+        reciprocalFriend = await Friend.create({
+          userId: otherUserId,
+          name: req.user.name,
+          connectedUserId: userId,
+          pendingUsername: req.user.username || null,
+          connectionStatus: friend.connectionStatus || 'PENDING_MATCH',
+          permission: 'NORMAL',
+          avatarColor: '#10b981',
+          avatarEmoji: '🤝',
+          relationshipTag: 'Friend'
+        });
+      }
 
       if (reciprocalFriend) {
         let reciprocalType = 'RECEIVED';
@@ -199,7 +279,7 @@ exports.createTransaction = async (req, res) => {
           reciprocalImpact = -impact;
         }
 
-        const mirroredStatus = isAuthorized ? 'ACTIVE' : 'PENDING_APPROVAL';
+        const mirroredStatus = (isConnected && isAuthorized) ? 'ACTIVE' : 'PENDING_APPROVAL';
 
         const mirroredTx = await Transaction.create({
           userId: otherUserId,
@@ -209,8 +289,8 @@ exports.createTransaction = async (req, res) => {
           impactOnUser: reciprocalImpact,
           category,
           note: note.trim(),
-          date,
-          time,
+          date: currentDate,
+          time: currentTime,
           paymentMethod,
           receiptNote: `From ${req.user.name}: ${receiptNote || note}`,
           isShared: true,
@@ -223,7 +303,7 @@ exports.createTransaction = async (req, res) => {
         await tx.save();
 
         // Send appropriate Notification
-        if (isAuthorized) {
+        if (isConnected && isAuthorized) {
           await Notification.create({
             userId: otherUserId,
             type: 'TRANSACTION_LOGGED',
@@ -257,9 +337,7 @@ exports.createTransaction = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: isConnected 
-        ? (isAuthorized ? 'Transaction recorded and synced with friend.' : 'Transaction recorded. Approval request sent to friend.')
-        : 'Transaction recorded successfully',
+      message: 'Transaction recorded successfully',
       data: tx
     });
   } catch (err) {
@@ -298,11 +376,13 @@ exports.settleUp = async (req, res) => {
     const settleAmount = amount ? Math.abs(Number(amount)) : Math.abs(currentBalance);
     const impact = currentBalance > 0 ? -settleAmount : settleAmount;
 
-    const isConnected = friend.connectionStatus === 'CONNECTED' && friend.connectedUserId;
+    const hasLinkedAccount = Boolean(friend.connectedUserId);
+    const isConnected = friend.connectionStatus === 'CONNECTED' && hasLinkedAccount;
+    const isAuthorized = friend.permission === 'AUTHORIZED';
 
     const tx = await Transaction.create({
       userId,
-      friendId,
+      friendId: friend._id,
       type: 'SETTLED',
       amount: settleAmount,
       impactOnUser: impact,
@@ -312,16 +392,21 @@ exports.settleUp = async (req, res) => {
       time: new Date().toTimeString().slice(0, 5),
       paymentMethod,
       receiptNote: `Settled via ${paymentMethod}`,
-      isShared: Boolean(isConnected),
-      sharedWithUserId: isConnected ? friend.connectedUserId : null,
+      isShared: Boolean(hasLinkedAccount),
+      sharedWithUserId: hasLinkedAccount ? friend.connectedUserId : null,
       approvalStatus: 'ACTIVE'
     });
 
-    if (isConnected) {
+    if (hasLinkedAccount) {
       const otherUserId = friend.connectedUserId;
-      const reciprocalFriend = await Friend.findOne({ userId: otherUserId, connectedUserId: userId });
+      let reciprocalFriend = await Friend.findOne({ userId: otherUserId, connectedUserId: userId });
+      if (!reciprocalFriend && req.user.username) {
+        reciprocalFriend = await Friend.findOne({ userId: otherUserId, pendingUsername: req.user.username.toLowerCase() });
+      }
 
       if (reciprocalFriend) {
+        const mirroredStatus = (isConnected && isAuthorized) ? 'ACTIVE' : 'PENDING_APPROVAL';
+
         const mirroredTx = await Transaction.create({
           userId: otherUserId,
           friendId: reciprocalFriend._id,
@@ -336,26 +421,42 @@ exports.settleUp = async (req, res) => {
           receiptNote: `Settlement from ${req.user.name}`,
           isShared: true,
           sharedWithUserId: userId,
-          approvalStatus: 'ACTIVE',
+          approvalStatus: mirroredStatus,
           linkedTransactionId: tx._id
         });
 
         tx.linkedTransactionId = mirroredTx._id;
         await tx.save();
 
-        await Notification.create({
-          userId: otherUserId,
-          type: 'TRANSACTION_LOGGED',
-          title: '✅ Settlement Recorded',
-          message: `${req.user.name} recorded a settlement of ₹${settleAmount}.`,
-          data: {
-            friendId: reciprocalFriend._id,
-            connectedUserId: userId,
-            transactionId: mirroredTx._id,
-            friendName: req.user.name,
-            amount: settleAmount
-          }
-        });
+        if (isConnected && isAuthorized) {
+          await Notification.create({
+            userId: otherUserId,
+            type: 'TRANSACTION_LOGGED',
+            title: '✅ Settlement Recorded',
+            message: `${req.user.name} recorded a settlement of ₹${settleAmount}.`,
+            data: {
+              friendId: reciprocalFriend._id,
+              connectedUserId: userId,
+              transactionId: mirroredTx._id,
+              friendName: req.user.name,
+              amount: settleAmount
+            }
+          });
+        } else {
+          await Notification.create({
+            userId: otherUserId,
+            type: 'SETTLEMENT_REQUEST',
+            title: '🤝 Settlement Recorded',
+            message: `${req.user.name} recorded a settlement of ₹${settleAmount}. Accept ✅ or Decline ❌?`,
+            data: {
+              friendId: reciprocalFriend._id,
+              connectedUserId: userId,
+              transactionId: mirroredTx._id,
+              friendName: req.user.name,
+              amount: settleAmount
+            }
+          });
+        }
       }
     }
 

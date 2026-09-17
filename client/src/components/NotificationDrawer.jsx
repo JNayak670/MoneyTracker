@@ -198,7 +198,7 @@ export default function NotificationDrawer({ isOpen, onClose, onOpenShareHistory
 
           {!loading && notifications.map((notif) => {
             const isMatch = notif.type === 'USERNAME_MATCH' || notif.type === 'FRIEND_REQUEST';
-            const isTxReq = notif.type === 'TRANSACTION_REQUEST';
+            const isTxReq = notif.type === 'TRANSACTION_REQUEST' || notif.type === 'SETTLEMENT_REQUEST';
             const isLoadingThis = actionLoading === notif.id;
 
             return (

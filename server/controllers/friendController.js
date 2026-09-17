@@ -9,19 +9,20 @@ exports.getAllFriends = async (req, res) => {
     const friends = await Friend.find({ userId })
       .populate('connectedUserId', 'id name username email')
       .sort({ name: 1 });
-    const transactions = await Transaction.find({ userId });
+    const transactions = await Transaction.find({ userId, approvalStatus: { $ne: 'REJECTED' } });
 
     // Map transactions by friendId
     const txByFriend = {};
     for (const t of transactions) {
       if (!t.friendId) continue;
-      const fId = t.friendId.toString();
+      const fId = t.friendId._id ? t.friendId._id.toString() : t.friendId.toString();
       if (!txByFriend[fId]) txByFriend[fId] = [];
       txByFriend[fId].push(t);
     }
 
     const enriched = friends.map(f => {
-      const fTxs = txByFriend[f.id] || [];
+      const fIdStr = f._id ? f._id.toString() : (f.id || '');
+      const fTxs = txByFriend[fIdStr] || txByFriend[f.id] || [];
       let totalGiven = 0;
       let totalReceived = 0;
       let balance = 0;
@@ -99,7 +100,11 @@ exports.getFriendLedger = async (req, res) => {
       return res.status(404).json({ success: false, error: 'Friend not found.' });
     }
 
-    const transactions = await Transaction.find({ friendId, userId }).sort({ date: 1, createdAt: 1 });
+    const transactions = await Transaction.find({ 
+      friendId: friend._id, 
+      userId, 
+      approvalStatus: { $ne: 'REJECTED' } 
+    }).sort({ date: 1, createdAt: 1 });
 
     // Compute running balance at each point in time
     let runningBalance = 0;
@@ -532,16 +537,62 @@ exports.confirmConnection = async (req, res) => {
       }
     });
 
-    // 5. Check if there are existing offline transactions
-    const existingTransactions = await Transaction.find({ friendId, userId });
+    // 5. Activate any pending approval transactions between both friends
+    await Transaction.updateMany(
+      { userId, friendId: friend._id, approvalStatus: 'PENDING_APPROVAL' },
+      { approvalStatus: 'ACTIVE' }
+    );
+    await Transaction.updateMany(
+      { userId: otherUser._id, friendId: reciprocalFriend._id, approvalStatus: 'PENDING_APPROVAL' },
+      { approvalStatus: 'ACTIVE' }
+    );
+
+    // 6. Auto-sync any existing unshared transactions recorded by this user
+    const unsharedTxs = await Transaction.find({ friendId: friend._id, userId, isShared: { $ne: true } });
+    for (const tx of unsharedTxs) {
+      let reciprocalType = 'RECEIVED';
+      let reciprocalImpact = -tx.amount;
+      if (tx.type === 'RECEIVED') {
+        reciprocalType = 'GIVEN';
+        reciprocalImpact = tx.amount;
+      } else if (tx.type === 'SETTLED') {
+        reciprocalType = 'SETTLED';
+        reciprocalImpact = -tx.impactOnUser;
+      }
+
+      const mirroredTx = await Transaction.create({
+        userId: otherUser._id,
+        friendId: reciprocalFriend._id,
+        type: reciprocalType,
+        amount: tx.amount,
+        impactOnUser: reciprocalImpact,
+        category: tx.category,
+        note: tx.note,
+        date: tx.date,
+        time: tx.time,
+        paymentMethod: tx.paymentMethod,
+        receiptNote: `From ${req.user.name}: ${tx.receiptNote || tx.note}`,
+        isShared: true,
+        sharedWithUserId: userId,
+        approvalStatus: 'ACTIVE',
+        linkedTransactionId: tx._id
+      });
+
+      tx.isShared = true;
+      tx.sharedWithUserId = otherUser._id;
+      tx.linkedTransactionId = mirroredTx._id;
+      await tx.save();
+    }
+
+    const allCurrentTxs = await Transaction.find({ friendId: friend._id, userId });
 
     res.json({
       success: true,
-      message: `Successfully connected with ${otherUser.name} (@${otherUser.username})!`,
+      message: `Successfully connected with ${otherUser.name} (@${otherUser.username})! All ledgers synchronized.`,
       data: {
         friend,
-        eligibleTransactionsCount: existingTransactions.length,
-        eligibleTransactions: existingTransactions.map(t => ({
+        eligibleTransactionsCount: allCurrentTxs.length,
+        eligibleTransactions: allCurrentTxs.map(t => ({
           id: t.id,
           note: t.note,
           amount: t.amount,
@@ -691,7 +742,7 @@ exports.shareHistoricalTransactions = async (req, res) => {
   }
 };
 
-// @route   PUT /api/friends/:id/permission
+// @route   PUT /api/friends/:id/permission (and PATCH)
 // @desc    Update friend permission (NORMAL = Requires Approval, AUTHORIZED = Instant Sync)
 exports.updateFriendPermission = async (req, res) => {
   try {
@@ -710,6 +761,32 @@ exports.updateFriendPermission = async (req, res) => {
 
     friend.permission = permission;
     await friend.save();
+
+    // If friend is connected to another MoneyTracker user, synchronize reciprocal friend permission & send alert
+    if (friend.connectedUserId) {
+      let reciprocalFriend = await Friend.findOne({ userId: friend.connectedUserId, connectedUserId: userId });
+      if (!reciprocalFriend && req.user.username) {
+        reciprocalFriend = await Friend.findOne({ userId: friend.connectedUserId, pendingUsername: req.user.username.toLowerCase() });
+      }
+
+      if (reciprocalFriend) {
+        reciprocalFriend.permission = permission;
+        await reciprocalFriend.save();
+      }
+
+      await Notification.create({
+        userId: friend.connectedUserId,
+        type: 'SYSTEM_ALERT',
+        title: permission === 'AUTHORIZED' ? '⚡ Instant Sync Enabled' : '⏳ Normal Approval Mode Set',
+        message: `${req.user.name} set sync mode with you to ${permission === 'AUTHORIZED' ? 'Authorized (Instant Sync)' : 'Normal (Requires Approval)'}.`,
+        data: {
+          friendId: reciprocalFriend ? reciprocalFriend._id : null,
+          connectedUserId: userId,
+          friendName: req.user.name,
+          permission
+        }
+      });
+    }
 
     res.json({
       success: true,

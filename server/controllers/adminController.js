@@ -194,10 +194,24 @@ exports.requireAdminAuth = (req, res, next) => {
 exports.getAdminStats = async (req, res) => {
   try {
     const now = new Date();
-    const [totalUsers, totalFriends, totalTransactions, activeShares, volumeAgg] = await Promise.all([
+    const [
+      totalUsers, 
+      totalFriends, 
+      connectedFriends,
+      authorizedFriends,
+      totalTransactions, 
+      syncedTransactions,
+      pendingApprovals,
+      activeShares, 
+      volumeAgg
+    ] = await Promise.all([
       User.countDocuments(),
       Friend.countDocuments(),
+      Friend.countDocuments({ connectionStatus: 'CONNECTED' }),
+      Friend.countDocuments({ permission: 'AUTHORIZED' }),
       Transaction.countDocuments(),
+      Transaction.countDocuments({ isShared: true }),
+      Transaction.countDocuments({ approvalStatus: 'PENDING_APPROVAL' }),
       ShareCode.countDocuments({ expiresAt: { $gt: now } }),
       Transaction.aggregate([
         { $group: { _id: null, totalAmount: { $sum: '$amount' } } }
@@ -211,7 +225,11 @@ exports.getAdminStats = async (req, res) => {
       data: {
         totalUsers,
         totalFriends,
+        connectedFriends,
+        authorizedFriends,
         totalTransactions,
+        syncedTransactions,
+        pendingApprovals,
         totalVolume,
         activeShares,
         serverTime: now
@@ -230,13 +248,15 @@ exports.getAdminUsers = async (req, res) => {
 
     const usersWithStats = await Promise.all(
       users.map(async (u) => {
-        const [friendsCount, txCount] = await Promise.all([
+        const [friendsCount, connectedCount, txCount] = await Promise.all([
           Friend.countDocuments({ userId: u._id }),
+          Friend.countDocuments({ userId: u._id, connectionStatus: 'CONNECTED' }),
           Transaction.countDocuments({ userId: u._id })
         ]);
         return {
           id: u._id.toString(),
           name: u.name,
+          username: u.username || null,
           email: u.email,
           currency: u.currency || '₹',
           isLocked: !!u.isLocked,
@@ -244,6 +264,7 @@ exports.getAdminUsers = async (req, res) => {
           lockedAt: u.lockedAt || null,
           createdAt: u.createdAt,
           friendsCount,
+          connectedCount,
           txCount
         };
       })
@@ -352,25 +373,36 @@ exports.deleteAdminUser = async (req, res) => {
 exports.getAdminTransactions = async (req, res) => {
   try {
     const transactions = await Transaction.find()
-      .populate('userId', 'name email')
-      .populate('friendId', 'name relationshipTag avatarEmoji avatarColor')
+      .populate('userId', 'name email username')
+      .populate('friendId', 'name relationshipTag avatarEmoji avatarColor connectionStatus permission connectedUserId pendingUsername')
+      .populate('sharedWithUserId', 'name username email')
       .sort({ createdAt: -1 })
-      .limit(100)
+      .limit(150)
       .lean();
 
     const formatted = transactions.map(t => ({
       id: t._id.toString(),
       userName: t.userId?.name || 'Unknown',
+      userUsername: t.userId?.username || null,
       userEmail: t.userId?.email || '',
       friendName: t.friendId?.name || 'Friend',
       friendEmoji: t.friendId?.avatarEmoji || '👤',
+      friendConnectionStatus: t.friendId?.connectionStatus || 'OFFLINE',
+      friendPermission: t.friendId?.permission || 'NORMAL',
       type: t.type,
       amount: t.amount,
+      impactOnUser: t.impactOnUser,
       category: t.category,
       note: t.note,
       paymentMethod: t.paymentMethod,
       date: t.date,
       time: t.time,
+      isShared: Boolean(t.isShared),
+      approvalStatus: t.approvalStatus || 'ACTIVE',
+      receiptNote: t.receiptNote || null,
+      splitGroupId: t.splitGroupId || null,
+      sharedWithUserName: t.sharedWithUserId?.name || null,
+      sharedWithUsername: t.sharedWithUserId?.username || null,
       createdAt: t.createdAt
     }));
 
@@ -383,12 +415,146 @@ exports.getAdminTransactions = async (req, res) => {
   }
 };
 
+// @route   PUT /api/admin/transactions/:id/approve
+// @desc    Admin override to approve a pending approval transaction
+exports.approveAdminTransaction = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const tx = await Transaction.findById(id);
+    if (!tx) {
+      return res.status(404).json({ success: false, error: 'Transaction not found.' });
+    }
+
+    tx.approvalStatus = 'ACTIVE';
+    await tx.save();
+
+    if (tx.linkedTransactionId) {
+      await Transaction.updateOne({ _id: tx.linkedTransactionId }, { approvalStatus: 'ACTIVE' });
+    }
+
+    res.json({
+      success: true,
+      message: `Transaction "${tx.note}" (₹${tx.amount}) approved by administrator.`,
+      data: tx
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+// @route   PUT /api/admin/transactions/:id/reject
+// @desc    Admin override to decline a transaction
+exports.rejectAdminTransaction = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const tx = await Transaction.findById(id);
+    if (!tx) {
+      return res.status(404).json({ success: false, error: 'Transaction not found.' });
+    }
+
+    tx.approvalStatus = 'REJECTED';
+    await tx.save();
+
+    if (tx.linkedTransactionId) {
+      await Transaction.updateOne({ _id: tx.linkedTransactionId }, { approvalStatus: 'REJECTED' });
+    }
+
+    res.json({
+      success: true,
+      message: `Transaction "${tx.note}" (₹${tx.amount}) declined by administrator.`,
+      data: tx
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+// @route   GET /api/admin/connections
+// @desc    List all 2-way connected friends and their sync permissions
+exports.getAdminConnections = async (req, res) => {
+  try {
+    const connectedFriends = await Friend.find({ connectionStatus: 'CONNECTED' })
+      .populate('userId', 'name username email')
+      .populate('connectedUserId', 'name username email')
+      .sort({ updatedAt: -1 })
+      .lean();
+
+    const formatted = connectedFriends.map(f => ({
+      id: f._id.toString(),
+      user: {
+        id: f.userId?._id?.toString() || f.userId?.toString(),
+        name: f.userId?.name || 'Unknown',
+        username: f.userId?.username || 'user',
+        email: f.userId?.email || ''
+      },
+      connectedUser: {
+        id: f.connectedUserId?._id?.toString() || f.connectedUserId?.toString(),
+        name: f.connectedUserId?.name || f.name,
+        username: f.connectedUserId?.username || f.pendingUsername || 'user',
+        email: f.connectedUserId?.email || ''
+      },
+      friendName: f.name,
+      avatarColor: f.avatarColor,
+      avatarEmoji: f.avatarEmoji,
+      relationshipTag: f.relationshipTag,
+      connectionStatus: f.connectionStatus,
+      permission: f.permission || 'NORMAL',
+      linkedAt: f.linkedAt || f.createdAt,
+      createdAt: f.createdAt
+    }));
+
+    res.json({
+      success: true,
+      data: formatted
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+// @route   PUT /api/admin/connections/:id/permission
+// @desc    Admin toggle permission for a connected friend pair
+exports.updateAdminConnectionPermission = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { permission } = req.body;
+
+    if (!['NORMAL', 'AUTHORIZED'].includes(permission)) {
+      return res.status(400).json({ success: false, error: 'Permission must be NORMAL or AUTHORIZED.' });
+    }
+
+    const friend = await Friend.findById(id);
+    if (!friend) {
+      return res.status(404).json({ success: false, error: 'Friend connection not found.' });
+    }
+
+    friend.permission = permission;
+    await friend.save();
+
+    // Reciprocal sync
+    if (friend.connectedUserId && friend.userId) {
+      await Friend.updateOne(
+        { userId: friend.connectedUserId, connectedUserId: friend.userId },
+        { permission }
+      );
+    }
+
+    res.json({
+      success: true,
+      message: `Sync permission updated to ${permission === 'AUTHORIZED' ? 'Authorized (Instant)' : 'Normal (Approval)'}.`,
+      data: friend
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
 // @route   GET /api/admin/shares
 // @desc    List all active and recent share codes
 exports.getAdminShares = async (req, res) => {
   try {
     const shares = await ShareCode.find()
-      .populate('userId', 'name email')
+      .populate('userId', 'name email username')
       .populate('friendId', 'name relationshipTag avatarEmoji')
       .sort({ createdAt: -1 })
       .limit(50)
@@ -399,6 +565,7 @@ exports.getAdminShares = async (req, res) => {
       id: s._id.toString(),
       code: s.code,
       userName: s.userId?.name || 'Unknown',
+      userUsername: s.userId?.username || null,
       friendName: s.friendId?.name || 'Unknown',
       durationMinutes: s.durationMinutes,
       expiresAt: s.expiresAt,
