@@ -320,6 +320,37 @@ exports.updateSettings = async (req, res) => {
           });
         }
         user.username = cleanUsername;
+
+        // Auto-match detection for friends waiting on this pending username
+        try {
+          const matchingFriends = await Friend.find({
+            pendingUsername: cleanUsername,
+            connectedUserId: null
+          });
+
+          for (const f of matchingFriends) {
+            if (f.userId.toString() === user.id) continue;
+
+            f.connectionStatus = 'PENDING_MATCH';
+            f.connectedUserId = user._id;
+            await f.save();
+
+            await Notification.create({
+              userId: f.userId,
+              type: 'USERNAME_MATCH',
+              title: `🔔 ${user.name} username updated!`,
+              message: `${user.name} set @${cleanUsername}. Connect accounts to manage shared transactions?`,
+              data: {
+                friendId: f._id,
+                connectedUserId: user._id,
+                username: cleanUsername,
+                friendName: f.name
+              }
+            });
+          }
+        } catch (matchErr) {
+          console.warn('⚠️ Match detection warning in updateSettings:', matchErr.message);
+        }
       }
     }
 

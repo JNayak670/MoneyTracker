@@ -33,5 +33,6 @@ router.post('/:id/confirm-connect', confirmConnection);
 router.post('/:id/ignore-connect', ignoreConnection);
 router.post('/:id/share-history', shareHistoricalTransactions);
 router.put('/:id/permission', updateFriendPermission);
+router.patch('/:id/permission', updateFriendPermission);
 
 module.exports = router;

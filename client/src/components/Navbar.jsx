@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import ChangePinModal from './ChangePinModal';
+import EditUsernameModal from './EditUsernameModal';
 import SearchModal from './SearchModal';
 import NotificationDrawer from './NotificationDrawer';
 import ShareHistoryModal from './ShareHistoryModal';
@@ -32,6 +33,7 @@ export default function Navbar({ onOpenAddModal, onViewFriend, onDataChanged }) 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [pinModalOpen, setPinModalOpen] = useState(false);
+  const [usernameModalOpen, setUsernameModalOpen] = useState(false);
   const [searchModalOpen, setSearchModalOpen] = useState(false);
   const [notifDrawerOpen, setNotifDrawerOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -162,16 +164,38 @@ export default function Navbar({ onOpenAddModal, onViewFriend, onDataChanged }) 
                   <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-2xl border border-slate-200 py-2 z-50 animate-fadeIn divide-y divide-slate-100">
                     <div className="px-4 py-2.5">
                       <p className="text-xs font-black text-slate-900 truncate">{user?.name || 'Demo Account'}</p>
-                      {user?.username && (
+                      {user?.username ? (
                         <p className="text-[11px] font-bold text-purple-600 truncate">@{user.username}</p>
+                      ) : (
+                        <div className="mt-1 flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200 w-fit">
+                          <span>⚠️ No @username set</span>
+                        </div>
                       )}
-                      <p className="text-[11px] text-slate-500 truncate">{user?.email || 'user@example.com'}</p>
+                      <p className="text-[11px] text-slate-500 truncate mt-0.5">{user?.email || 'user@example.com'}</p>
                       <span className="inline-block mt-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
                         🇮🇳 Indian Rupee (₹)
                       </span>
                     </div>
 
                     <div className="py-1">
+                      <button
+                        onClick={() => {
+                          setProfileMenuOpen(false);
+                          setUsernameModalOpen(true);
+                        }}
+                        className="w-full flex items-center justify-between px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-purple-600 transition-colors text-left"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <AtSign className="w-4 h-4 text-purple-600" />
+                          <span>{user?.username ? 'Change @Username' : 'Set Your @Username'}</span>
+                        </div>
+                        {!user?.username && (
+                          <span className="text-[9px] font-black bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full animate-pulse">
+                            Setup
+                          </span>
+                        )}
+                      </button>
+
                       <Link
                         to="/share"
                         onClick={() => setProfileMenuOpen(false)}
@@ -327,6 +351,11 @@ export default function Navbar({ onOpenAddModal, onViewFriend, onDataChanged }) 
         onComplete={() => {
           if (onDataChanged) onDataChanged();
         }}
+      />
+      {/* Edit / Set @Username Modal */}
+      <EditUsernameModal
+        isOpen={usernameModalOpen}
+        onClose={() => setUsernameModalOpen(false)}
       />
     </>
   );

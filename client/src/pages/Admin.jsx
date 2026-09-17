@@ -33,7 +33,10 @@ import {
   Check,
   XCircle,
   Info,
-  ShieldCheck
+  ShieldCheck,
+  AtSign,
+  AlertCircle,
+  X
 } from 'lucide-react';
 import axios from 'axios';
 import AppLogo from '../components/AppLogo';
@@ -64,6 +67,12 @@ export default function Admin() {
   const [deletingId, setDeletingId] = useState(null);
   const [actionLoadingId, setActionLoadingId] = useState(null);
   const [message, setMessage] = useState('');
+
+  // Set @Username Modal State
+  const [usernameModalUser, setUsernameModalUser] = useState(null);
+  const [inputUsername, setInputUsername] = useState('');
+  const [usernameSaving, setUsernameSaving] = useState(false);
+  const [usernameError, setUsernameError] = useState('');
 
   // Change Admin Password state
   const [pwdCurrent, setPwdCurrent] = useState('');
@@ -229,6 +238,37 @@ export default function Admin() {
       alert(`Unlock failed: ${err.response?.data?.error || err.message}`);
     } finally {
       setActionLoadingId(null);
+    }
+  };
+
+  const openSetUsernameModal = (user) => {
+    setUsernameModalUser(user);
+    const defaultSuggestion = user.username || (user.email ? user.email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '').slice(0, 15) : '');
+    setInputUsername(defaultSuggestion);
+    setUsernameError('');
+  };
+
+  const handleSaveUsername = async (e) => {
+    e.preventDefault();
+    if (!usernameModalUser) return;
+    const clean = inputUsername.replace(/^@/, '').toLowerCase().trim();
+    if (!/^[a-zA-Z0-9_]{3,20}$/.test(clean)) {
+      setUsernameError('Username must be 3 to 20 letters, numbers, or underscores (e.g. rahul_123).');
+      return;
+    }
+
+    try {
+      setUsernameSaving(true);
+      setUsernameError('');
+      const res = await adminApi.put(`/admin/users/${usernameModalUser.id}/username`, { username: clean });
+      setMessage(res.data.message || `Username updated to @${clean}`);
+      setUsers(prev => prev.map(u => u.id === usernameModalUser.id ? { ...u, username: clean } : u));
+      setUsernameModalUser(null);
+      setTimeout(() => setMessage(''), 4000);
+    } catch (err) {
+      setUsernameError(err.response?.data?.error || err.message || 'Failed to update username.');
+    } finally {
+      setUsernameSaving(false);
     }
   };
 
@@ -787,8 +827,13 @@ export default function Admin() {
                             </div>
                             <div>
                               <div>{u.name}</div>
-                              {u.username && (
+                              {u.username ? (
                                 <div className="text-[11px] text-purple-400 font-bold">@{u.username}</div>
+                              ) : (
+                                <div className="text-[10px] text-amber-400 font-bold flex items-center gap-1 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 mt-0.5 w-fit">
+                                  <AlertCircle className="w-2.5 h-2.5" />
+                                  <span>No @username</span>
+                                </div>
                               )}
                               <div className="text-[10px] text-slate-500 font-mono">ID: {u.id?.substring(0, 8)}...</div>
                             </div>
@@ -839,6 +884,16 @@ export default function Admin() {
                                 <span>Unlock</span>
                               </button>
                             )}
+
+                            <button
+                              onClick={() => openSetUsernameModal(u)}
+                              disabled={actionLoadingId === u.id}
+                              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 border border-purple-500/40 text-xs font-bold transition-colors"
+                              title="Set or Edit @Username"
+                            >
+                              <AtSign className="w-3.5 h-3.5" />
+                              <span>{u.username ? 'Edit @' : 'Set @'}</span>
+                            </button>
 
                             <button
                               onClick={() => handleResetPin(u.id, u.name)}
@@ -1338,6 +1393,85 @@ export default function Admin() {
                   >
                     <Sparkles className="w-4 h-4" />
                     <span>{pwdLoading ? 'Saving New Passkey...' : 'Update Admin Passkey'}</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Set / Edit @Username Modal for Admin */}
+        {usernameModalUser && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn">
+            <div className="bg-slate-900 border border-slate-700/80 rounded-3xl w-full max-w-md p-6 shadow-2xl space-y-5 relative">
+              <button
+                onClick={() => setUsernameModalUser(null)}
+                className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-purple-600/20 border border-purple-500/40 flex items-center justify-center text-purple-400">
+                  <AtSign className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white">
+                    {usernameModalUser.username ? 'Edit User @Username' : 'Set User @Username'}
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    User: <strong className="text-slate-200">{usernameModalUser.name}</strong> ({usernameModalUser.email})
+                  </p>
+                </div>
+              </div>
+
+              {usernameError && (
+                <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-semibold flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 flex-shrink-0 text-rose-400" />
+                  <span>{usernameError}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleSaveUsername} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-black text-slate-300 uppercase tracking-wider mb-1.5">
+                    Assign Unique @Username Handle
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-purple-400 font-black text-sm">@</span>
+                    <input
+                      type="text"
+                      value={inputUsername}
+                      onChange={(e) => {
+                        setInputUsername(e.target.value.replace(/^@/, '').toLowerCase().trim());
+                        setUsernameError('');
+                      }}
+                      placeholder="e.g. amit456"
+                      className="w-full bg-slate-800/90 border border-slate-700 rounded-xl pl-9 pr-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 font-bold"
+                      autoFocus
+                      required
+                    />
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-1.5">
+                    Must be 3 to 20 letters, numbers, or underscores.
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setUsernameModalUser(null)}
+                    className="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={usernameSaving || !inputUsername.trim()}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black bg-purple-600 hover:bg-purple-500 text-white shadow-lg shadow-purple-600/30 transition-all disabled:opacity-50"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    <span>{usernameSaving ? 'Saving...' : 'Save @Username'}</span>
                   </button>
                 </div>
               </form>

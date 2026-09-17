@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-const { User, Friend, Transaction, ShareCode, AdminSetting } = require('../db');
+const { User, Friend, Transaction, ShareCode, AdminSetting, Notification } = require('../db');
 
 const getAdminCredentials = async () => {
   const defaultEmail = (process.env.ADMIN_EMAIL || 'admin@gmail.com').toLowerCase().trim();
@@ -341,6 +341,94 @@ exports.resetAdminUserPin = async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 };
+
+// @route   PUT /api/admin/users/:id/username
+// @desc    Admin manually sets or updates a user's @username
+exports.setAdminUserUsername = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { username } = req.body;
+
+    if (!username || !username.trim()) {
+      return res.status(400).json({
+        success: false,
+        error: 'Please provide a valid username.'
+      });
+    }
+
+    const cleanUsername = username.replace(/^@/, '').toLowerCase().trim();
+    if (!/^[a-zA-Z0-9_]{3,20}$/.test(cleanUsername)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Username must be 3 to 20 letters, numbers, or underscores (e.g. rahul_123).'
+      });
+    }
+
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'User not found.' });
+    }
+
+    // Check if another user already has this username
+    const existing = await User.findOne({ username: cleanUsername, _id: { $ne: id } });
+    if (existing) {
+      return res.status(400).json({
+        success: false,
+        error: `Username @${cleanUsername} is already taken by ${existing.name} (${existing.email}).`
+      });
+    }
+
+    const oldUsername = user.username;
+    user.username = cleanUsername;
+    await user.save();
+
+    // Trigger match detection for offline friends waiting for this pendingUsername
+    try {
+      const matchingFriends = await Friend.find({
+        pendingUsername: cleanUsername,
+        connectedUserId: null
+      });
+
+      for (const f of matchingFriends) {
+        if (f.userId.toString() === user.id) continue;
+
+        f.connectionStatus = 'PENDING_MATCH';
+        f.connectedUserId = user._id;
+        await f.save();
+
+        await Notification.create({
+          userId: f.userId,
+          type: 'USERNAME_MATCH',
+          title: `🔔 ${user.name} username updated!`,
+          message: `${user.name} now has @${cleanUsername}. Connect accounts to manage shared transactions?`,
+          data: {
+            friendId: f._id,
+            connectedUserId: user._id,
+            username: cleanUsername,
+            friendName: f.name
+          }
+        });
+      }
+    } catch (matchErr) {
+      console.warn('⚠️ Match detection warning in admin setAdminUserUsername:', matchErr.message);
+    }
+
+    res.json({
+      success: true,
+      message: `Username for ${user.name} updated to @${cleanUsername} successfully!`,
+      data: {
+        id: user._id.toString(),
+        name: user.name,
+        email: user.email,
+        username: cleanUsername,
+        oldUsername
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
 
 // @route   DELETE /api/admin/users/:id
 // @desc    Delete user and cascade delete their friends, transactions, shares
