@@ -206,6 +206,91 @@
   animation: floatParticle 2.2s ease-in-out infinite;
 }
 
+@keyframes spinSlow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin-slow {
+  animation: spinSlow 9s linear infinite;
+}
+
+@keyframes spinReverseSlow {
+  from {
+    transform: rotate(360deg);
+  }
+  to {
+    transform: rotate(0deg);
+  }
+}
+
+.animate-spin-reverse-slow {
+  animation: spinReverseSlow 6s linear infinite;
+}
+
+@keyframes shimmerSweep {
+  0% {
+    transform: translateX(-120%);
+    opacity: 0;
+  }
+  30%, 70% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: translateX(260%);
+    opacity: 0;
+  }
+}
+
+.animate-shimmer-sweep {
+  animation: shimmerSweep 1.7s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes beaconRing {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(2.5);
+    opacity: 0;
+  }
+}
+
+.animate-beaconRing {
+  animation: beaconRing 2s cubic-bezier(0, 0.2, 0.8, 1) infinite;
+}
+
+@keyframes floatDrift1 {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-15px) rotate(3deg);
+  }
+}
+
+@keyframes floatDrift2 {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(16px) rotate(-3deg);
+  }
+}
+
+.animate-float-drift-1 {
+  animation: floatDrift1 7s ease-in-out infinite;
+}
+
+.animate-float-drift-2 {
+  animation: floatDrift2 8.5s ease-in-out infinite;
+}
+
 /* Modern Fintech Colorful Patterns & Utilities */
 .bg-grid-pattern {
   background-size: 32px 32px;
