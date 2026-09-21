@@ -66,7 +66,7 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
 
   // Action Modals
   const [settleModal, setSettleModal] = useState({ open: false, friendId: '', friendName: '', amount: 0 });
-  const [whatsappModal, setWhatsappModal] = useState({ open: false, friendName: '', amount: 0, phone: '' });
+  const [whatsappModal, setWhatsappModal] = useState({ open: false, friendName: '', amount: 0, phone: '', type: 'OWED' });
   const [shareModal, setShareModal] = useState({ open: false, friendId: '', friendName: '' });
   const [linkModal, setLinkModal] = useState({ open: false, friend: null });
   const [pendingRequests, setPendingRequests] = useState([]);
@@ -549,7 +549,7 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
               onAddTx={(id) => onOpenAddTx(id)}
               onViewHistory={(id) => loadFriendLedger(id)}
               onSettle={(id, amt, name) => setSettleModal({ open: true, friendId: id, friendName: name, amount: amt })}
-              onRemind={(id, amt, name, phone) => setWhatsappModal({ open: true, friendName: name, amount: amt, phone })}
+              onRemind={(id, amt, name, phone, type = 'OWED') => setWhatsappModal({ open: true, friendName: name, amount: amt, phone, type })}
               onShareCode={(id, name) => setShareModal({ open: true, friendId: id, friendName: name })}
               onEdit={(f) => handleOpenEditModal(f)}
               onDelete={handleDeleteFriend}
@@ -701,15 +701,19 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
                       <span>Settle Up</span>
                     </button>
                   )}
-                  {activeLedger.currentBalance > 0 && (
-                    <button
-                      onClick={() => setWhatsappModal({ open: true, friendName: activeLedger.friend.name, amount: activeLedger.currentBalance, phone: activeLedger.friend.phone })}
-                      className="flex-1 xs:flex-initial bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold px-3.5 py-2 rounded-xl flex items-center justify-center gap-1.5 border border-emerald-300 active:scale-[0.98] transition-all"
-                    >
-                      <MessageSquare className="w-4 h-4 text-emerald-600" />
-                      <span>Remind</span>
-                    </button>
-                  )}
+                  <button
+                    onClick={() => setWhatsappModal({ 
+                      open: true, 
+                      friendName: activeLedger.friend.name, 
+                      amount: Math.abs(activeLedger.currentBalance || 0), 
+                      phone: activeLedger.friend.phone,
+                      type: (activeLedger.currentBalance || 0) > 0 ? 'OWED' : (activeLedger.currentBalance || 0) < 0 ? 'YOU_OWE' : 'SETTLED'
+                    })}
+                    className="flex-1 xs:flex-initial bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold px-3.5 py-2 rounded-xl flex items-center justify-center gap-1.5 border border-emerald-300 active:scale-[0.98] transition-all"
+                  >
+                    <MessageSquare className="w-4 h-4 text-emerald-600" />
+                    <span>{activeLedger.currentBalance > 0 ? 'Remind' : 'WhatsApp'}</span>
+                  </button>
                 </div>
               </div>
 
@@ -985,10 +989,11 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
       {/* WhatsApp Modal */}
       <WhatsAppModal
         isOpen={whatsappModal.open}
-        onClose={() => setWhatsappModal({ open: false, friendName: '', amount: 0, phone: '' })}
+        onClose={() => setWhatsappModal({ open: false, friendName: '', amount: 0, phone: '', type: 'OWED' })}
         friendName={whatsappModal.friendName}
         amount={whatsappModal.amount}
         phone={whatsappModal.phone}
+        type={whatsappModal.type}
       />
 
       {/* Share Code Modal */}

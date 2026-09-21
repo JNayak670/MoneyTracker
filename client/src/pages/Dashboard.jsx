@@ -57,7 +57,7 @@ export default function Dashboard({ onOpenAddTx, onOpenAddFriend, onViewFriendHi
 
   // Modal states
   const [settleModal, setSettleModal] = useState({ open: false, friendId: '', friendName: '', amount: 0 });
-  const [whatsappModal, setWhatsappModal] = useState({ open: false, friendName: '', amount: 0, phone: '' });
+  const [whatsappModal, setWhatsappModal] = useState({ open: false, friendName: '', amount: 0, phone: '', type: 'OWED' });
   const [shareModal, setShareModal] = useState({ open: false, friendId: '', friendName: '' });
   const [linkModal, setLinkModal] = useState({ open: false, friend: null });
   const [syncModal, setSyncModal] = useState({ open: false, friend: null });
@@ -418,7 +418,7 @@ export default function Dashboard({ onOpenAddTx, onOpenAddFriend, onViewFriendHi
                 onAddTx={(id) => onOpenAddTx(id)}
                 onViewHistory={(id) => onViewFriendHistory(id)}
                 onSettle={(id, amt, name) => setSettleModal({ open: true, friendId: id, friendName: name, amount: amt })}
-                onRemind={(id, amt, name, phone) => setWhatsappModal({ open: true, friendName: name, amount: amt, phone })}
+                onRemind={(id, amt, name, phone, type = 'OWED') => setWhatsappModal({ open: true, friendName: name, amount: amt, phone, type })}
                 onShareCode={(id, name) => setShareModal({ open: true, friendId: id, friendName: name })}
                 onEdit={(f) => onOpenAddFriend(f)}
                 onDelete={handleDeleteFriend}
@@ -563,11 +563,12 @@ export default function Dashboard({ onOpenAddTx, onOpenAddFriend, onViewFriendHi
       {/* WhatsApp Modal */}
       <WhatsAppModal
         isOpen={whatsappModal.open}
-        onClose={() => setWhatsappModal({ open: false, friendName: '', amount: 0, phone: '' })}
+        onClose={() => setWhatsappModal({ open: false, friendName: '', amount: 0, phone: '', type: 'OWED' })}
         friendName={whatsappModal.friendName}
         amount={whatsappModal.amount}
         phone={whatsappModal.phone}
         currency={currency}
+        type={whatsappModal.type}
       />
 
       {/* Share Code Modal */}

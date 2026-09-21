@@ -2,12 +2,24 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, MessageSquare, Copy, ExternalLink, Check } from 'lucide-react';
 
-export default function WhatsAppModal({ isOpen, onClose, friendName, amount, phone = '', currency = '₹', userName = 'Me' }) {
+export default function WhatsAppModal({ 
+  isOpen, 
+  onClose, 
+  friendName, 
+  amount, 
+  phone = '', 
+  currency = '₹', 
+  userName = 'Me',
+  type = 'OWED' 
+}) {
   const [tone, setTone] = useState('polite');
   const [phoneNumber, setPhoneNumber] = useState(phone || '');
   const [reason, setReason] = useState('');
   const [copied, setCopied] = useState(false);
   const [message, setMessage] = useState('');
+
+  const isYouOwe = type === 'YOU_OWE';
+  const isSettled = type === 'SETTLED' || Number(amount) === 0;
 
   useEffect(() => {
     setPhoneNumber(phone || '');
@@ -25,6 +37,34 @@ export default function WhatsAppModal({ isOpen, onClose, friendName, amount, pho
   }, [isOpen]);
 
   const generateText = (t, r) => {
+    if (isSettled) {
+      switch (t) {
+        case 'casual':
+          return `Hey ${friendName}! 👋 All our shared expenses and ledgers on MoneyTracker are completely settled (₹0). Catch up soon! 🍕`;
+        case 'funny':
+          return `Hello ${friendName}! 📢 Breaking News: Our shared balance is exactly ₹0! Neither of us owes anything. Time for another outing? 😂`;
+        case 'formal':
+          return `*Account Statement - Money Tracker*\n\nTo: ${friendName}\nCurrent Balance: Settled (₹0)\nDate: ${new Date().toLocaleDateString()}\n\nAll accounts between us are balanced and up to date. Thank you.`;
+        case 'polite':
+        default:
+          return `Hey ${friendName}! 😊 Just checking in—all our shared ledgers on MoneyTracker are fully balanced and settled. Have a wonderful day! 🙌`;
+      }
+    }
+
+    if (isYouOwe) {
+      switch (t) {
+        case 'casual':
+          return `Yo ${friendName}! 👋 Ready to clear the ${currency}${amount} balance I owe you${r ? ` for ${r}` : ''}. Send over your UPI ID or QR code whenever you get a chance! 🚀`;
+        case 'funny':
+          return `Hello ${friendName}! 📢 Breaking News: My wallet owes you ${currency}${amount}${r ? ` (${r})` : ''}! 🍕💸 Send your UPI details so I can settle before I spend it all! 😂`;
+        case 'formal':
+          return `*Payment Settlement Notice - Money Tracker*\n\nTo: ${friendName}\nAmount Owed by Me: ${currency}${amount}\nReference: ${r || 'Shared Expense'}\nDate: ${new Date().toLocaleDateString()}\n\nPlease share your UPI ID / bank details so I can complete the payment. Thank you.`;
+        case 'polite':
+        default:
+          return `Hey ${friendName}! 😊 Hope you're doing well.\n\nJust wanted to reach out regarding the ${currency}${amount} I owe you${r ? ` for "${r}"` : ''}.\nPlease send your UPI ID or payment link so I can clear it today. Thanks a lot! 🙌`;
+      }
+    }
+
     switch (t) {
       case 'casual':
         return `Yo ${friendName}! 👋 Quick heads up on the ${currency}${amount} balance${r ? ` for ${r}` : ''}. Send over UPI whenever you get a chance! 🚀`;
@@ -40,7 +80,7 @@ export default function WhatsAppModal({ isOpen, onClose, friendName, amount, pho
 
   useEffect(() => {
     setMessage(generateText(tone, reason));
-  }, [tone, reason, friendName, amount, currency]);
+  }, [tone, reason, friendName, amount, currency, isYouOwe, isSettled]);
 
   if (!isOpen) return null;
 
@@ -64,12 +104,22 @@ export default function WhatsAppModal({ isOpen, onClose, friendName, amount, pho
         
         <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-slate-100 bg-slate-50/90 flex-shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center">
-              <MessageSquare className="w-4 h-4 fill-emerald-100" />
+            <div className={`w-8 h-8 rounded-xl border flex items-center justify-center ${
+              isYouOwe 
+                ? 'bg-rose-50 text-rose-600 border-rose-200' 
+                : isSettled 
+                ? 'bg-slate-50 text-slate-600 border-slate-200'
+                : 'bg-emerald-50 text-emerald-600 border-emerald-200'
+            }`}>
+              <MessageSquare className="w-4 h-4 fill-current opacity-80" />
             </div>
             <div>
-              <h2 className="text-sm sm:text-base font-black text-slate-900">WhatsApp Reminder</h2>
-              <p className="text-[10px] sm:text-[11px] text-slate-500 font-semibold truncate">Send reminder to {friendName}</p>
+              <h2 className="text-sm sm:text-base font-black text-slate-900">
+                {isSettled ? 'WhatsApp Message' : isYouOwe ? 'Payment Settlement Note' : 'WhatsApp Reminder'}
+              </h2>
+              <p className="text-[10px] sm:text-[11px] text-slate-500 font-semibold truncate">
+                {isSettled ? `Message ${friendName}` : isYouOwe ? `Send UPI request to ${friendName}` : `Send reminder to ${friendName}`}
+              </p>
             </div>
           </div>
           <button 
@@ -82,12 +132,32 @@ export default function WhatsAppModal({ isOpen, onClose, friendName, amount, pho
 
         <div className="p-4 sm:p-6 space-y-3.5 sm:space-y-4 overflow-y-auto">
           {/* Friend & Amount Summary Card */}
-          <div className="p-3 sm:p-3.5 rounded-xl sm:rounded-2xl bg-gradient-to-r from-emerald-50 via-teal-50 to-white border border-emerald-200 flex items-center justify-between">
+          <div className={`p-3 sm:p-3.5 rounded-xl sm:rounded-2xl border flex items-center justify-between ${
+            isSettled
+              ? 'bg-gradient-to-r from-slate-50 to-slate-100 border-slate-200'
+              : isYouOwe
+              ? 'bg-gradient-to-r from-rose-50 via-pink-50 to-white border-rose-200'
+              : 'bg-gradient-to-r from-emerald-50 via-teal-50 to-white border-emerald-200'
+          }`}>
             <div>
-              <div className="text-[10px] uppercase font-bold text-emerald-800 tracking-wider">Due to you</div>
-              <div className="text-base sm:text-lg font-black text-emerald-900">{currency}{Number(amount).toLocaleString()}</div>
+              <div className={`text-[10px] uppercase font-bold tracking-wider ${
+                isSettled ? 'text-slate-600' : isYouOwe ? 'text-rose-700' : 'text-emerald-800'
+              }`}>
+                {isSettled ? 'Account Status' : isYouOwe ? 'You Owe' : 'Due to you'}
+              </div>
+              <div className={`text-base sm:text-lg font-black ${
+                isSettled ? 'text-slate-800' : isYouOwe ? 'text-rose-950' : 'text-emerald-900'
+              }`}>
+                {isSettled ? 'All Settled (₹0)' : `${currency}${Number(amount).toLocaleString()}`}
+              </div>
             </div>
-            <span className="text-xs font-bold text-emerald-700 bg-white/80 border border-emerald-200/80 px-2.5 py-1 rounded-lg">
+            <span className={`text-xs font-bold px-2.5 py-1 rounded-lg border ${
+              isSettled
+                ? 'text-slate-700 bg-white border-slate-200'
+                : isYouOwe
+                ? 'text-rose-700 bg-white/90 border-rose-200'
+                : 'text-emerald-700 bg-white/80 border-emerald-200/80'
+            }`}>
               {friendName}
             </span>
           </div>

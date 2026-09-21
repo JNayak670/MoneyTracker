@@ -330,11 +330,11 @@ export default function FriendCard({
             <span>Settle {bal !== 0 ? `${currency}${Math.abs(bal).toLocaleString()}` : ''}</span>
           </button>
 
-          {isOwed && (
+          {onRemind && (
             <button
-              onClick={() => onRemind(friend.id, Math.abs(bal), friend.name, friend.phone)}
-              className="flex items-center justify-center gap-1.5 bg-[#25D366] hover:bg-[#20bd5a] text-white text-xs font-black py-2.5 px-3 rounded-2xl shadow-xs transition-all"
-              title="Send WhatsApp Payment Reminder"
+              onClick={() => onRemind(friend.id, Math.abs(bal), friend.name, friend.phone, isOwed ? 'OWED' : bal < 0 ? 'YOU_OWE' : 'SETTLED')}
+              className="flex items-center justify-center gap-1.5 bg-[#25D366] hover:bg-[#20bd5a] text-white text-xs font-black py-2.5 px-3 rounded-2xl shadow-xs transition-all flex-shrink-0 cursor-pointer hover:scale-105 active:scale-95"
+              title={isOwed ? "Send WhatsApp Payment Reminder" : bal < 0 ? "Send WhatsApp Payment Note" : "Send WhatsApp Message"}
             >
               <MessageSquare className="w-4 h-4 fill-white" />
             </button>
