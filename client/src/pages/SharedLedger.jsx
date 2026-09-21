@@ -14,7 +14,9 @@ import {
   Share2, 
   AlertCircle,
   ExternalLink,
-  Wallet
+  Wallet,
+  ArrowLeft,
+  Home
 } from 'lucide-react';
 import { exportToCSV } from '../services/exportService';
 import ColorfulLoader from '../components/ColorfulLoader';
@@ -114,40 +116,76 @@ export default function SharedLedger() {
   const isSettled = balance === 0;
 
   return (
-    <div className={`${user ? 'py-2 px-2 sm:px-4' : 'min-h-screen bg-slate-50 py-4 sm:py-8 px-3 sm:px-6 lg:px-8'}`}>
-      <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6 animate-fadeIn">
-        
-        {/* Top Public Header (Shown only to non-logged in visitors) */}
-        {!user && (
-          <div className="flex flex-col xs:flex-row xs:items-center justify-between gap-3 pb-3 sm:pb-4 border-b border-slate-200">
-            <AppLogo 
-              to="/" 
-              badgeText="Shared Statement" 
-              badgeVariant="indigo" 
-              subtitleText="Verified Friend Transaction Ledger" 
-            />
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-indigo-600 selection:text-white">
+      {/* Top Header Navigation Bar with Unified App Logo and Back to Home Button */}
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-xl border-b border-slate-200/80 shadow-xs flex-shrink-0">
+        <div className="max-w-5xl mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 flex items-center justify-between gap-2 sm:gap-4">
+          
+          {/* Unified Application Logo */}
+          <AppLogo 
+            to="/" 
+            badgeText="Shared Statement" 
+            badgeVariant="indigo" 
+            subtitleText="Verified Friend Transaction Ledger" 
+            className="scale-90 xs:scale-95 sm:scale-100 origin-left"
+          />
 
+          {/* Action Buttons */}
+          <div className="flex items-center gap-2 sm:gap-2.5">
+            {/* Go Back Home Button */}
             <Link
-              to="/login"
-              className="inline-flex items-center justify-center gap-1.5 text-xs font-bold text-brand-600 hover:text-brand-700 bg-white border border-slate-200 px-3.5 py-2 rounded-xl shadow-xs transition-colors self-start xs:self-auto"
+              to="/"
+              id="back-home-button"
+              className="inline-flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-black text-slate-700 hover:text-indigo-600 bg-white hover:bg-slate-50 border border-slate-200 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl shadow-2xs hover:shadow-xs transition-all group active:scale-95"
+              title="Go Back to Home Page"
             >
-              <Wallet className="w-3.5 h-3.5" />
-              <span>Open MoneyTracker</span>
+              <ArrowLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400 group-hover:text-indigo-600 group-hover:-translate-x-0.5 transition-transform" />
+              <Home className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400 group-hover:text-indigo-600" />
+              <span className="hidden xs:inline">Back to Home</span>
+              <span className="xs:hidden">Home</span>
             </Link>
-          </div>
-        )}
 
-        {/* In-App Title Banner when user is logged in */}
-        {user && (
-          <div className="pb-2 border-b border-slate-200">
-            <h1 className="text-xl sm:text-3xl font-black text-slate-900 tracking-tight">
-              Shared Ledger Statement
+            {/* Non-logged in visitors can sign in */}
+            {!user && (
+              <Link
+                to="/login"
+                className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold text-white bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-700 hover:to-pink-700 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl shadow-xs hover:shadow-md transition-all flex-shrink-0"
+              >
+                <Wallet className="w-3.5 h-3.5 hidden xs:inline" />
+                <span>Sign In</span>
+              </Link>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content Area */}
+      <main className="flex-1 max-w-4xl w-full mx-auto py-4 sm:py-8 px-3 sm:px-6 lg:px-8 space-y-4 sm:space-y-6 animate-fadeIn">
+        
+        {/* Page Title Banner */}
+        <div className="pb-3 border-b border-slate-200 flex flex-col xs:flex-row xs:items-center justify-between gap-2">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+              <span>Shared Ledger Statement</span>
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
               Inspect time-limited friend statements & verify mutual cross-settlements
             </p>
           </div>
-        )}
+
+          {ledgerData && (
+            <button
+              onClick={() => {
+                setLedgerData(null);
+                navigate('/share');
+              }}
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-3 py-1.5 rounded-xl transition-colors self-start xs:self-auto"
+            >
+              <Search className="w-3.5 h-3.5" />
+              <span>Lookup Another Code</span>
+            </button>
+          )}
+        </div>
 
         {/* Code Search bar if not loaded or switching code */}
         {(!currentCode || error) && (
@@ -498,7 +536,7 @@ export default function SharedLedger() {
           </div>
         )}
 
-      </div>
+      </main>
     </div>
   );
 }
