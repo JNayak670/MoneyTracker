@@ -40,12 +40,12 @@ export default function Navbar({ onOpenAddModal, onViewFriend, onDataChanged }) 
 
   const profileRef = useRef(null);
 
-  // Poll for notifications every 30 seconds
+  // Poll for notifications every 30 seconds and update on events
   const fetchUnreadCount = async () => {
     try {
       const res = await api.get('/notifications');
       const count = res?.unreadCount ?? res?.data?.unreadCount ?? 0;
-      setUnreadCount(count);
+      setUnreadCount(Number(count) || 0);
     } catch (err) {
       // ignore silent fetch failure
     }
@@ -54,7 +54,19 @@ export default function Navbar({ onOpenAddModal, onViewFriend, onDataChanged }) 
   useEffect(() => {
     fetchUnreadCount();
     const interval = setInterval(fetchUnreadCount, 30000);
-    return () => clearInterval(interval);
+
+    const handleNotifUpdate = () => {
+      fetchUnreadCount();
+    };
+
+    window.addEventListener('notifications-updated', handleNotifUpdate);
+    window.addEventListener('transaction-updated', handleNotifUpdate);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('notifications-updated', handleNotifUpdate);
+      window.removeEventListener('transaction-updated', handleNotifUpdate);
+    };
   }, []);
 
   // Close profile dropdown when clicking outside

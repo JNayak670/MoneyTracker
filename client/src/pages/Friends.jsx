@@ -588,18 +588,36 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
                   <div className="flex items-center gap-2 flex-wrap">
                     <h2 className="text-sm sm:text-lg font-extrabold text-slate-900 truncate max-w-[140px] xs:max-w-[220px]">{activeLedger.friend.name}</h2>
                     {activeLedger.friend.connectionStatus === 'CONNECTED' && (
-                      <button
-                        onClick={() => handleTogglePermission(activeLedger.friend)}
-                        title="Click to toggle sync permission"
-                        className={`text-[10px] font-black px-2 py-0.5 rounded-lg flex items-center gap-1 border transition-all ${
-                          activeLedger.friend.permission === 'AUTHORIZED'
-                            ? 'bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-200'
-                            : 'bg-indigo-50 text-indigo-800 border-indigo-200 hover:bg-indigo-100'
-                        }`}
-                      >
-                        {activeLedger.friend.permission === 'AUTHORIZED' ? <Zap className="w-3 h-3 text-amber-600 fill-amber-500" /> : <Clock className="w-3 h-3 text-indigo-600" />}
-                        <span>{activeLedger.friend.permission === 'AUTHORIZED' ? 'Authorized (Instant)' : 'Normal (Approval)'}</span>
-                      </button>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {/* You Setting */}
+                        <button
+                          onClick={() => handleTogglePermission(activeLedger.friend)}
+                          title="Your sync setting for this friend (Click to toggle)"
+                          className={`text-[10px] font-black px-2 py-0.5 rounded-lg flex items-center gap-1 border transition-all cursor-pointer ${
+                            activeLedger.friend.permission === 'AUTHORIZED'
+                              ? 'bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-200 shadow-2xs'
+                              : 'bg-indigo-50 text-indigo-800 border-indigo-200 hover:bg-indigo-100 shadow-2xs'
+                          }`}
+                        >
+                          <span className="text-slate-500 font-bold">You:</span>
+                          {activeLedger.friend.permission === 'AUTHORIZED' ? <Zap className="w-3 h-3 text-amber-600 fill-amber-500" /> : <Clock className="w-3 h-3 text-indigo-600" />}
+                          <span>{activeLedger.friend.permission === 'AUTHORIZED' ? 'Instant' : 'Approval'}</span>
+                        </button>
+
+                        {/* Friend's Setting */}
+                        <span
+                          title={`@${activeLedger.friend.connectedUser?.username || activeLedger.friend.pendingUsername || activeLedger.friend.name} set sync with you to ${activeLedger.friend.friendPermission === 'AUTHORIZED' ? 'Authorized (Instant)' : 'Normal (Approval)'}`}
+                          className={`text-[10px] font-black px-2 py-0.5 rounded-lg flex items-center gap-1 border shadow-2xs ${
+                            activeLedger.friend.friendPermission === 'AUTHORIZED'
+                              ? 'bg-emerald-100 text-emerald-900 border-emerald-300'
+                              : 'bg-slate-100 text-slate-700 border-slate-300'
+                          }`}
+                        >
+                          <span className="text-slate-500 font-bold">@{activeLedger.friend.connectedUser?.username || activeLedger.friend.pendingUsername || 'Friend'}:</span>
+                          {activeLedger.friend.friendPermission === 'AUTHORIZED' ? <Zap className="w-3 h-3 text-emerald-600 fill-emerald-500" /> : <Clock className="w-3 h-3 text-slate-500" />}
+                          <span>{activeLedger.friend.friendPermission === 'AUTHORIZED' ? 'Instant' : 'Approval'}</span>
+                        </span>
+                      </div>
                     )}
                   </div>
                   <span className="text-[10px] sm:text-xs font-semibold text-slate-500">{activeLedger.friend.relationshipTag || 'Friend'}</span>

@@ -28,6 +28,22 @@ exports.getAllFriends = async (req, res) => {
       txByFriend[fId].push(t);
     }
 
+    // Batch fetch reciprocal friend records to determine friendPermission
+    const connectedUserIds = friends
+      .filter(f => f.connectedUserId)
+      .map(f => (f.connectedUserId._id ? f.connectedUserId._id.toString() : f.connectedUserId.toString()));
+
+    let reciprocalMap = {};
+    if (connectedUserIds.length > 0) {
+      const reciprocals = await Friend.find({
+        userId: { $in: connectedUserIds },
+        connectedUserId: userId
+      });
+      for (const r of reciprocals) {
+        reciprocalMap[r.userId.toString()] = r;
+      }
+    }
+
     const enriched = friends.map(f => {
       const fIdStr = f._id ? f._id.toString() : (f.id || '');
       const fTxs = txByFriend[fIdStr] || txByFriend[f.id] || [];
@@ -50,6 +66,14 @@ exports.getAllFriends = async (req, res) => {
 
       balance = Number(balance.toFixed(2));
 
+      const connUserIdStr = f.connectedUserId 
+        ? (f.connectedUserId._id ? f.connectedUserId._id.toString() : f.connectedUserId.toString()) 
+        : null;
+      const reciprocalFriend = connUserIdStr ? reciprocalMap[connUserIdStr] : null;
+      const friendPermission = reciprocalFriend 
+        ? (reciprocalFriend.permission || 'NORMAL') 
+        : (f.connectionStatus === 'CONNECTED' ? 'NORMAL' : null);
+
       return {
         id: f.id,
         name: f.name,
@@ -62,6 +86,7 @@ exports.getAllFriends = async (req, res) => {
         pendingUsername: f.pendingUsername,
         connectionStatus: f.connectionStatus || 'OFFLINE',
         permission: f.permission || 'NORMAL',
+        friendPermission,
         linkedAt: f.linkedAt,
         connectedUser: f.connectedUserId ? {
           id: f.connectedUserId.id || f.connectedUserId._id.toString(),
@@ -176,6 +201,13 @@ exports.getFriendLedger = async (req, res) => {
     const reversedTimeline = [...ledger].reverse();
     const finalBalance = Number(runningBalance.toFixed(2));
 
+    let friendPermission = null;
+    if (friend.connectedUserId) {
+      const connId = friend.connectedUserId._id || friend.connectedUserId;
+      const reciprocal = await Friend.findOne({ userId: connId, connectedUserId: userId });
+      friendPermission = reciprocal?.permission || 'NORMAL';
+    }
+
     res.json({
       success: true,
       data: {
@@ -191,6 +223,7 @@ exports.getFriendLedger = async (req, res) => {
           pendingUsername: friend.pendingUsername,
           connectionStatus: friend.connectionStatus || 'OFFLINE',
           permission: friend.permission || 'NORMAL',
+          friendPermission: friendPermission || (friend.connectionStatus === 'CONNECTED' ? 'NORMAL' : null),
           linkedAt: friend.linkedAt,
           connectedUser: friend.connectedUserId ? {
             id: friend.connectedUserId.id || friend.connectedUserId._id.toString(),
@@ -895,17 +928,15 @@ exports.updateFriendPermission = async (req, res) => {
     friend.permission = permission;
     await friend.save();
 
-    // If friend is connected to another MoneyTracker user, synchronize reciprocal friend permission & send alert
+    let friendPermission = null;
+    // If friend is connected to another MoneyTracker user, send alert notification without overriding reciprocal permission
     if (friend.connectedUserId) {
       let reciprocalFriend = await Friend.findOne({ userId: friend.connectedUserId, connectedUserId: userId });
       if (!reciprocalFriend && req.user.username) {
         reciprocalFriend = await Friend.findOne({ userId: friend.connectedUserId, pendingUsername: req.user.username.toLowerCase() });
       }
 
-      if (reciprocalFriend) {
-        reciprocalFriend.permission = permission;
-        await reciprocalFriend.save();
-      }
+      friendPermission = reciprocalFriend?.permission || 'NORMAL';
 
       await Notification.create({
         userId: friend.connectedUserId,
@@ -924,7 +955,11 @@ exports.updateFriendPermission = async (req, res) => {
     res.json({
       success: true,
       message: `Permission for ${friend.name} set to ${permission === 'AUTHORIZED' ? 'Authorized (Instant Sync)' : 'Normal (Requires Approval)'}.`,
-      data: friend
+      data: {
+        ...friend.toObject(),
+        id: friend._id.toString(),
+        friendPermission: friendPermission || (friend.connectionStatus === 'CONNECTED' ? 'NORMAL' : null)
+      }
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });

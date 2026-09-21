@@ -21,6 +21,9 @@ export default function NotificationDrawer({ isOpen, onClose, onDataChanged }) {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(null);
+  const [markingRead, setMarkingRead] = useState(false);
+
+  const unreadCount = notifications.filter(n => !n.isRead).length;
 
   const fetchNotifications = async () => {
     try {
@@ -45,8 +48,23 @@ export default function NotificationDrawer({ isOpen, onClose, onDataChanged }) {
 
   const handleMarkAllRead = async () => {
     try {
-      await api.post('/notifications/mark-read', {});
+      setMarkingRead(true);
+      await api.put('/notifications/read-all');
       setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+      window.dispatchEvent(new Event('notifications-updated'));
+      if (onDataChanged) onDataChanged();
+    } catch (err) {
+      console.error('Failed to mark all as read:', err);
+    } finally {
+      setMarkingRead(false);
+    }
+  };
+
+  const handleMarkSingleRead = async (id) => {
+    try {
+      await api.put(`/notifications/${id}/read`);
+      setNotifications(prev => prev.map(n => (n.id === id || n._id === id) ? { ...n, isRead: true } : n));
+      window.dispatchEvent(new Event('notifications-updated'));
       if (onDataChanged) onDataChanged();
     } catch (err) {
       console.error(err);
@@ -57,6 +75,7 @@ export default function NotificationDrawer({ isOpen, onClose, onDataChanged }) {
     try {
       await api.delete('/notifications');
       setNotifications([]);
+      window.dispatchEvent(new Event('notifications-updated'));
       if (onDataChanged) onDataChanged();
     } catch (err) {
       console.error(err);
@@ -146,13 +165,20 @@ export default function NotificationDrawer({ isOpen, onClose, onDataChanged }) {
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top Header */}
-        <div className="bg-slate-900 px-5 py-4 text-white flex items-center justify-between flex-shrink-0">
+        <div className="bg-slate-900 px-5 py-4 text-white flex items-center justify-between flex-shrink-0 border-b border-slate-800">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-300">
-              <Bell className="w-4 h-4" />
+            <div className="w-9 h-9 rounded-2xl bg-gradient-to-tr from-purple-600/30 to-indigo-600/30 border border-purple-500/40 flex items-center justify-center text-purple-300 shadow-inner">
+              <Bell className="w-4 h-4 text-purple-300" />
             </div>
             <div>
-              <h3 className="font-bold text-sm leading-tight">Notifications</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="font-black text-sm leading-tight text-white">Notifications</h3>
+                {unreadCount > 0 && (
+                  <span className="px-1.5 py-0.5 text-[10px] font-black rounded-full bg-rose-500 text-white shadow-xs animate-pulse">
+                    {unreadCount} new
+                  </span>
+                )}
+              </div>
               <p className="text-[11px] text-slate-400">Match alerts & friend requests</p>
             </div>
           </div>
@@ -161,16 +187,30 @@ export default function NotificationDrawer({ isOpen, onClose, onDataChanged }) {
             {notifications.length > 0 && (
               <button
                 onClick={handleMarkAllRead}
-                title="Mark all as read"
-                className="text-[11px] text-slate-400 hover:text-white flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-white/10 transition-colors"
+                disabled={markingRead || unreadCount === 0}
+                title={unreadCount > 0 ? "Mark all notifications as read" : "All caught up"}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black transition-all shadow-md ${
+                  unreadCount > 0
+                    ? 'bg-gradient-to-r from-purple-600 via-indigo-600 to-indigo-700 hover:from-purple-500 hover:to-indigo-600 text-white shadow-purple-950/40 border border-purple-400/50 hover:scale-[1.04] active:scale-[0.96] ring-2 ring-purple-400/20 cursor-pointer'
+                    : 'bg-slate-800 text-slate-400 border border-slate-700/60 opacity-60 cursor-default'
+                }`}
               >
-                <CheckCheck className="w-3.5 h-3.5" />
+                {markingRead ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-purple-200" />
+                ) : (
+                  <CheckCheck className={`w-4 h-4 ${unreadCount > 0 ? 'text-purple-200' : 'text-slate-400'}`} />
+                )}
                 <span>Read All</span>
+                {unreadCount > 0 && (
+                  <span className="ml-0.5 px-1.5 py-0.2 text-[10px] font-black rounded-full bg-white/20 text-white">
+                    {unreadCount}
+                  </span>
+                )}
               </button>
             )}
             <button
               onClick={onClose}
-              className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center transition-colors"
+              className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
@@ -226,15 +266,30 @@ export default function NotificationDrawer({ isOpen, onClose, onDataChanged }) {
                     </div>
 
                     <div>
-                      <h4 className="font-bold text-slate-900 text-xs leading-snug">
-                        {notif.title}
-                      </h4>
+                      <div className="flex items-center gap-1.5">
+                        <h4 className="font-bold text-slate-900 text-xs leading-snug">
+                          {notif.title}
+                        </h4>
+                        {!notif.isRead && (
+                          <span className="w-2 h-2 rounded-full bg-purple-600 animate-pulse flex-shrink-0" title="Unread" />
+                        )}
+                      </div>
                       <p className="text-slate-600 text-[11px] mt-0.5 leading-relaxed">
                         {notif.message}
                       </p>
-                      <span className="text-[10px] text-slate-400 block mt-1">
-                        {new Date(notif.createdAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
-                      </span>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-[10px] text-slate-400">
+                          {new Date(notif.createdAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                        </span>
+                        {!notif.isRead && (
+                          <button
+                            onClick={() => handleMarkSingleRead(notif.id)}
+                            className="text-[10px] font-bold text-purple-600 hover:text-purple-800 underline transition-colors"
+                          >
+                            Mark read
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
 

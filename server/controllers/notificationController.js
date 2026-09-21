@@ -14,6 +14,7 @@ exports.getNotifications = async (req, res) => {
 
     res.json({
       success: true,
+      unreadCount,
       data: {
         notifications,
         unreadCount
@@ -64,7 +65,32 @@ exports.markAllAsRead = async (req, res) => {
     res.json({
       success: true,
       message: 'All notifications marked as read',
-      unreadCount: 0
+      unreadCount: 0,
+      data: {
+        unreadCount: 0
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+// @route   DELETE /api/notifications
+// @desc    Clear all notifications for user
+exports.clearAllNotifications = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    await Notification.deleteMany({ userId });
+
+    res.json({
+      success: true,
+      message: 'All notifications cleared',
+      unreadCount: 0,
+      data: {
+        notifications: [],
+        unreadCount: 0
+      }
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -85,7 +111,10 @@ exports.deleteNotification = async (req, res) => {
     res.json({
       success: true,
       message: 'Notification deleted',
-      unreadCount
+      unreadCount,
+      data: {
+        unreadCount
+      }
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });

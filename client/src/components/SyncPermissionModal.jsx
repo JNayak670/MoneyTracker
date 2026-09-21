@@ -11,6 +11,8 @@ export default function SyncPermissionModal({ isOpen, onClose, friend, onConfirm
   const targetPerm = currentPerm === 'AUTHORIZED' ? 'NORMAL' : 'AUTHORIZED';
   const isSwitchingToAuthorized = targetPerm === 'AUTHORIZED';
   const friendUsername = friend.connectedUser?.username || friend.pendingUsername || friend.name;
+  const friendPerm = friend.friendPermission || 'NORMAL';
+  const isFriendAuthorized = friendPerm === 'AUTHORIZED';
 
   const handleConfirm = async () => {
     setLoading(true);
@@ -66,7 +68,7 @@ export default function SyncPermissionModal({ isOpen, onClose, friend, onConfirm
           {/* Current vs New Mode Visual Transition */}
           <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Current</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Your Current</span>
               <span className={`text-xs font-black px-2.5 py-1 rounded-xl flex items-center gap-1.5 border ${
                 currentPerm === 'AUTHORIZED'
                   ? 'bg-amber-100 text-amber-900 border-amber-300'
@@ -80,7 +82,7 @@ export default function SyncPermissionModal({ isOpen, onClose, friend, onConfirm
             <ArrowRight className="w-4 h-4 text-slate-400 flex-shrink-0" />
 
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">New</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Your New</span>
               <span className={`text-xs font-black px-2.5 py-1 rounded-xl flex items-center gap-1.5 border shadow-2xs ${
                 targetPerm === 'AUTHORIZED'
                   ? 'bg-amber-500 text-white border-amber-600'
@@ -90,6 +92,22 @@ export default function SyncPermissionModal({ isOpen, onClose, friend, onConfirm
                 <span>{targetPerm === 'AUTHORIZED' ? 'Authorized (Instant)' : 'Normal (Approval)'}</span>
               </span>
             </div>
+          </div>
+
+          {/* Friend's Current Setting Notice */}
+          <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-bold text-slate-600">@{friendUsername}'s Setting for You:</span>
+              <span className={`text-xs font-black px-2 py-0.5 rounded-lg flex items-center gap-1 border shadow-2xs ${
+                isFriendAuthorized
+                  ? 'bg-emerald-100 text-emerald-900 border-emerald-300'
+                  : 'bg-slate-200 text-slate-800 border-slate-300'
+              }`}>
+                {isFriendAuthorized ? <Zap className="w-3.5 h-3.5 text-emerald-600 fill-emerald-500" /> : <Clock className="w-3.5 h-3.5 text-slate-500" />}
+                <span>{isFriendAuthorized ? 'Authorized (Instant)' : 'Normal (Approval)'}</span>
+              </span>
+            </div>
+            <span className="text-[10px] text-slate-400 font-medium">Independent</span>
           </div>
 
           {/* Detailed Mode Breakdown Cards */}

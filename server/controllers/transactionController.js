@@ -279,7 +279,8 @@ exports.createTransaction = async (req, res) => {
           reciprocalImpact = -impact;
         }
 
-        const mirroredStatus = (isConnected && isAuthorized) ? 'ACTIVE' : 'PENDING_APPROVAL';
+        const isAuthorizedSync = (reciprocalFriend?.permission || friend.permission) === 'AUTHORIZED';
+        const mirroredStatus = (isConnected && isAuthorizedSync) ? 'ACTIVE' : 'PENDING_APPROVAL';
 
         const mirroredTx = await Transaction.create({
           userId: otherUserId,
@@ -303,7 +304,7 @@ exports.createTransaction = async (req, res) => {
         await tx.save();
 
         // Send appropriate Notification
-        if (isConnected && isAuthorized) {
+        if (isConnected && isAuthorizedSync) {
           await Notification.create({
             userId: otherUserId,
             type: 'TRANSACTION_LOGGED',
@@ -405,7 +406,8 @@ exports.settleUp = async (req, res) => {
       }
 
       if (reciprocalFriend) {
-        const mirroredStatus = (isConnected && isAuthorized) ? 'ACTIVE' : 'PENDING_APPROVAL';
+        const isAuthorizedSync = (reciprocalFriend?.permission || friend.permission) === 'AUTHORIZED';
+        const mirroredStatus = (isConnected && isAuthorizedSync) ? 'ACTIVE' : 'PENDING_APPROVAL';
 
         const mirroredTx = await Transaction.create({
           userId: otherUserId,
@@ -428,7 +430,7 @@ exports.settleUp = async (req, res) => {
         tx.linkedTransactionId = mirroredTx._id;
         await tx.save();
 
-        if (isConnected && isAuthorized) {
+        if (isConnected && isAuthorizedSync) {
           await Notification.create({
             userId: otherUserId,
             type: 'TRANSACTION_LOGGED',

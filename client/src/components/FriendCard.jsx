@@ -39,6 +39,8 @@ export default function FriendCard({
   const isConnected = friend.connectionStatus === 'CONNECTED';
   const isPendingMatch = friend.connectionStatus === 'PENDING_MATCH';
   const isAuthorized = friend.permission === 'AUTHORIZED';
+  const isFriendAuthorized = friend.friendPermission === 'AUTHORIZED';
+  const friendUsername = friend.connectedUser?.username || friend.pendingUsername || friend.name;
 
   return (
     <div className={`rounded-3xl p-4 sm:p-5 flex flex-col justify-between border transition-all duration-300 hover:shadow-xl bg-white relative overflow-hidden ${
@@ -110,34 +112,62 @@ export default function FriendCard({
         {/* ------------------------------------------------------------- */}
         <div className="mb-3">
           {isConnected ? (
-            <div className="p-2.5 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200/80 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-1.5">
-                <div className="w-5 h-5 rounded-lg bg-emerald-600 text-white flex items-center justify-center text-[10px]">
-                  ✓
-                </div>
-                <div>
+            <div className="p-2.5 rounded-2xl bg-gradient-to-r from-emerald-50/90 via-teal-50/70 to-emerald-50/90 border border-emerald-200/80 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-5 h-5 rounded-lg bg-emerald-600 text-white flex items-center justify-center text-[10px] font-bold shadow-xs">
+                    ✓
+                  </div>
                   <p className="text-[11px] font-black text-emerald-950 flex items-center gap-1">
                     <span>Connected</span>
-                    <span className="text-emerald-700 font-bold">@{friend.connectedUser?.username || friend.pendingUsername}</span>
+                    <span className="text-emerald-700 font-bold">@{friendUsername}</span>
                   </p>
                 </div>
               </div>
 
-              {/* Permission Badge / Toggle */}
-              {onTogglePermission && (
-                <button
-                  onClick={() => onTogglePermission(friend)}
-                  title="Click to toggle sync permission"
-                  className={`text-[10px] font-black px-2 py-0.5 rounded-lg flex items-center gap-1 border transition-all ${
-                    isAuthorized
-                      ? 'bg-amber-100/80 text-amber-900 border-amber-300 hover:bg-amber-200'
-                      : 'bg-indigo-50 text-indigo-800 border-indigo-200 hover:bg-indigo-100'
-                  }`}
+              {/* Two-Way Permission Status */}
+              <div className="pt-1.5 border-t border-emerald-200/60 flex items-center justify-between gap-2 text-[10px] flex-wrap">
+                {/* Your Setting (Clickable) */}
+                <div className="flex items-center gap-1">
+                  <span className="text-slate-500 font-bold">You:</span>
+                  {onTogglePermission ? (
+                    <button
+                      onClick={() => onTogglePermission(friend)}
+                      title="Your sync setting for this friend (Click to toggle)"
+                      className={`font-black px-2 py-0.5 rounded-lg flex items-center gap-1 border transition-all cursor-pointer ${
+                        isAuthorized
+                          ? 'bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-200 shadow-2xs'
+                          : 'bg-indigo-50 text-indigo-800 border-indigo-200 hover:bg-indigo-100 shadow-2xs'
+                      }`}
+                    >
+                      {isAuthorized ? <Zap className="w-3 h-3 text-amber-600 fill-amber-500" /> : <Clock className="w-3 h-3 text-indigo-600" />}
+                      <span>{isAuthorized ? 'Instant' : 'Approval'}</span>
+                    </button>
+                  ) : (
+                    <span className={`font-black px-2 py-0.5 rounded-lg flex items-center gap-1 border ${
+                      isAuthorized ? 'bg-amber-100 text-amber-900 border-amber-300' : 'bg-indigo-50 text-indigo-800 border-indigo-200'
+                    }`}>
+                      {isAuthorized ? 'Instant' : 'Approval'}
+                    </span>
+                  )}
+                </div>
+
+                {/* Friend's Setting for You */}
+                <div 
+                  className="flex items-center gap-1"
+                  title={`@${friendUsername} set sync with you to ${isFriendAuthorized ? 'Authorized (Instant)' : 'Normal (Approval)'}`}
                 >
-                  {isAuthorized ? <Zap className="w-3 h-3 text-amber-600" /> : <Clock className="w-3 h-3 text-indigo-600" />}
-                  <span>{isAuthorized ? 'Authorized (Instant)' : 'Normal (Approval)'}</span>
-                </button>
-              )}
+                  <span className="text-slate-500 font-bold">@{friendUsername}:</span>
+                  <span className={`font-black px-2 py-0.5 rounded-lg flex items-center gap-1 border ${
+                    isFriendAuthorized
+                      ? 'bg-emerald-100 text-emerald-900 border-emerald-300'
+                      : 'bg-slate-100 text-slate-700 border-slate-300'
+                  }`}>
+                    {isFriendAuthorized ? <Zap className="w-3 h-3 text-emerald-600 fill-emerald-500" /> : <Clock className="w-3 h-3 text-slate-500" />}
+                    <span>{isFriendAuthorized ? 'Instant' : 'Approval'}</span>
+                  </span>
+                </div>
+              </div>
             </div>
           ) : isPendingMatch ? (
             <div className="p-2 rounded-xl bg-purple-50 border border-purple-200 flex items-center justify-between gap-2">

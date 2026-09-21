@@ -235,7 +235,8 @@ export default function TransactionForm({ isOpen, onClose, onSave, friends = [],
                   if (!selFriend) return null;
 
                   if (selFriend.connectionStatus === 'CONNECTED') {
-                    const isAuth = selFriend.permission === 'AUTHORIZED';
+                    const isAuth = (selFriend.friendPermission || selFriend.permission) === 'AUTHORIZED';
+                    const targetUsername = selFriend.connectedUser?.username || selFriend.connectedUserId?.username || selFriend.pendingUsername || selFriend.name;
                     return (
                       <div className={`mt-2 p-2.5 rounded-xl border text-xs flex items-center gap-2 ${
                         isAuth 
@@ -245,12 +246,12 @@ export default function TransactionForm({ isOpen, onClose, onSave, friends = [],
                         <span className="text-base">{isAuth ? '⚡' : '⏳'}</span>
                         <div className="flex-1">
                           <p className="font-bold">
-                            {isAuth ? 'Instant 2-Way Sync Active' : 'Friend Approval Required (Normal Mode)'}
+                            {isAuth ? 'Instant Sync Active' : 'Friend Approval Required (Normal Mode)'}
                           </p>
                           <p className="text-[11px] opacity-90">
                             {isAuth 
-                              ? `Will automatically reflect on @${selFriend.connectedUser?.username || selFriend.connectedUserId?.username || selFriend.pendingUsername || selFriend.name}'s MoneyTracker balance.`
-                              : `A request will be sent to @${selFriend.connectedUser?.username || selFriend.connectedUserId?.username || selFriend.pendingUsername || selFriend.name} to approve before it affects their ledger.`}
+                              ? `Will automatically reflect on @${targetUsername}'s MoneyTracker balance.`
+                              : `A request will be sent to @${targetUsername} to approve before it affects their ledger.`}
                           </p>
                         </div>
                       </div>
