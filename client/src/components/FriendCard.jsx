@@ -15,7 +15,8 @@ import {
   ShieldAlert,
   Clock,
   Zap,
-  AtSign
+  AtSign,
+  ChevronDown
 } from 'lucide-react';
 
 export default function FriendCard({ 
@@ -126,41 +127,54 @@ export default function FriendCard({
               </div>
 
               {/* Two-Way Permission Status */}
-              <div className="pt-1.5 border-t border-emerald-200/60 flex items-center justify-between gap-2 text-[10px] flex-wrap">
-                {/* Your Setting (Clickable) */}
-                <div className="flex items-center gap-1">
+              <div className="pt-2 border-t border-emerald-200/60 flex items-center justify-between gap-2 text-[10px] flex-wrap">
+                {/* Your Setting (Clickable / Changeable) */}
+                <div className="flex items-center gap-1.5">
                   <span className="text-slate-500 font-bold">You:</span>
                   {onTogglePermission ? (
                     <button
                       onClick={() => onTogglePermission(friend)}
-                      title="Your sync setting for this friend (Click to toggle)"
-                      className={`font-black px-2 py-0.5 rounded-lg flex items-center gap-1 border transition-all cursor-pointer ${
+                      title={`Your sync mode: ${isAuthorized ? 'Instant Sync' : 'Approval Mode'} (Click to change)`}
+                      className={`group font-black px-2 py-0.5 rounded-lg flex items-center gap-1 border transition-all cursor-pointer shadow-xs hover:shadow-md hover:scale-[1.03] active:scale-95 ${
                         isAuthorized
-                          ? 'bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-200 shadow-2xs'
-                          : 'bg-indigo-50 text-indigo-800 border-indigo-200 hover:bg-indigo-100 shadow-2xs'
+                          ? 'bg-amber-100/90 text-amber-950 border-amber-300 hover:bg-amber-200 hover:border-amber-400'
+                          : 'bg-indigo-50 text-indigo-950 border-indigo-200 hover:bg-indigo-100 hover:border-indigo-300'
                       }`}
                     >
-                      {isAuthorized ? <Zap className="w-3 h-3 text-amber-600 fill-amber-500" /> : <Clock className="w-3 h-3 text-indigo-600" />}
-                      <span>{isAuthorized ? 'Instant' : 'Approval'}</span>
+                      {isAuthorized ? (
+                        <Zap className="w-3 h-3 text-amber-600 fill-amber-500 flex-shrink-0" />
+                      ) : (
+                        <Clock className="w-3 h-3 text-indigo-600 flex-shrink-0" />
+                      )}
+                      <span className="tracking-tight">{isAuthorized ? 'Instant' : 'Approval'}</span>
+                      <span className={`inline-flex items-center gap-0.5 text-[8.5px] font-bold px-1 py-0.2 rounded border transition-all ${
+                        isAuthorized
+                          ? 'bg-amber-200/90 text-amber-900 border-amber-300/80 group-hover:bg-amber-300'
+                          : 'bg-indigo-100 text-indigo-800 border-indigo-200 group-hover:bg-indigo-200'
+                      }`}>
+                        <span>Change</span>
+                        <ChevronDown className="w-2.5 h-2.5 text-current group-hover:translate-y-0.5 transition-transform" />
+                      </span>
                     </button>
                   ) : (
                     <span className={`font-black px-2 py-0.5 rounded-lg flex items-center gap-1 border ${
                       isAuthorized ? 'bg-amber-100 text-amber-900 border-amber-300' : 'bg-indigo-50 text-indigo-800 border-indigo-200'
                     }`}>
-                      {isAuthorized ? 'Instant' : 'Approval'}
+                      {isAuthorized ? <Zap className="w-3 h-3 text-amber-600 fill-amber-500" /> : <Clock className="w-3 h-3 text-indigo-600" />}
+                      <span>{isAuthorized ? 'Instant' : 'Approval'}</span>
                     </span>
                   )}
                 </div>
 
-                {/* Friend's Setting for You */}
+                {/* Friend's Setting for You (Read-Only) */}
                 <div 
                   className="flex items-center gap-1"
-                  title={`@${friendUsername} set sync with you to ${isFriendAuthorized ? 'Authorized (Instant)' : 'Normal (Approval)'}`}
+                  title={`@${friendUsername} set sync with you to ${isFriendAuthorized ? 'Authorized (Instant)' : 'Normal (Approval)'} (managed by them)`}
                 >
                   <span className="text-slate-500 font-bold">@{friendUsername}:</span>
-                  <span className={`font-black px-2 py-0.5 rounded-lg flex items-center gap-1 border ${
+                  <span className={`font-bold px-2 py-0.5 rounded-lg flex items-center gap-1 border shadow-2xs select-none ${
                     isFriendAuthorized
-                      ? 'bg-emerald-100 text-emerald-900 border-emerald-300'
+                      ? 'bg-emerald-100/90 text-emerald-900 border-emerald-300'
                       : 'bg-slate-100 text-slate-700 border-slate-300'
                   }`}>
                     {isFriendAuthorized ? <Zap className="w-3 h-3 text-emerald-600 fill-emerald-500" /> : <Clock className="w-3 h-3 text-slate-500" />}

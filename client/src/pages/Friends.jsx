@@ -29,7 +29,8 @@ import {
   Loader2,
   AlertCircle,
   UserCheck,
-  Sparkles
+  Sparkles,
+  ChevronDown
 } from 'lucide-react';
 
 export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, onCloseFriendModal, historyFriendId, onCloseHistory }) {
@@ -589,27 +590,39 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
                     <h2 className="text-sm sm:text-lg font-extrabold text-slate-900 truncate max-w-[140px] xs:max-w-[220px]">{activeLedger.friend.name}</h2>
                     {activeLedger.friend.connectionStatus === 'CONNECTED' && (
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        {/* You Setting */}
+                        {/* You Setting (Clickable / Changeable) */}
                         <button
                           onClick={() => handleTogglePermission(activeLedger.friend)}
-                          title="Your sync setting for this friend (Click to toggle)"
-                          className={`text-[10px] font-black px-2 py-0.5 rounded-lg flex items-center gap-1 border transition-all cursor-pointer ${
+                          title={`Your sync mode: ${activeLedger.friend.permission === 'AUTHORIZED' ? 'Instant Sync' : 'Approval Mode'} (Click to change)`}
+                          className={`group text-[10px] font-black px-2.5 py-0.5 rounded-lg flex items-center gap-1 border transition-all cursor-pointer shadow-xs hover:shadow-md hover:scale-[1.03] active:scale-95 ${
                             activeLedger.friend.permission === 'AUTHORIZED'
-                              ? 'bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-200 shadow-2xs'
-                              : 'bg-indigo-50 text-indigo-800 border-indigo-200 hover:bg-indigo-100 shadow-2xs'
+                              ? 'bg-amber-100/90 text-amber-950 border-amber-300 hover:bg-amber-200 hover:border-amber-400'
+                              : 'bg-indigo-50 text-indigo-950 border-indigo-200 hover:bg-indigo-100 hover:border-indigo-300'
                           }`}
                         >
                           <span className="text-slate-500 font-bold">You:</span>
-                          {activeLedger.friend.permission === 'AUTHORIZED' ? <Zap className="w-3 h-3 text-amber-600 fill-amber-500" /> : <Clock className="w-3 h-3 text-indigo-600" />}
+                          {activeLedger.friend.permission === 'AUTHORIZED' ? (
+                            <Zap className="w-3 h-3 text-amber-600 fill-amber-500 flex-shrink-0" />
+                          ) : (
+                            <Clock className="w-3 h-3 text-indigo-600 flex-shrink-0" />
+                          )}
                           <span>{activeLedger.friend.permission === 'AUTHORIZED' ? 'Instant' : 'Approval'}</span>
+                          <span className={`inline-flex items-center gap-0.5 text-[8.5px] font-bold px-1 py-0.2 rounded border transition-all ${
+                            activeLedger.friend.permission === 'AUTHORIZED'
+                              ? 'bg-amber-200/90 text-amber-900 border-amber-300/80 group-hover:bg-amber-300'
+                              : 'bg-indigo-100 text-indigo-800 border-indigo-200 group-hover:bg-indigo-200'
+                          }`}>
+                            <span>Change</span>
+                            <ChevronDown className="w-2.5 h-2.5 text-current group-hover:translate-y-0.5 transition-transform" />
+                          </span>
                         </button>
 
-                        {/* Friend's Setting */}
+                        {/* Friend's Setting (Read-Only) */}
                         <span
-                          title={`@${activeLedger.friend.connectedUser?.username || activeLedger.friend.pendingUsername || activeLedger.friend.name} set sync with you to ${activeLedger.friend.friendPermission === 'AUTHORIZED' ? 'Authorized (Instant)' : 'Normal (Approval)'}`}
-                          className={`text-[10px] font-black px-2 py-0.5 rounded-lg flex items-center gap-1 border shadow-2xs ${
+                          title={`@${activeLedger.friend.connectedUser?.username || activeLedger.friend.pendingUsername || activeLedger.friend.name} set sync with you to ${activeLedger.friend.friendPermission === 'AUTHORIZED' ? 'Authorized (Instant)' : 'Normal (Approval)'} (managed by them)`}
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-lg flex items-center gap-1 border shadow-2xs select-none ${
                             activeLedger.friend.friendPermission === 'AUTHORIZED'
-                              ? 'bg-emerald-100 text-emerald-900 border-emerald-300'
+                              ? 'bg-emerald-100/90 text-emerald-900 border-emerald-300'
                               : 'bg-slate-100 text-slate-700 border-slate-300'
                           }`}
                         >
