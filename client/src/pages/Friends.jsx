@@ -70,6 +70,8 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
   const [shareModal, setShareModal] = useState({ open: false, friendId: '', friendName: '' });
   const [linkModal, setLinkModal] = useState({ open: false, friend: null });
   const [shareHistoryModal, setShareHistoryModal] = useState({ open: false, friend: null, transactions: [] });
+  const [pendingRequests, setPendingRequests] = useState([]);
+  const [pendingActionLoading, setPendingActionLoading] = useState(null);
 
   const fetchFriends = async (showLoading = true) => {
     try {
@@ -80,11 +82,52 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
       ]);
       const list = Array.isArray(res) ? res : (res?.data || []);
       setFriends(Array.isArray(list) ? list : []);
+      setPendingRequests(Array.isArray(res?.pendingRequests) ? res.pendingRequests : []);
     } catch (err) {
       console.error('Failed to load friends:', err);
       setFriends([]);
+      setPendingRequests([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAcceptRequest = async (friendId) => {
+    setPendingActionLoading(friendId);
+    try {
+      await api.post(`/friends/${friendId}/confirm-connect`);
+      await fetchFriends(false);
+      window.dispatchEvent(new Event('transaction-updated'));
+    } catch (err) {
+      alert(`Failed to accept connection: ${err.message}`);
+    } finally {
+      setPendingActionLoading(null);
+    }
+  };
+
+  const handleIgnoreRequest = async (friendId) => {
+    setPendingActionLoading(friendId);
+    try {
+      await api.post(`/friends/${friendId}/ignore-connect`);
+      await fetchFriends(false);
+      window.dispatchEvent(new Event('transaction-updated'));
+    } catch (err) {
+      alert(`Failed to decline request: ${err.message}`);
+    } finally {
+      setPendingActionLoading(null);
+    }
+  };
+
+  const handleCancelRequest = async (friendId) => {
+    setPendingActionLoading(friendId);
+    try {
+      await api.post(`/friends/${friendId}/cancel-connect`);
+      await fetchFriends(false);
+      window.dispatchEvent(new Event('transaction-updated'));
+    } catch (err) {
+      alert(`Failed to cancel request: ${err.message}`);
+    } finally {
+      setPendingActionLoading(null);
     }
   };
 
@@ -348,6 +391,94 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
           <span>Add New Friend</span>
         </button>
       </div>
+
+      {/* Pending Connection Requests Banner */}
+      {pendingRequests.length > 0 && (
+        <div className="space-y-3 bg-gradient-to-r from-purple-50/90 via-indigo-50/60 to-pink-50/90 border border-purple-200/80 rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-xs">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <h3 className="text-xs sm:text-sm font-black text-purple-950 flex items-center gap-2">
+              <span className="flex h-2 w-2 rounded-full bg-purple-600 animate-ping" />
+              <span>Pending Connection Requests ({pendingRequests.length})</span>
+            </h3>
+            <span className="text-[11px] text-purple-700 font-bold bg-white/90 px-2.5 py-0.5 rounded-full border border-purple-200">
+              Only accepted connections appear in your active friend circle
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {pendingRequests.map(req => {
+              const isIncoming = req.connectionStatus === 'REQUEST_RECEIVED' || req.connectionStatus === 'PENDING_MATCH';
+              const isOutgoing = req.connectionStatus === 'REQUEST_SENT';
+              const isLoading = pendingActionLoading === req.id;
+
+              return (
+                <div key={req.id} className="bg-white rounded-2xl p-3 sm:p-4 border border-purple-100 shadow-2xs flex flex-col justify-between gap-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5">
+                      <div 
+                        className="w-9 h-9 rounded-xl flex items-center justify-center text-lg shadow-2xs flex-shrink-0"
+                        style={{ backgroundColor: req.avatarColor || '#6366f1' }}
+                      >
+                        {req.avatarEmoji || '👤'}
+                      </div>
+                      <div>
+                        <div className="text-xs sm:text-sm font-black text-slate-900 leading-tight">
+                          {req.name}
+                        </div>
+                        <div className="text-[11px] text-purple-700 font-mono font-bold mt-0.5">
+                          @{req.connectedUser?.username || req.pendingUsername || 'user'}
+                        </div>
+                      </div>
+                    </div>
+
+                    <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${
+                      isIncoming ? 'bg-purple-100 text-purple-800' : 'bg-amber-100 text-amber-800'
+                    }`}>
+                      {isIncoming ? 'Incoming' : 'Request Sent'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100">
+                    <span className="text-[11px] text-slate-500 font-medium">
+                      {isIncoming ? 'Wants to connect with you' : 'Waiting for user to accept'}
+                    </span>
+
+                    <div className="flex items-center gap-1.5">
+                      {isIncoming ? (
+                        <>
+                          <button
+                            onClick={() => handleIgnoreRequest(req.id)}
+                            disabled={isLoading}
+                            className="px-2.5 py-1 rounded-xl text-[11px] font-bold text-slate-600 hover:bg-slate-100 transition-colors"
+                          >
+                            Decline
+                          </button>
+                          <button
+                            onClick={() => handleAcceptRequest(req.id)}
+                            disabled={isLoading}
+                            className="px-3.5 py-1 rounded-xl text-[11px] font-black text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-2xs transition-all flex items-center gap-1"
+                          >
+                            {isLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <UserCheck className="w-3 h-3" />}
+                            <span>Accept</span>
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          onClick={() => handleCancelRequest(req.id)}
+                          disabled={isLoading}
+                          className="px-3 py-1 rounded-xl text-[11px] font-bold text-rose-600 hover:bg-rose-50 border border-rose-200 transition-colors"
+                        >
+                          {isLoading ? 'Cancelling...' : 'Cancel Request'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Search & Filter Toolbar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200 shadow-xs">

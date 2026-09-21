@@ -66,21 +66,9 @@ export default function LinkAccountModal({ isOpen, onClose, friend, onUpdated, o
       const data = res?.status !== undefined ? res : (res?.data || res);
       
       if (data.status === 'MATCH_FOUND') {
-        // User found, offer immediate connection
-        const connectRes = await api.post(`/friends/${friend.id}/confirm-connect`);
-        const connectData = connectRes?.data !== undefined ? connectRes.data : connectRes;
-        setSuccessMsg(`Connected successfully with @${clean}!`);
+        setSuccessMsg(`Connection request sent to @${clean}! They will appear as a connected friend once accepted.`);
         if (onUpdated) onUpdated();
-        
-        // If there are eligible transactions to share, offer to open share history modal
-        if (connectData?.eligibleTransactionsCount > 0 && onOpenShareHistory) {
-          setTimeout(() => {
-            onClose();
-            onOpenShareHistory(friend, connectData.eligibleTransactions);
-          }, 800);
-        } else {
-          setTimeout(() => onClose(), 1200);
-        }
+        setTimeout(() => onClose(), 1500);
       } else {
         setSuccessMsg(data.message || 'Username saved as pending.');
         if (onUpdated) onUpdated();

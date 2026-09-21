@@ -335,6 +335,7 @@ export default function Navbar({ onOpenAddModal, onViewFriend, onDataChanged }) 
         onDataChanged={() => {
           fetchUnreadCount();
           if (onDataChanged) onDataChanged();
+          window.dispatchEvent(new Event('transaction-updated'));
         }}
       />
 

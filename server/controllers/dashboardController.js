@@ -6,7 +6,13 @@ exports.getSummary = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    const friends = await Friend.find({ userId });
+    const friends = await Friend.find({
+      userId,
+      $or: [
+        { connectionStatus: { $in: ['OFFLINE', 'CONNECTED'] } },
+        { connectionStatus: { $exists: false } }
+      ]
+    });
     const transactions = await Transaction.find({ userId, approvalStatus: { $ne: 'REJECTED' } });
 
     const txByFriend = {};

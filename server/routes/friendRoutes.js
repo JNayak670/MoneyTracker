@@ -10,6 +10,7 @@ const {
   linkUsernameToFriend,
   confirmConnection,
   ignoreConnection,
+  cancelConnectionRequest,
   shareHistoricalTransactions,
   updateFriendPermission
 } = require('../controllers/friendController');
@@ -31,6 +32,7 @@ router.route('/:id')
 router.post('/:id/link-username', linkUsernameToFriend);
 router.post('/:id/confirm-connect', confirmConnection);
 router.post('/:id/ignore-connect', ignoreConnection);
+router.post('/:id/cancel-connect', cancelConnectionRequest);
 router.post('/:id/share-history', shareHistoricalTransactions);
 router.put('/:id/permission', updateFriendPermission);
 router.patch('/:id/permission', updateFriendPermission);
