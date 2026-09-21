@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import api from '../services/api';
 
-export default function NotificationDrawer({ isOpen, onClose, onOpenShareHistory, onDataChanged }) {
+export default function NotificationDrawer({ isOpen, onClose, onDataChanged }) {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(null);
@@ -29,7 +29,7 @@ export default function NotificationDrawer({ isOpen, onClose, onOpenShareHistory
       const list = res?.notifications || res?.data?.notifications || (Array.isArray(res) ? res : []);
       setNotifications(Array.isArray(list) ? list : []);
     } catch (err) {
-      console.error('Failed to load notifications:', err);
+      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -45,8 +45,19 @@ export default function NotificationDrawer({ isOpen, onClose, onOpenShareHistory
 
   const handleMarkAllRead = async () => {
     try {
-      await api.put('/notifications/read-all');
+      await api.post('/notifications/mark-read', {});
       setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+      if (onDataChanged) onDataChanged();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleClearAll = async () => {
+    try {
+      await api.delete('/notifications');
+      setNotifications([]);
+      if (onDataChanged) onDataChanged();
     } catch (err) {
       console.error(err);
     }
@@ -58,18 +69,9 @@ export default function NotificationDrawer({ isOpen, onClose, onOpenShareHistory
 
     setActionLoading(notif.id);
     try {
-      const res = await api.post(`/friends/${friendId}/confirm-connect`);
-      const resData = res?.data !== undefined ? res.data : res;
+      await api.post(`/friends/${friendId}/confirm-connect`);
       setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, isActioned: true, actionTaken: 'CONNECTED', isRead: true } : n));
       if (onDataChanged) onDataChanged();
-
-      if (resData?.data?.eligibleTransactionsCount > 0 && onOpenShareHistory) {
-        onClose();
-        onOpenShareHistory({ id: friendId, name: notif.data?.friendName }, resData.data.eligibleTransactions);
-      } else if (resData?.eligibleTransactionsCount > 0 && onOpenShareHistory) {
-        onClose();
-        onOpenShareHistory({ id: friendId, name: notif.data?.friendName }, resData.eligibleTransactions);
-      }
     } catch (err) {
       alert(err.message || 'Failed to connect friend');
     } finally {

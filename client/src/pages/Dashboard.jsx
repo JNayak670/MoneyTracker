@@ -7,7 +7,6 @@ import SettleModal from '../components/SettleModal';
 import WhatsAppModal from '../components/WhatsAppModal';
 import ShareCodeModal from '../components/ShareCodeModal';
 import LinkAccountModal from '../components/LinkAccountModal';
-import ShareHistoryModal from '../components/ShareHistoryModal';
 import SyncPermissionModal from '../components/SyncPermissionModal';
 import ColorfulLoader from '../components/ColorfulLoader';
 import { exportToCSV } from '../services/exportService';
@@ -61,7 +60,6 @@ export default function Dashboard({ onOpenAddTx, onOpenAddFriend, onViewFriendHi
   const [whatsappModal, setWhatsappModal] = useState({ open: false, friendName: '', amount: 0, phone: '' });
   const [shareModal, setShareModal] = useState({ open: false, friendId: '', friendName: '' });
   const [linkModal, setLinkModal] = useState({ open: false, friend: null });
-  const [shareHistoryModal, setShareHistoryModal] = useState({ open: false, friend: null, transactions: [] });
   const [syncModal, setSyncModal] = useState({ open: false, friend: null });
 
   const fetchData = async (showLoading = true) => {
@@ -142,35 +140,8 @@ export default function Dashboard({ onOpenAddTx, onOpenAddFriend, onViewFriendHi
 
   const handleLinkSave = async (friendId, data) => {
     try {
-      const res = await api.post(`/friends/${friendId}/link-username`, data);
+      await api.post(`/friends/${friendId}/link-username`, data);
       setLinkModal({ open: false, friend: null });
-      await fetchData();
-      window.dispatchEvent(new Event('transaction-updated'));
-      if (res.data.connected) {
-        // Fetch transactions for this friend to offer sharing history
-        try {
-          const ledgerRes = await api.get(`/friends/${friendId}/ledger`);
-          const txs = ledgerRes.data?.transactions || [];
-          if (txs.length > 0) {
-            setShareHistoryModal({
-              open: true,
-              friend: res.data.friend,
-              transactions: txs
-            });
-          }
-        } catch (e) {
-          console.error(e);
-        }
-      }
-    } catch (err) {
-      alert(err.response?.data?.error || err.message);
-    }
-  };
-
-  const handleShareHistorySubmit = async (friendId, transactionIds) => {
-    try {
-      await api.post(`/friends/${friendId}/share-history`, { transactionIds });
-      setShareHistoryModal({ open: false, friend: null, transactions: [] });
       await fetchData();
       window.dispatchEvent(new Event('transaction-updated'));
     } catch (err) {
@@ -616,14 +587,6 @@ export default function Dashboard({ onOpenAddTx, onOpenAddFriend, onViewFriendHi
         onSave={handleLinkSave}
       />
 
-      {/* Selective History Sharing Modal */}
-      <ShareHistoryModal
-        isOpen={shareHistoryModal.open}
-        onClose={() => setShareHistoryModal({ open: false, friend: null, transactions: [] })}
-        friend={shareHistoryModal.friend}
-        transactions={shareHistoryModal.transactions}
-        onConfirm={handleShareHistorySubmit}
-      />
 
       {/* Sync Permission Modal */}
       <SyncPermissionModal

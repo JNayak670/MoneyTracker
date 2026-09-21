@@ -6,7 +6,6 @@ import SettleModal from '../components/SettleModal';
 import WhatsAppModal from '../components/WhatsAppModal';
 import ShareCodeModal from '../components/ShareCodeModal';
 import LinkAccountModal from '../components/LinkAccountModal';
-import ShareHistoryModal from '../components/ShareHistoryModal';
 import SyncPermissionModal from '../components/SyncPermissionModal';
 import ColorfulLoader from '../components/ColorfulLoader';
 import { printFriendStatement } from '../services/exportService';
@@ -69,7 +68,6 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
   const [whatsappModal, setWhatsappModal] = useState({ open: false, friendName: '', amount: 0, phone: '' });
   const [shareModal, setShareModal] = useState({ open: false, friendId: '', friendName: '' });
   const [linkModal, setLinkModal] = useState({ open: false, friend: null });
-  const [shareHistoryModal, setShareHistoryModal] = useState({ open: false, friend: null, transactions: [] });
   const [pendingRequests, setPendingRequests] = useState([]);
   const [pendingActionLoading, setPendingActionLoading] = useState(null);
 
@@ -979,26 +977,8 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
           fetchFriends(false);
           if (activeLedger) loadFriendLedger(activeLedger.friend.id, false);
         }}
-        onOpenShareHistory={(friendObj, txs) => {
-          setShareHistoryModal({
-            open: true,
-            friend: friendObj,
-            transactions: txs || []
-          });
-        }}
       />
 
-      {/* Share History Modal */}
-      <ShareHistoryModal
-        isOpen={shareHistoryModal.open}
-        onClose={() => setShareHistoryModal({ open: false, friend: null, transactions: [] })}
-        friend={shareHistoryModal.friend}
-        transactions={shareHistoryModal.transactions}
-        onComplete={() => {
-          fetchFriends(false);
-          if (activeLedger) loadFriendLedger(activeLedger.friend.id, false);
-        }}
-      />
 
       {/* Sync Permission Modal */}
       <SyncPermissionModal

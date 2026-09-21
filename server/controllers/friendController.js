@@ -583,59 +583,66 @@ exports.confirmConnection = async (req, res) => {
       { approvalStatus: 'ACTIVE' }
     );
 
-    // 6. Auto-sync any existing unshared transactions recorded by this user
-    const unsharedTxs = await Transaction.find({ friendId: friend._id, userId, isShared: { $ne: true } });
-    for (const tx of unsharedTxs) {
-      let reciprocalType = 'RECEIVED';
-      let reciprocalImpact = -tx.amount;
-      if (tx.type === 'RECEIVED') {
-        reciprocalType = 'GIVEN';
-        reciprocalImpact = tx.amount;
-      } else if (tx.type === 'SETTLED') {
-        reciprocalType = 'SETTLED';
-        reciprocalImpact = -tx.impactOnUser;
-      }
-
-      const mirroredTx = await Transaction.create({
-        userId: otherUser._id,
-        friendId: reciprocalFriend._id,
-        type: reciprocalType,
-        amount: tx.amount,
-        impactOnUser: reciprocalImpact,
-        category: tx.category,
-        note: tx.note,
-        date: tx.date,
-        time: tx.time,
-        paymentMethod: tx.paymentMethod,
-        receiptNote: `From ${req.user.name}: ${tx.receiptNote || tx.note}`,
-        isShared: true,
-        sharedWithUserId: userId,
-        approvalStatus: 'ACTIVE',
-        linkedTransactionId: tx._id
+    // 6. Auto-sync ALL existing transactions in both directions automatically (full ledger share)
+    const mirrorUnsharedTransactions = async (fromUserId, fromFriendId, toUserId, toFriendId, fromUserName) => {
+      const txs = await Transaction.find({
+        userId: fromUserId,
+        friendId: fromFriendId,
+        isShared: { $ne: true }
       });
 
-      tx.isShared = true;
-      tx.sharedWithUserId = otherUser._id;
-      tx.linkedTransactionId = mirroredTx._id;
-      await tx.save();
-    }
+      for (const tx of txs) {
+        if (tx.linkedTransactionId) {
+          const exists = await Transaction.findById(tx.linkedTransactionId);
+          if (exists) continue;
+        }
 
-    const allCurrentTxs = await Transaction.find({ friendId: friend._id, userId });
+        let reciprocalType = 'RECEIVED';
+        let reciprocalImpact = -tx.amount;
+        if (tx.type === 'RECEIVED') {
+          reciprocalType = 'GIVEN';
+          reciprocalImpact = tx.amount;
+        } else if (tx.type === 'SETTLED') {
+          reciprocalType = 'SETTLED';
+          reciprocalImpact = -tx.impactOnUser;
+        }
+
+        const mirroredTx = await Transaction.create({
+          userId: toUserId,
+          friendId: toFriendId,
+          type: reciprocalType,
+          amount: tx.amount,
+          impactOnUser: reciprocalImpact,
+          category: tx.category,
+          note: tx.note,
+          date: tx.date,
+          time: tx.time,
+          paymentMethod: tx.paymentMethod,
+          receiptNote: tx.receiptNote ? `From ${fromUserName}: ${tx.receiptNote}` : `Synced from ${fromUserName}`,
+          isShared: true,
+          sharedWithUserId: fromUserId,
+          approvalStatus: 'ACTIVE',
+          linkedTransactionId: tx._id
+        });
+
+        tx.isShared = true;
+        tx.sharedWithUserId = toUserId;
+        tx.linkedTransactionId = mirroredTx._id;
+        await tx.save();
+      }
+    };
+
+    // Automatically sync full ledger from accepting user to requester
+    await mirrorUnsharedTransactions(userId, friend._id, otherUser._id, reciprocalFriend._id, req.user.name);
+    // Automatically sync full ledger from requester to accepting user
+    await mirrorUnsharedTransactions(otherUser._id, reciprocalFriend._id, userId, friend._id, otherUser.name);
 
     res.json({
       success: true,
-      message: `Successfully connected with ${otherUser.name} (@${otherUser.username})! All ledgers synchronized.`,
+      message: `Successfully connected with ${otherUser.name} (@${otherUser.username})! All ledger transactions synchronized automatically.`,
       data: {
         friend,
-        eligibleTransactionsCount: allCurrentTxs.length,
-        eligibleTransactions: allCurrentTxs.map(t => ({
-          id: t.id,
-          note: t.note,
-          amount: t.amount,
-          type: t.type,
-          date: t.date,
-          category: t.category
-        }))
+        reciprocalFriend
       }
     });
   } catch (err) {

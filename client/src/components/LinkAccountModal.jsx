@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import api from '../services/api';
 
-export default function LinkAccountModal({ isOpen, onClose, friend, onUpdated, onOpenShareHistory }) {
+export default function LinkAccountModal({ isOpen, onClose, friend, onUpdated }) {
   const [usernameInput, setUsernameInput] = useState('');
   const [searching, setSearching] = useState(false);
   const [saving, setSaving] = useState(false);

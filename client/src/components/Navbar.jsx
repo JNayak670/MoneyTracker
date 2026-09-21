@@ -5,7 +5,6 @@ import ChangePinModal from './ChangePinModal';
 import EditUsernameModal from './EditUsernameModal';
 import SearchModal from './SearchModal';
 import NotificationDrawer from './NotificationDrawer';
-import ShareHistoryModal from './ShareHistoryModal';
 import AppLogo from './AppLogo';
 import { 
   Users, 
@@ -38,10 +37,6 @@ export default function Navbar({ onOpenAddModal, onViewFriend, onDataChanged }) 
   const [notifDrawerOpen, setNotifDrawerOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  // Share history modal state (when user clicks connect from notification)
-  const [shareHistoryModalOpen, setShareHistoryModalOpen] = useState(false);
-  const [shareHistoryFriend, setShareHistoryFriend] = useState(null);
-  const [shareHistoryTxs, setShareHistoryTxs] = useState([]);
 
   const profileRef = useRef(null);
 
@@ -327,11 +322,6 @@ export default function Navbar({ onOpenAddModal, onViewFriend, onDataChanged }) 
           setNotifDrawerOpen(false);
           fetchUnreadCount();
         }}
-        onOpenShareHistory={(friendObj, txs) => {
-          setShareHistoryFriend(friendObj);
-          setShareHistoryTxs(txs || []);
-          setShareHistoryModalOpen(true);
-        }}
         onDataChanged={() => {
           fetchUnreadCount();
           if (onDataChanged) onDataChanged();
@@ -339,20 +329,6 @@ export default function Navbar({ onOpenAddModal, onViewFriend, onDataChanged }) 
         }}
       />
 
-      {/* Historical Transaction Sharing Modal */}
-      <ShareHistoryModal
-        isOpen={shareHistoryModalOpen}
-        onClose={() => {
-          setShareHistoryModalOpen(false);
-          setShareHistoryFriend(null);
-          setShareHistoryTxs([]);
-        }}
-        friend={shareHistoryFriend}
-        transactions={shareHistoryTxs}
-        onComplete={() => {
-          if (onDataChanged) onDataChanged();
-        }}
-      />
       {/* Edit / Set @Username Modal */}
       <EditUsernameModal
         isOpen={usernameModalOpen}
