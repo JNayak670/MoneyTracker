@@ -601,17 +601,19 @@ exports.getAdminConnections = async (req, res) => {
 };
 
 // @route   PUT /api/admin/connections/:id/permission
-// @desc    Admin toggle permission for a connected friend pair
+// @desc    Admin toggle permission for a single connected friend connection
 exports.updateAdminConnectionPermission = async (req, res) => {
   try {
     const { id } = req.params;
-    const { permission } = req.body;
+    const { permission, syncBoth = false } = req.body;
 
     if (!['NORMAL', 'AUTHORIZED'].includes(permission)) {
       return res.status(400).json({ success: false, error: 'Permission must be NORMAL or AUTHORIZED.' });
     }
 
-    const friend = await Friend.findById(id);
+    const friend = await Friend.findById(id)
+      .populate('userId', 'name username')
+      .populate('connectedUserId', 'name username');
     if (!friend) {
       return res.status(404).json({ success: false, error: 'Friend connection not found.' });
     }
@@ -619,17 +621,23 @@ exports.updateAdminConnectionPermission = async (req, res) => {
     friend.permission = permission;
     await friend.save();
 
-    // Reciprocal sync
-    if (friend.connectedUserId && friend.userId) {
+    // Only update reciprocal if explicitly requested (syncBoth === true)
+    if (syncBoth && friend.connectedUserId && friend.userId) {
+      const otherUserId = friend.connectedUserId._id || friend.connectedUserId;
+      const thisUserId = friend.userId._id || friend.userId;
       await Friend.updateOne(
-        { userId: friend.connectedUserId, connectedUserId: friend.userId },
+        { userId: otherUserId, connectedUserId: thisUserId },
         { permission }
       );
     }
 
+    const accountName = friend.userId?.name || 'Account';
+    const friendName = friend.connectedUserId?.name || friend.name || 'Friend';
+    const modeLabel = permission === 'AUTHORIZED' ? 'Authorized (Instant Sync)' : 'Normal (Requires Approval)';
+
     res.json({
       success: true,
-      message: `Sync permission updated to ${permission === 'AUTHORIZED' ? 'Authorized (Instant)' : 'Normal (Approval)'}.`,
+      message: `${accountName}'s permission for ${friendName} updated to ${modeLabel}.`,
       data: friend
     });
   } catch (err) {
@@ -681,4 +689,80 @@ exports.deleteAdminShare = async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 };
+
+// @route   POST /api/admin/messages
+// @desc    Send a direct message or broadcast notification to users
+exports.sendAdminMessage = async (req, res) => {
+  try {
+    const { userId, title, message } = req.body;
+
+    if (!title || !title.trim()) {
+      return res.status(400).json({ success: false, error: 'Message title is required.' });
+    }
+    if (!message || !message.trim()) {
+      return res.status(400).json({ success: false, error: 'Message content is required.' });
+    }
+
+    const cleanTitle = title.trim();
+    const cleanMessage = message.trim();
+
+    // 1. Broadcast to ALL users
+    if (userId === 'ALL') {
+      const allUsers = await User.find({}, '_id name username').lean();
+      if (!allUsers || allUsers.length === 0) {
+        return res.status(404).json({ success: false, error: 'No registered users found.' });
+      }
+
+      const notifDocs = allUsers.map(u => ({
+        userId: u._id,
+        type: 'ADMIN_MESSAGE',
+        title: cleanTitle,
+        message: cleanMessage,
+        data: {
+          isAdminBroadcast: true,
+          sentBy: 'System Administrator'
+        }
+      }));
+
+      await Notification.insertMany(notifDocs);
+
+      return res.json({
+        success: true,
+        message: `Broadcast message sent to all ${allUsers.length} users successfully.`,
+        data: {
+          recipientCount: allUsers.length,
+          title: cleanTitle
+        }
+      });
+    }
+
+    // 2. Send to a specific user
+    const targetUser = await User.findById(userId);
+    if (!targetUser) {
+      return res.status(404).json({ success: false, error: 'Target user not found.' });
+    }
+
+    const notif = await Notification.create({
+      userId: targetUser._id,
+      type: 'ADMIN_MESSAGE',
+      title: cleanTitle,
+      message: cleanMessage,
+      data: {
+        isAdminMessage: true,
+        sentBy: 'System Administrator',
+        recipientName: targetUser.name,
+        recipientUsername: targetUser.username
+      }
+    });
+
+    res.json({
+      success: true,
+      message: `Message sent successfully to ${targetUser.name} (@${targetUser.username || 'user'}).`,
+      data: notif
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
 

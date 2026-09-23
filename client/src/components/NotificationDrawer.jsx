@@ -13,7 +13,8 @@ import {
   ShieldCheck,
   CheckCircle2,
   XCircle,
-  Loader2
+  Loader2,
+  Megaphone
 } from 'lucide-react';
 import api from '../services/api';
 
@@ -245,6 +246,7 @@ export default function NotificationDrawer({ isOpen, onClose, onDataChanged }) {
           {!loading && notifications.map((notif) => {
             const isMatch = notif.type === 'USERNAME_MATCH' || notif.type === 'FRIEND_REQUEST';
             const isTxReq = notif.type === 'TRANSACTION_REQUEST' || notif.type === 'SETTLEMENT_REQUEST';
+            const isAdminMsg = notif.type === 'ADMIN_MESSAGE';
             const isLoadingThis = actionLoading === notif.id;
 
             return (
@@ -252,28 +254,37 @@ export default function NotificationDrawer({ isOpen, onClose, onDataChanged }) {
                 key={notif.id}
                 className={`p-3.5 rounded-2xl border transition-all relative ${
                   !notif.isRead 
-                    ? 'bg-purple-50/40 border-purple-200/80 shadow-2xs' 
+                    ? isAdminMsg 
+                      ? 'bg-gradient-to-r from-purple-50/70 to-indigo-50/50 border-purple-300 shadow-sm' 
+                      : 'bg-purple-50/40 border-purple-200/80 shadow-2xs' 
                     : 'bg-slate-50/70 border-slate-200/60'
                 }`}
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-start gap-2.5">
                     <div className={`w-7 h-7 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5 text-xs ${
+                      isAdminMsg ? 'bg-gradient-to-br from-purple-600 to-indigo-600 text-white shadow-xs' :
                       isMatch ? 'bg-purple-100 text-purple-700' :
                       isTxReq ? 'bg-amber-100 text-amber-700' :
                       notif.type === 'FRIEND_CONNECTED' ? 'bg-emerald-100 text-emerald-700' :
                       'bg-slate-200 text-slate-700'
                     }`}>
-                      {isMatch ? <Sparkles className="w-3.5 h-3.5" /> :
+                      {isAdminMsg ? <Megaphone className="w-3.5 h-3.5" /> :
+                       isMatch ? <Sparkles className="w-3.5 h-3.5" /> :
                        isTxReq ? <Clock className="w-3.5 h-3.5" /> :
                        <ShieldCheck className="w-3.5 h-3.5" />}
                     </div>
 
                     <div>
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         <h4 className="font-bold text-slate-900 text-xs leading-snug">
                           {notif.title}
                         </h4>
+                        {isAdminMsg && (
+                          <span className="px-1.5 py-0.2 rounded-md text-[9px] font-black uppercase tracking-wider bg-purple-100 text-purple-700 border border-purple-200">
+                            Admin Notice
+                          </span>
+                        )}
                         {!notif.isRead && (
                           <span className="w-2 h-2 rounded-full bg-purple-600 animate-pulse flex-shrink-0" title="Unread" />
                         )}

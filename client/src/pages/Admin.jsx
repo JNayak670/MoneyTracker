@@ -36,7 +36,11 @@ import {
   ShieldCheck,
   AtSign,
   AlertCircle,
-  X
+  X,
+  Send,
+  MessageSquare,
+  Megaphone,
+  Bell
 } from 'lucide-react';
 import axios from 'axios';
 import AppLogo from '../components/AppLogo';
@@ -73,6 +77,15 @@ export default function Admin() {
   const [inputUsername, setInputUsername] = useState('');
   const [usernameSaving, setUsernameSaving] = useState(false);
   const [usernameError, setUsernameError] = useState('');
+
+  // Send Message / Broadcast Modal State
+  const [messageModalOpen, setMessageModalOpen] = useState(false);
+  const [msgRecipientId, setMsgRecipientId] = useState('ALL');
+  const [msgTitle, setMsgTitle] = useState('');
+  const [msgContent, setMsgContent] = useState('');
+  const [msgSending, setMsgSending] = useState(false);
+  const [msgError, setMsgError] = useState('');
+  const [msgSuccess, setMsgSuccess] = useState('');
 
   // Change Admin Password state
   const [pwdCurrent, setPwdCurrent] = useState('');
@@ -269,6 +282,61 @@ export default function Admin() {
       setUsernameError(err.response?.data?.error || err.message || 'Failed to update username.');
     } finally {
       setUsernameSaving(false);
+    }
+  };
+
+  const openSendMessageModal = (user = null) => {
+    if (user) {
+      setMsgRecipientId(user.id);
+    } else {
+      setMsgRecipientId('ALL');
+    }
+    setMsgTitle('');
+    setMsgContent('');
+    setMsgError('');
+    setMsgSuccess('');
+    setMessageModalOpen(true);
+  };
+
+  const handleApplyTemplate = (title, body) => {
+    setMsgTitle(title);
+    setMsgContent(body);
+    setMsgError('');
+  };
+
+  const handleSendAdminMessage = async (e) => {
+    e.preventDefault();
+    if (!msgTitle.trim()) {
+      setMsgError('Please enter a notification title.');
+      return;
+    }
+    if (!msgContent.trim()) {
+      setMsgError('Please enter the message content.');
+      return;
+    }
+
+    try {
+      setMsgSending(true);
+      setMsgError('');
+      setMsgSuccess('');
+      const res = await adminApi.post('/admin/messages', {
+        userId: msgRecipientId,
+        title: msgTitle.trim(),
+        message: msgContent.trim()
+      });
+
+      const successMsg = res.data.message || 'Notification sent successfully!';
+      setMsgSuccess(successMsg);
+      setMessage(successMsg);
+      setTimeout(() => {
+        setMessageModalOpen(false);
+        setMsgSuccess('');
+        setMessage('');
+      }, 2000);
+    } catch (err) {
+      setMsgError(err.response?.data?.error || err.message || 'Failed to send message.');
+    } finally {
+      setMsgSending(false);
     }
   };
 
@@ -576,7 +644,7 @@ export default function Admin() {
               to="/" 
               badgeText="Master Admin" 
               badgeVariant="purple" 
-              subtitleText="Core Supervision Node" 
+              subtitleText="Platform Management Console" 
               darkTheme={true} 
             />
 
@@ -616,57 +684,61 @@ export default function Admin() {
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
         
-        {/* Global Key Metrics Grid (Updated with 2-Way Sync & Approvals) */}
+        {/* Global Key Metrics Grid (Clean, Plain-English Overview) */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-lg relative overflow-hidden">
+          <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-lg hover:border-slate-700 transition-all">
             <div className="flex items-center justify-between text-purple-400 text-xs font-bold mb-1.5">
               <span className="flex items-center gap-1.5">
                 <Users className="w-4 h-4" />
-                <span>Accounts</span>
+                <span>Total Users</span>
               </span>
-              <span className="text-[10px] bg-purple-500/10 px-2 py-0.5 rounded text-purple-300">Live</span>
+              <span className="text-[10px] bg-purple-500/15 text-purple-300 px-1.5 py-0.2 rounded font-bold">Active</span>
             </div>
             <div className="text-2xl font-black text-white">{stats?.totalUsers || 0}</div>
-            <div className="text-[10px] text-slate-500 font-medium mt-0.5">Active users</div>
+            <div className="text-[10px] text-slate-400 font-medium mt-0.5">Registered accounts</div>
           </div>
 
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-lg relative overflow-hidden">
+          <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-lg hover:border-slate-700 transition-all">
             <div className="flex items-center justify-between text-emerald-400 text-xs font-bold mb-1.5">
               <span className="flex items-center gap-1.5">
                 <Coins className="w-4 h-4" />
-                <span>Total Volume</span>
+                <span>Platform Volume</span>
               </span>
-              <span className="text-[10px] bg-emerald-500/10 px-2 py-0.5 rounded text-emerald-300">INR</span>
+              <span className="text-[10px] bg-emerald-500/15 text-emerald-300 px-1.5 py-0.2 rounded font-bold">Total INR</span>
             </div>
             <div className="text-2xl font-black text-white">₹{(stats?.totalVolume || 0).toLocaleString()}</div>
-            <div className="text-[10px] text-slate-500 font-medium mt-0.5">All transactions</div>
+            <div className="text-[10px] text-slate-400 font-medium mt-0.5">All recorded transactions</div>
           </div>
 
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-lg relative overflow-hidden">
+          <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-lg hover:border-slate-700 transition-all">
             <div className="flex items-center justify-between text-blue-400 text-xs font-bold mb-1.5">
               <span className="flex items-center gap-1.5">
                 <Receipt className="w-4 h-4" />
-                <span>Ledger Txns</span>
+                <span>Transactions</span>
               </span>
-              <span className="text-[10px] bg-blue-500/10 px-2 py-0.5 rounded text-blue-300">{stats?.totalFriends || 0} Circles</span>
+              <span className="text-[10px] bg-blue-500/15 text-blue-300 px-1.5 py-0.2 rounded font-bold">{stats?.totalFriends || 0} Contacts</span>
             </div>
             <div className="text-2xl font-black text-white">{stats?.totalTransactions || 0}</div>
-            <div className="text-[10px] text-slate-500 font-medium mt-0.5">Cross-friend ledger</div>
+            <div className="text-[10px] text-slate-400 font-medium mt-0.5">Total ledger entries</div>
           </div>
 
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-lg relative overflow-hidden">
+          <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-lg hover:border-slate-700 transition-all">
             <div className="flex items-center justify-between text-cyan-400 text-xs font-bold mb-1.5">
               <span className="flex items-center gap-1.5">
                 <Link2 className="w-4 h-4" />
-                <span>2-Way Synced</span>
+                <span>Connected Friends</span>
               </span>
-              <span className="text-[10px] bg-cyan-500/10 px-2 py-0.5 rounded text-cyan-300">{stats?.connectedFriends || 0} pairs</span>
+              <span className="text-[10px] bg-cyan-500/15 text-cyan-300 px-1.5 py-0.2 rounded font-bold">2-Way</span>
             </div>
-            <div className="text-2xl font-black text-white">{stats?.syncedTransactions || 0}</div>
-            <div className="text-[10px] text-slate-500 font-medium mt-0.5">Shared records</div>
+            <div className="text-2xl font-black text-white">
+              {stats?.connectedFriends || 0} <span className="text-xs font-normal text-slate-400">pairs</span>
+            </div>
+            <div className="text-[10px] text-slate-400 font-medium mt-0.5">
+              {stats?.syncedTransactions || 0} synced records
+            </div>
           </div>
 
-          <div className={`bg-slate-900 border rounded-2xl p-4 shadow-lg relative overflow-hidden transition-all ${
+          <div className={`bg-slate-900/90 border rounded-2xl p-4 shadow-lg transition-all ${
             (stats?.pendingApprovals || 0) > 0 ? 'border-amber-500/60 ring-2 ring-amber-500/20' : 'border-slate-800'
           }`}>
             <div className="flex items-center justify-between text-amber-400 text-xs font-bold mb-1.5">
@@ -674,26 +746,30 @@ export default function Admin() {
                 <Clock className="w-4 h-4" />
                 <span>Pending Approvals</span>
               </span>
-              {(stats?.pendingApprovals || 0) > 0 && (
-                <span className="text-[10px] bg-amber-500/20 px-2 py-0.5 rounded text-amber-300 font-black animate-pulse">Action</span>
-              )}
+              <span className={`text-[10px] px-1.5 py-0.2 rounded font-bold ${
+                (stats?.pendingApprovals || 0) > 0 ? 'bg-amber-500/20 text-amber-300 animate-pulse' : 'bg-slate-800 text-slate-400'
+              }`}>
+                {(stats?.pendingApprovals || 0) > 0 ? 'Action Needed' : 'All Clear'}
+              </span>
             </div>
             <div className={`text-2xl font-black ${(stats?.pendingApprovals || 0) > 0 ? 'text-amber-400' : 'text-white'}`}>
               {stats?.pendingApprovals || 0}
             </div>
-            <div className="text-[10px] text-slate-500 font-medium mt-0.5">Awaiting user confirmation</div>
+            <div className="text-[10px] text-slate-400 font-medium mt-0.5">Awaiting friend approval</div>
           </div>
 
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-lg relative overflow-hidden">
+          <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-lg hover:border-slate-700 transition-all">
             <div className="flex items-center justify-between text-amber-400 text-xs font-bold mb-1.5">
               <span className="flex items-center gap-1.5">
                 <Zap className="w-4 h-4 text-amber-400 fill-amber-400" />
-                <span>Authorized Sync</span>
+                <span>Instant Sync</span>
               </span>
-              <span className="text-[10px] bg-amber-500/10 px-2 py-0.5 rounded text-amber-300">⚡ Instant</span>
+              <span className="text-[10px] bg-amber-500/15 text-amber-300 px-1.5 py-0.2 rounded font-bold">Authorized</span>
             </div>
-            <div className="text-2xl font-black text-white">{stats?.authorizedFriends || 0}</div>
-            <div className="text-[10px] text-slate-500 font-medium mt-0.5">Instant mode friends</div>
+            <div className="text-2xl font-black text-white">
+              {stats?.authorizedFriends || 0} <span className="text-xs font-normal text-slate-400">pairs</span>
+            </div>
+            <div className="text-[10px] text-slate-400 font-medium mt-0.5">Auto-approved sync</div>
           </div>
         </div>
 
@@ -704,90 +780,136 @@ export default function Admin() {
           </div>
         )}
 
-        {/* Tabs & Search Controls */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          
-          {/* Navigation Tabs */}
-          <div className="flex items-center gap-1.5 bg-slate-900 p-1.5 rounded-2xl border border-slate-800 overflow-x-auto max-w-full">
-            <button
-              onClick={() => setActiveTab('users')}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-                activeTab === 'users'
-                  ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Users className="w-3.5 h-3.5" />
-              <span>Accounts ({(users || []).length})</span>
-            </button>
+        {/* Tab Navigation (Row 1 - Generous Pill Tabs without squishing) */}
+        <div className="bg-slate-900 p-1.5 rounded-2xl border border-slate-800 flex items-center gap-1.5 overflow-x-auto shadow-md">
+          <button
+            onClick={() => setActiveTab('users')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+              activeTab === 'users'
+                ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            <span>Users</span>
+            <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
+              activeTab === 'users' ? 'bg-purple-800 text-purple-100' : 'bg-slate-800 text-slate-400'
+            }`}>
+              {(users || []).length}
+            </span>
+          </button>
 
-            <button
-              onClick={() => setActiveTab('transactions')}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-                activeTab === 'transactions'
-                  ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Receipt className="w-3.5 h-3.5" />
-              <span>Global Transactions ({(transactions || []).length})</span>
-              {(stats?.pendingApprovals || 0) > 0 && (
-                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-500 text-slate-950 font-black">
-                  {stats.pendingApprovals}
-                </span>
-              )}
-            </button>
+          <button
+            onClick={() => setActiveTab('transactions')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+              activeTab === 'transactions'
+                ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+            }`}
+          >
+            <Receipt className="w-4 h-4" />
+            <span>Transactions</span>
+            <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
+              activeTab === 'transactions' ? 'bg-purple-800 text-purple-100' : 'bg-slate-800 text-slate-400'
+            }`}>
+              {(transactions || []).length}
+            </span>
+            {(stats?.pendingApprovals || 0) > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-500 text-slate-950 font-black animate-pulse" title="Pending Approvals">
+                {stats.pendingApprovals}
+              </span>
+            )}
+          </button>
 
-            <button
-              onClick={() => setActiveTab('connections')}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-                activeTab === 'connections'
-                  ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Link2 className="w-3.5 h-3.5" />
-              <span>Connected Circles ({(connections || []).length})</span>
-            </button>
+          <button
+            onClick={() => setActiveTab('connections')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+              activeTab === 'connections'
+                ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+            }`}
+          >
+            <Link2 className="w-4 h-4" />
+            <span>Connected Friends</span>
+            <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
+              activeTab === 'connections' ? 'bg-purple-800 text-purple-100' : 'bg-slate-800 text-slate-400'
+            }`}>
+              {(connections || []).length}
+            </span>
+          </button>
 
-            <button
-              onClick={() => setActiveTab('shares')}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-                activeTab === 'shares'
-                  ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Share2 className="w-3.5 h-3.5" />
-              <span>Share Codes ({(shares || []).length})</span>
-            </button>
+          <button
+            onClick={() => setActiveTab('shares')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+              activeTab === 'shares'
+                ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+            }`}
+          >
+            <Share2 className="w-4 h-4" />
+            <span>Share Codes</span>
+            <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
+              activeTab === 'shares' ? 'bg-purple-800 text-purple-100' : 'bg-slate-800 text-slate-400'
+            }`}>
+              {(shares || []).length}
+            </span>
+          </button>
 
-            <button
-              onClick={() => setActiveTab('security')}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-                activeTab === 'security'
-                  ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <KeyRound className="w-3.5 h-3.5" />
-              <span>Change Passkey</span>
-            </button>
+          <button
+            onClick={() => setActiveTab('security')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+              activeTab === 'security'
+                ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+            }`}
+          >
+            <KeyRound className="w-4 h-4" />
+            <span>Security & Passkey</span>
+          </button>
+        </div>
+
+        {/* Section Context Guide & Action Controls (Row 2) */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-slate-900/60 border border-slate-800/80">
+          <div>
+            <h2 className="text-sm font-black text-white flex items-center gap-2">
+              {activeTab === 'users' && <><span>👥</span> User Accounts Directory</>}
+              {activeTab === 'transactions' && <><span>💳</span> Global Transaction Ledger</>}
+              {activeTab === 'connections' && <><span>🤝</span> Connected Friend Pairs & Permissions</>}
+              {activeTab === 'shares' && <><span>🔗</span> Temporary Statement Share Links</>}
+              {activeTab === 'security' && <><span>🔒</span> Administrator Credentials & Access</>}
+            </h2>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              {activeTab === 'users' && 'Manage registered accounts, assign unique @usernames, reset PINs, or send direct messages.'}
+              {activeTab === 'transactions' && 'Inspect all platform transactions, review receipt notes, or force approve/decline pending requests.'}
+              {activeTab === 'connections' && '2-way linked users. Each side can independently have Instant Sync (Authorized) or Approval Required (Normal).'}
+              {activeTab === 'shares' && 'Public time-limited 6-digit access links created by users to share statements. You can revoke any code.'}
+              {activeTab === 'security' && 'Change master administrator email and master security passkey.'}
+            </p>
           </div>
 
-          {/* Search Input (Hidden on Security tab) */}
-          {activeTab !== 'security' && (
-            <div className="relative w-full sm:w-72">
-              <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={`Search ${activeTab}...`}
-                className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-4 py-2 text-xs font-medium text-slate-200 placeholder-slate-500 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20"
-              />
-            </div>
-          )}
+          <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap flex-shrink-0">
+            <button
+              onClick={() => openSendMessageModal(null)}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-xs shadow-md shadow-purple-600/30 transition-all hover:scale-[1.02] active:scale-98 whitespace-nowrap cursor-pointer"
+              title="Broadcast message to all users or send to a specific user"
+            >
+              <Megaphone className="w-3.5 h-3.5" />
+              <span>Send Message</span>
+            </button>
+
+            {activeTab !== 'security' && (
+              <div className="relative w-full sm:w-60">
+                <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder={`Search ${activeTab === 'users' ? 'users by name/@email' : activeTab === 'transactions' ? 'transactions' : activeTab === 'connections' ? 'connections' : 'codes'}...`}
+                  className="w-full bg-slate-800/80 border border-slate-700 rounded-xl pl-9 pr-3.5 py-2 text-xs font-medium text-slate-200 placeholder-slate-500 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20"
+                />
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Tab 1: User Accounts Table */}
@@ -797,13 +919,13 @@ export default function Admin() {
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-800/80 border-b border-slate-700/80 text-slate-400 uppercase tracking-wider font-extrabold">
                   <tr>
-                    <th className="px-5 py-4">User Details</th>
+                    <th className="px-5 py-4">User</th>
                     <th className="px-5 py-4">Email</th>
-                    <th className="px-5 py-4">Status & Security</th>
-                    <th className="px-5 py-4">Friends & Circles</th>
+                    <th className="px-5 py-4">Status</th>
+                    <th className="px-5 py-4">Friends & Links</th>
                     <th className="px-5 py-4">Transactions</th>
                     <th className="px-5 py-4">Joined Date</th>
-                    <th className="px-5 py-4 text-right">Admin Controls</th>
+                    <th className="px-5 py-4 text-right">Admin Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60 bg-slate-900/60">
@@ -858,17 +980,23 @@ export default function Admin() {
                             </span>
                           )}
                         </td>
-                        <td className="px-5 py-4 font-bold text-slate-300">
-                          <div>{u.friendsCount} Friends</div>
-                          {u.connectedCount > 0 && (
-                            <div className="text-[10px] text-emerald-400 font-medium flex items-center gap-1 mt-0.5">
-                              <Link2 className="w-3 h-3" />
-                              <span>{u.connectedCount} 2-Way Connected</span>
+                        <td className="px-5 py-4">
+                          <div className="font-bold text-slate-200">
+                            {u.friendsCount || 0} {u.friendsCount === 1 ? 'Friend' : 'Friends'}
+                          </div>
+                          {u.connectedCount > 0 ? (
+                            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 text-[10px] font-bold border border-emerald-500/30 mt-1">
+                              <Link2 className="w-3 h-3 flex-shrink-0" />
+                              <span>{u.connectedCount} Linked with App</span>
+                            </div>
+                          ) : (
+                            <div className="text-[10px] text-slate-500 font-medium mt-0.5">
+                              Offline only
                             </div>
                           )}
                         </td>
                         <td className="px-5 py-4 font-bold text-slate-300">{u.txCount} Txns</td>
-                        <td className="px-5 py-4 text-slate-500 font-mono">
+                        <td className="px-5 py-4 text-slate-400 font-mono">
                           {new Date(u.createdAt).toLocaleDateString()}
                         </td>
                         <td className="px-5 py-4 text-right">
@@ -886,13 +1014,23 @@ export default function Admin() {
                             )}
 
                             <button
+                              onClick={() => openSendMessageModal(u)}
+                              disabled={actionLoadingId === u.id}
+                              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-500/20 text-blue-300 hover:bg-blue-500/30 border border-blue-500/40 text-xs font-bold transition-colors"
+                              title={`Send direct notification to ${u.name}`}
+                            >
+                              <Send className="w-3.5 h-3.5" />
+                              <span>Message</span>
+                            </button>
+
+                            <button
                               onClick={() => openSetUsernameModal(u)}
                               disabled={actionLoadingId === u.id}
                               className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 border border-purple-500/40 text-xs font-bold transition-colors"
                               title="Set or Edit @Username"
                             >
                               <AtSign className="w-3.5 h-3.5" />
-                              <span>{u.username ? 'Edit @' : 'Set @'}</span>
+                              <span>{u.username ? 'Username' : '+ Username'}</span>
                             </button>
 
                             <button
@@ -1107,13 +1245,47 @@ export default function Admin() {
 
         {/* Tab 3: Connected Circles Inspector */}
         {activeTab === 'connections' && (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
+          <div className="space-y-4">
+            {/* Quick Mode Explainer Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-3 shadow-sm">
+                <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400 mt-0.5 flex-shrink-0">
+                  <Zap className="w-4 h-4 fill-amber-400" />
+                </div>
+                <div>
+                  <div className="text-xs font-black text-amber-300 flex items-center gap-1.5">
+                    <span>Authorized (Instant Sync)</span>
+                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-bold">Fast</span>
+                  </div>
+                  <div className="text-[11px] text-slate-300 mt-1 leading-relaxed">
+                    Transactions recorded with this friend are <strong>automatically approved</strong> and instantly appear in both accounts without requiring confirmation.
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex items-start gap-3 shadow-sm">
+                <div className="p-2 rounded-xl bg-indigo-500/20 text-indigo-300 mt-0.5 flex-shrink-0">
+                  <Clock className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="text-xs font-black text-indigo-300 flex items-center gap-1.5">
+                    <span>Normal (Requires Approval)</span>
+                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 font-bold">Default</span>
+                  </div>
+                  <div className="text-[11px] text-slate-300 mt-1 leading-relaxed">
+                    Transactions recorded with this friend stay <strong>Pending Approval</strong> until the friend reviews and confirms or declines them.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
                 <thead className="bg-slate-800/80 border-b border-slate-700/80 text-slate-400 uppercase tracking-wider font-extrabold">
                   <tr>
-                    <th className="px-5 py-4">Account A (Initiator)</th>
-                    <th className="px-5 py-4">Connected Friend B</th>
+                    <th className="px-5 py-4">Account (Owner)</th>
+                    <th className="px-5 py-4">Target Friend</th>
                     <th className="px-5 py-4">Circle Relationship</th>
                     <th className="px-5 py-4">Sync Mode & Permission</th>
                     <th className="px-5 py-4">Linked Since</th>
@@ -1150,14 +1322,19 @@ export default function Admin() {
                             </div>
                           </td>
                           <td className="px-5 py-4">
-                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl font-black text-[11px] border ${
-                              isAuth
-                                ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-                                : 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40'
-                            }`}>
-                              {isAuth ? <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400" /> : <Clock className="w-3.5 h-3.5 text-indigo-300" />}
-                              <span>{isAuth ? 'Authorized (Instant Sync)' : 'Normal (Requires Approval)'}</span>
-                            </span>
+                            <div>
+                              <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl font-black text-[11px] border ${
+                                isAuth
+                                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                                  : 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40'
+                              }`}>
+                                {isAuth ? <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400" /> : <Clock className="w-3.5 h-3.5 text-indigo-300" />}
+                                <span>{isAuth ? 'Authorized (Instant Sync)' : 'Normal (Requires Approval)'}</span>
+                              </span>
+                              <div className="text-[10px] text-slate-400 mt-1">
+                                Granted by <span className="text-slate-200 font-semibold">{c.user?.name}</span> to <span className="text-slate-200 font-semibold">{c.connectedUser?.name || c.friendName}</span>
+                              </div>
+                            </div>
                           </td>
                           <td className="px-5 py-4 text-slate-400 font-mono">
                             {c.linkedAt ? new Date(c.linkedAt).toLocaleDateString() : 'Connected'}
@@ -1171,7 +1348,7 @@ export default function Admin() {
                                   ? 'bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border-indigo-500/40'
                                   : 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border-amber-500/40'
                               }`}
-                              title="Toggle Sync Permission as Admin"
+                              title={`Change only ${c.user?.name}'s sync permission for ${c.connectedUser?.name || c.friendName}`}
                             >
                               {isAuth ? <Clock className="w-3.5 h-3.5" /> : <Zap className="w-3.5 h-3.5" />}
                               <span>{isAuth ? 'Switch to Normal' : 'Switch to Authorized'}</span>
@@ -1184,6 +1361,7 @@ export default function Admin() {
                 </tbody>
               </table>
             </div>
+          </div>
           </div>
         )}
 
@@ -1472,6 +1650,199 @@ export default function Admin() {
                   >
                     <Check className="w-3.5 h-3.5" />
                     <span>{usernameSaving ? 'Saving...' : 'Save @Username'}</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Send Direct Message / Broadcast Modal for Admin */}
+        {messageModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn overflow-y-auto">
+            <div className="bg-slate-900 border border-slate-700/80 rounded-3xl w-full max-w-xl p-5 sm:p-6 shadow-2xl space-y-5 relative my-auto">
+              <button
+                type="button"
+                onClick={() => setMessageModalOpen(false)}
+                className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 text-white flex items-center justify-center shadow-lg shadow-purple-600/30 flex-shrink-0">
+                  <Megaphone className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-black text-white">
+                    {msgRecipientId === 'ALL' ? '📢 Broadcast Notification' : '✉️ Send Message to User'}
+                  </h3>
+                  <p className="text-xs text-slate-400 font-medium">
+                    This notification will appear in the user's notification drawer with an admin badge.
+                  </p>
+                </div>
+              </div>
+
+              {msgSuccess && (
+                <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-bold flex items-center gap-2 animate-fadeIn">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                  <span>{msgSuccess}</span>
+                </div>
+              )}
+
+              {msgError && (
+                <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-bold flex items-center gap-2 animate-fadeIn">
+                  <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0" />
+                  <span>{msgError}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleSendAdminMessage} className="space-y-4">
+                {/* Recipient Picker */}
+                <div>
+                  <label className="block text-xs font-black text-slate-300 uppercase tracking-wider mb-1.5">
+                    Recipient
+                  </label>
+                  <select
+                    value={msgRecipientId}
+                    onChange={(e) => setMsgRecipientId(e.target.value)}
+                    className="w-full bg-slate-800/90 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 font-bold"
+                  >
+                    <option value="ALL">📢 All Registered Users (Broadcast - {users.length} users)</option>
+                    <optgroup label="Single User">
+                      {users.map(u => (
+                        <option key={u.id} value={u.id}>
+                          👤 {u.name} {u.username ? `(@${u.username})` : ''} — {u.email}
+                        </option>
+                      ))}
+                    </optgroup>
+                  </select>
+                </div>
+
+                {/* Quick Templates */}
+                <div>
+                  <div className="text-[11px] font-bold text-slate-400 mb-1.5 flex items-center gap-1">
+                    <Sparkles className="w-3 h-3 text-purple-400" />
+                    <span>Quick Templates (Click to fill):</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => handleApplyTemplate('📢 Important Announcement', 'Hello! We have rolled out performance improvements and new features across MoneyTracker. Enjoy faster and smoother expense tracking!')}
+                      className="text-[10px] font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white px-2.5 py-1 rounded-lg border border-slate-700 transition-colors"
+                    >
+                      📢 Announcement
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleApplyTemplate('🔧 Scheduled Maintenance Notice', 'Notice: MoneyTracker will undergo routine server maintenance tonight. Your records and account balances remain completely safe.')}
+                      className="text-[10px] font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white px-2.5 py-1 rounded-lg border border-slate-700 transition-colors"
+                    >
+                      🔧 Maintenance
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleApplyTemplate('⚡ Sync Permission Notice', 'Your 2-way friend sync permissions have been updated by admin. Please review your friends list for your latest status.')}
+                      className="text-[10px] font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white px-2.5 py-1 rounded-lg border border-slate-700 transition-colors"
+                    >
+                      ⚡ Sync Update
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleApplyTemplate('👋 Welcome to MoneyTracker!', 'Welcome to MoneyTracker! Start by connecting with friends, recording shared expenses, and keeping your ledgers in sync.')}
+                      className="text-[10px] font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white px-2.5 py-1 rounded-lg border border-slate-700 transition-colors"
+                    >
+                      👋 Welcome Greeting
+                    </button>
+                  </div>
+                </div>
+
+                {/* Title */}
+                <div>
+                  <label className="block text-xs font-black text-slate-300 uppercase tracking-wider mb-1.5">
+                    Notification Title <span className="text-rose-400">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={msgTitle}
+                    onChange={(e) => {
+                      setMsgTitle(e.target.value);
+                      setMsgError('');
+                    }}
+                    placeholder="e.g. System Update, Payment Reminder, Security Alert"
+                    className="w-full bg-slate-800/90 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 font-bold"
+                    required
+                  />
+                </div>
+
+                {/* Message Body */}
+                <div>
+                  <label className="block text-xs font-black text-slate-300 uppercase tracking-wider mb-1.5">
+                    Message Content <span className="text-rose-400">*</span>
+                  </label>
+                  <textarea
+                    rows={4}
+                    value={msgContent}
+                    onChange={(e) => {
+                      setMsgContent(e.target.value);
+                      setMsgError('');
+                    }}
+                    placeholder="Type the message you want the user to see in their notification bell..."
+                    className="w-full bg-slate-800/90 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 leading-relaxed font-normal"
+                    required
+                  />
+                </div>
+
+                {/* Live Preview */}
+                {(msgTitle || msgContent) && (
+                  <div className="p-3.5 rounded-2xl bg-slate-800/50 border border-slate-700/80 space-y-1.5">
+                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                      Live User Preview
+                    </div>
+                    <div className="p-3 rounded-xl bg-purple-50/10 border border-purple-500/30 flex items-start gap-2.5">
+                      <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-purple-600 to-indigo-600 text-white flex items-center justify-center flex-shrink-0 mt-0.5 shadow-xs">
+                        <Megaphone className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <h4 className="font-bold text-white text-xs leading-snug truncate">
+                            {msgTitle || 'Notification Title'}
+                          </h4>
+                          <span className="px-1.5 py-0.2 rounded text-[9px] font-black uppercase tracking-wider bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                            Admin Notice
+                          </span>
+                        </div>
+                        <p className="text-slate-300 text-[11px] mt-0.5 leading-relaxed break-words">
+                          {msgContent || 'Notification content will appear here...'}
+                        </p>
+                        <div className="text-[10px] text-slate-500 mt-1">Just now</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Footer Buttons */}
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setMessageModalOpen(false)}
+                    className="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={msgSending || !msgTitle.trim() || !msgContent.trim()}
+                    className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-xs font-black bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-lg shadow-purple-600/30 transition-all disabled:opacity-50 cursor-pointer"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    <span>
+                      {msgSending 
+                        ? 'Sending Message...' 
+                        : msgRecipientId === 'ALL' 
+                          ? `Broadcast to ${users.length} Users` 
+                          : 'Send Message'}
+                    </span>
                   </button>
                 </div>
               </form>

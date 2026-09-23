@@ -13,6 +13,7 @@ import Register from './pages/Register';
 import Landing from './pages/Landing';
 import SharedLedger from './pages/SharedLedger';
 import TransactionForm from './components/TransactionForm';
+import NotificationToastContainer from './components/NotificationToastContainer';
 import ColorfulLoader from './components/ColorfulLoader';
 import api from './services/api';
 
@@ -224,6 +225,9 @@ function MainApp() {
           }}
         />
       )}
+
+      {/* Floating Side Toast Notifications for Arriving Alerts */}
+      {user && <NotificationToastContainer />}
     </>
   );
 }

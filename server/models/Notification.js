@@ -17,7 +17,8 @@ const notificationSchema = new mongoose.Schema({
       'TRANSACTION_LOGGED',    // Transaction auto-synced (AUTHORIZED permission)
       'TRANSACTION_APPROVED',  // Transaction was approved
       'TRANSACTION_REJECTED',  // Transaction was rejected
-      'SYSTEM_ALERT'
+      'SYSTEM_ALERT',
+      'ADMIN_MESSAGE'          // Direct message or broadcast sent from Admin Panel
     ],
     required: true
   },

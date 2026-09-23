@@ -22,6 +22,7 @@ router.get('/connections', adminController.getAdminConnections);
 router.put('/connections/:id/permission', adminController.updateAdminConnectionPermission);
 router.get('/shares', adminController.getAdminShares);
 router.delete('/shares/:id', adminController.deleteAdminShare);
+router.post('/messages', adminController.sendAdminMessage);
 
 module.exports = router;
 
