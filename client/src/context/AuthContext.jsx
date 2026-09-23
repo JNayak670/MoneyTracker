@@ -102,7 +102,12 @@ export const AuthProvider = ({ children }) => {
     return login('demo@moneytracker.com', '1234');
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await api.post('/auth/logout');
+    } catch (e) {
+      // ignore network errors on signout
+    }
     localStorage.removeItem('money_tracker_token');
     localStorage.removeItem('demo_login_time');
     sessionStorage.removeItem('first_load_after_login');

@@ -194,7 +194,7 @@ exports.requireAdminAuth = (req, res, next) => {
 exports.getAdminStats = async (req, res) => {
   try {
     const now = new Date();
-    const ONLINE_THRESHOLD_MS = 2 * 60 * 1000; // Active within last 2 minutes
+    const ONLINE_THRESHOLD_MS = 3 * 60 * 1000; // Active within last 3 minutes
     const onlineCutoff = new Date(now.getTime() - ONLINE_THRESHOLD_MS);
 
     const [
@@ -251,7 +251,7 @@ exports.getAdminStats = async (req, res) => {
 exports.getAdminUsers = async (req, res) => {
   try {
     const now = new Date();
-    const ONLINE_THRESHOLD_MS = 2 * 60 * 1000; // Active within last 2 minutes
+    const ONLINE_THRESHOLD_MS = 3 * 60 * 1000; // Active within last 3 minutes
 
     const users = await User.find().sort({ createdAt: -1 }).lean();
 
@@ -263,7 +263,7 @@ exports.getAdminUsers = async (req, res) => {
           Transaction.countDocuments({ userId: u._id })
         ]);
 
-        const lastActive = u.lastActiveAt || u.updatedAt || u.createdAt;
+        const lastActive = u.lastActiveAt || null;
         const isOnline = lastActive ? (now.getTime() - new Date(lastActive).getTime() <= ONLINE_THRESHOLD_MS) : false;
 
         return {

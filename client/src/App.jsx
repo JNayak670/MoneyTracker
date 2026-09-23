@@ -72,6 +72,7 @@ function MainApp() {
     const triggerRefresh = () => {
       if (!document.hidden) {
         fetchFriends();
+        api.post('/auth/heartbeat').catch(() => {});
         window.dispatchEvent(new Event('transaction-updated'));
       }
     };
