@@ -65,13 +65,11 @@ export default function Navbar({ onOpenAddModal, onViewFriend, onDataChanged }) 
     };
 
     window.addEventListener('notifications-updated', handleNotifUpdate);
-    window.addEventListener('transaction-updated', handleNotifUpdate);
     window.addEventListener('open-notification-drawer', handleOpenDrawer);
 
     return () => {
       clearInterval(interval);
       window.removeEventListener('notifications-updated', handleNotifUpdate);
-      window.removeEventListener('transaction-updated', handleNotifUpdate);
       window.removeEventListener('open-notification-drawer', handleOpenDrawer);
     };
   }, []);

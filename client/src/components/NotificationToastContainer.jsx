@@ -283,6 +283,7 @@ export default function NotificationToastContainer() {
   const [toasts, setToasts] = useState([]);
   const knownNotificationIds = useRef(new Set());
   const hasInitialized = useRef(false);
+  const lastCheckTimeRef = useRef(0);
 
   // Mark single notification as read & open drawer
   const handleOpenNotification = async (notif) => {
@@ -292,7 +293,6 @@ export default function NotificationToastContainer() {
         const notifId = notif.id || notif._id;
         await api.put(`/notifications/${notifId}/read`);
         window.dispatchEvent(new Event('notifications-updated'));
-        window.dispatchEvent(new Event('transaction-updated'));
       }
     } catch (err) {
       console.error('Failed to mark notification read:', err);
@@ -308,6 +308,7 @@ export default function NotificationToastContainer() {
   // Poll for new notifications
   const checkForNewNotifications = useCallback(async () => {
     try {
+      lastCheckTimeRef.current = Date.now();
       const res = await api.get('/notifications');
       const list = res?.notifications || res?.data?.notifications || (Array.isArray(res) ? res : []);
       if (!Array.isArray(list)) return;
@@ -349,8 +350,9 @@ export default function NotificationToastContainer() {
           return [...newToasts, ...prev].slice(0, 3);
         });
 
-        // Trigger updates in Navbar
+        // Trigger updates in Navbar and active page
         window.dispatchEvent(new Event('notifications-updated'));
+        window.dispatchEvent(new Event('transaction-updated'));
       }
     } catch (err) {
       // ignore background poll error
@@ -361,16 +363,16 @@ export default function NotificationToastContainer() {
     // Initial fetch to prime known notification IDs
     checkForNewNotifications();
 
-    // Check periodically every 3.5 seconds
+    // Check periodically every 15 seconds when tab is active
     const interval = setInterval(() => {
       if (!document.hidden) {
         checkForNewNotifications();
       }
-    }, 3500);
+    }, 15000);
 
-    // Also check on tab focus or when transaction-updated / notifications-updated fires
+    // Also check on tab focus or visibility change (throttled to at least 6s apart)
     const handleEvents = () => {
-      if (!document.hidden) {
+      if (!document.hidden && Date.now() - lastCheckTimeRef.current > 6000) {
         checkForNewNotifications();
       }
     };
@@ -393,13 +395,13 @@ export default function NotificationToastContainer() {
     };
 
     window.addEventListener('focus', handleEvents);
-    window.addEventListener('transaction-updated', handleEvents);
+    document.addEventListener('visibilitychange', handleEvents);
     window.addEventListener('show-notification-toast', handleCustomToast);
 
     return () => {
       clearInterval(interval);
       window.removeEventListener('focus', handleEvents);
-      window.removeEventListener('transaction-updated', handleEvents);
+      document.removeEventListener('visibilitychange', handleEvents);
       window.removeEventListener('show-notification-toast', handleCustomToast);
     };
   }, [checkForNewNotifications]);

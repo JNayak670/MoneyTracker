@@ -63,36 +63,42 @@ function MainApp() {
     }
   }, [user, addTxModalOpen]);
 
-  // Automatic live refresh:
-  // 1. Silent periodic background poll every 4 seconds when tab is active
-  // 2. Immediate auto-refresh when switching back to tab or focusing window
+  // Live user presence (heartbeat):
+  // Keeps the user marked 'online' in the admin panel every 25 seconds when the tab is active.
   useEffect(() => {
     if (!user) return;
 
-    const triggerRefresh = () => {
+    let lastHeartbeat = 0;
+    const sendHeartbeat = () => {
       if (!document.hidden) {
-        fetchFriends();
-        api.post('/auth/heartbeat').catch(() => {});
-        window.dispatchEvent(new Event('transaction-updated'));
+        const now = Date.now();
+        // Prevent sending heartbeats faster than once every 10s
+        if (now - lastHeartbeat >= 10000) {
+          lastHeartbeat = now;
+          api.post('/auth/heartbeat').catch(() => {});
+        }
       }
     };
 
-    // Auto-refresh interval (every 4 seconds)
-    const interval = setInterval(triggerRefresh, 4000);
+    // Initial heartbeat
+    sendHeartbeat();
 
-    // Auto-refresh when user focuses window or returns to tab
+    // Heartbeat interval (every 25 seconds)
+    const interval = setInterval(sendHeartbeat, 25000);
+
+    // Refresh presence when user focuses window or returns to tab
     const handleVisibilityChange = () => {
       if (!document.hidden) {
-        triggerRefresh();
+        sendHeartbeat();
       }
     };
 
-    window.addEventListener('focus', triggerRefresh);
+    window.addEventListener('focus', sendHeartbeat);
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       clearInterval(interval);
-      window.removeEventListener('focus', triggerRefresh);
+      window.removeEventListener('focus', sendHeartbeat);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [user]);
