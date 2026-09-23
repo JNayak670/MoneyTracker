@@ -39,6 +39,10 @@ const userSchema = new mongoose.Schema({
   lockedAt: {
     type: Date,
     default: null
+  },
+  lastActiveAt: {
+    type: Date,
+    default: Date.now
   }
 }, {
   timestamps: true,

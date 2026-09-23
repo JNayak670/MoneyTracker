@@ -194,8 +194,12 @@ exports.requireAdminAuth = (req, res, next) => {
 exports.getAdminStats = async (req, res) => {
   try {
     const now = new Date();
+    const ONLINE_THRESHOLD_MS = 2 * 60 * 1000; // Active within last 2 minutes
+    const onlineCutoff = new Date(now.getTime() - ONLINE_THRESHOLD_MS);
+
     const [
       totalUsers, 
+      onlineUsers,
       totalFriends, 
       connectedFriends,
       authorizedFriends,
@@ -206,6 +210,7 @@ exports.getAdminStats = async (req, res) => {
       volumeAgg
     ] = await Promise.all([
       User.countDocuments(),
+      User.countDocuments({ lastActiveAt: { $gte: onlineCutoff } }),
       Friend.countDocuments(),
       Friend.countDocuments({ connectionStatus: 'CONNECTED' }),
       Friend.countDocuments({ permission: 'AUTHORIZED' }),
@@ -224,6 +229,7 @@ exports.getAdminStats = async (req, res) => {
       success: true,
       data: {
         totalUsers,
+        onlineUsers,
         totalFriends,
         connectedFriends,
         authorizedFriends,
@@ -241,9 +247,12 @@ exports.getAdminStats = async (req, res) => {
 };
 
 // @route   GET /api/admin/users
-// @desc    List all registered users with friend and transaction counts
+// @desc    List all registered users with friend, transaction counts, and live online status
 exports.getAdminUsers = async (req, res) => {
   try {
+    const now = new Date();
+    const ONLINE_THRESHOLD_MS = 2 * 60 * 1000; // Active within last 2 minutes
+
     const users = await User.find().sort({ createdAt: -1 }).lean();
 
     const usersWithStats = await Promise.all(
@@ -253,6 +262,10 @@ exports.getAdminUsers = async (req, res) => {
           Friend.countDocuments({ userId: u._id, connectionStatus: 'CONNECTED' }),
           Transaction.countDocuments({ userId: u._id })
         ]);
+
+        const lastActive = u.lastActiveAt || u.updatedAt || u.createdAt;
+        const isOnline = lastActive ? (now.getTime() - new Date(lastActive).getTime() <= ONLINE_THRESHOLD_MS) : false;
+
         return {
           id: u._id.toString(),
           name: u.name,
@@ -263,6 +276,8 @@ exports.getAdminUsers = async (req, res) => {
           failedLoginAttempts: u.failedLoginAttempts || 0,
           lockedAt: u.lockedAt || null,
           createdAt: u.createdAt,
+          lastActiveAt: lastActive,
+          isOnline,
           friendsCount,
           connectedCount,
           txCount

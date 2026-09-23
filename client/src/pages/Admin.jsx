@@ -66,6 +66,7 @@ export default function Admin() {
   const [shares, setShares] = useState([]);
   const [connections, setConnections] = useState([]);
   const [txStatusFilter, setTxStatusFilter] = useState('ALL');
+  const [userFilterStatus, setUserFilterStatus] = useState('ALL');
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [deletingId, setDeletingId] = useState(null);
@@ -189,6 +190,12 @@ export default function Admin() {
   useEffect(() => {
     if (adminToken) {
       fetchAllData();
+      const interval = setInterval(() => {
+        if (!document.hidden) {
+          fetchAllData();
+        }
+      }, 8000);
+      return () => clearInterval(interval);
     }
   }, [adminToken]);
 
@@ -443,12 +450,39 @@ export default function Admin() {
     }
   };
 
+  // Helper to format last seen time
+  const formatLastSeen = (timestamp) => {
+    if (!timestamp) return 'Never active';
+    const diff = Date.now() - new Date(timestamp).getTime();
+    if (diff < 60000) return 'Just now';
+    const minutes = Math.floor(diff / 60000);
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    return `${days}d ago`;
+  };
+
   // Filtered lists
-  const filteredUsers = (users || []).filter(u => 
-    u.name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    u.username?.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    u.email?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredUsers = (users || []).filter(u => {
+    const matchesSearch = 
+      u.name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      u.username?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      u.email?.toLowerCase().includes(searchQuery.toLowerCase());
+
+    if (!matchesSearch) return false;
+
+    if (userFilterStatus === 'ONLINE') {
+      return u.isOnline && !u.isLocked;
+    }
+    if (userFilterStatus === 'OFFLINE') {
+      return !u.isOnline && !u.isLocked;
+    }
+    if (userFilterStatus === 'LOCKED') {
+      return !!u.isLocked;
+    }
+    return true;
+  });
 
   const filteredTransactions = (transactions || []).filter(t => {
     const matchesSearch = 
@@ -690,12 +724,23 @@ export default function Admin() {
             <div className="flex items-center justify-between text-purple-400 text-xs font-bold mb-1.5">
               <span className="flex items-center gap-1.5">
                 <Users className="w-4 h-4" />
-                <span>Total Users</span>
+                <span>Users</span>
               </span>
-              <span className="text-[10px] bg-purple-500/15 text-purple-300 px-1.5 py-0.2 rounded font-bold">Active</span>
+              <span className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-bold border ${
+                (stats?.onlineUsers || 0) > 0 
+                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-xs' 
+                  : 'bg-slate-800 text-slate-400 border-slate-700'
+              }`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${
+                  (stats?.onlineUsers || 0) > 0 ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'
+                }`} />
+                <span>{stats?.onlineUsers || 0} Online</span>
+              </span>
             </div>
             <div className="text-2xl font-black text-white">{stats?.totalUsers || 0}</div>
-            <div className="text-[10px] text-slate-400 font-medium mt-0.5">Registered accounts</div>
+            <div className="text-[10px] text-slate-400 font-medium mt-0.5">
+              <span className="text-emerald-400 font-bold">{stats?.onlineUsers || 0} online now</span> · {stats?.totalUsers || 0} registered
+            </div>
           </div>
 
           <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-lg hover:border-slate-700 transition-all">
@@ -914,75 +959,145 @@ export default function Admin() {
 
         {/* Tab 1: User Accounts Table */}
         {activeTab === 'users' && (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-800/80 border-b border-slate-700/80 text-slate-400 uppercase tracking-wider font-extrabold">
-                  <tr>
-                    <th className="px-5 py-4">User</th>
-                    <th className="px-5 py-4">Email</th>
-                    <th className="px-5 py-4">Status</th>
-                    <th className="px-5 py-4">Friends & Links</th>
-                    <th className="px-5 py-4">Transactions</th>
-                    <th className="px-5 py-4">Joined Date</th>
-                    <th className="px-5 py-4 text-right">Admin Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/60 bg-slate-900/60">
-                  {filteredUsers.length === 0 ? (
+          <div className="space-y-3">
+            {/* User Presence & Status Filter Pills */}
+            <div className="flex items-center gap-2 flex-wrap text-xs">
+              <span className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Filter Users:</span>
+              {[
+                { id: 'ALL', label: 'All Users', count: (users || []).length },
+                { 
+                  id: 'ONLINE', 
+                  label: '🟢 Online Now', 
+                  count: (users || []).filter(u => u.isOnline && !u.isLocked).length,
+                  highlight: true 
+                },
+                { 
+                  id: 'OFFLINE', 
+                  label: '⚪ Offline', 
+                  count: (users || []).filter(u => !u.isOnline && !u.isLocked).length 
+                },
+                { 
+                  id: 'LOCKED', 
+                  label: '🔒 Locked', 
+                  count: (users || []).filter(u => u.isLocked).length,
+                  danger: true 
+                },
+              ].map((pill) => (
+                <button
+                  key={pill.id}
+                  onClick={() => setUserFilterStatus(pill.id)}
+                  className={`px-3 py-1.5 rounded-xl font-bold transition-all flex items-center gap-1.5 border ${
+                    userFilterStatus === pill.id
+                      ? 'bg-purple-600 text-white border-purple-500 shadow-sm'
+                      : pill.highlight && pill.count > 0
+                      ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/25'
+                      : pill.danger && pill.count > 0
+                      ? 'bg-rose-500/15 text-rose-300 border-rose-500/30 hover:bg-rose-500/25'
+                      : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200 hover:bg-slate-800'
+                  }`}
+                >
+                  <span>{pill.label}</span>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                    userFilterStatus === pill.id ? 'bg-purple-800 text-white' : 'bg-slate-800 text-slate-400'
+                  }`}>
+                    {pill.count}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-800/80 border-b border-slate-700/80 text-slate-400 uppercase tracking-wider font-extrabold">
                     <tr>
-                      <td colSpan="7" className="p-8 text-center text-slate-500 text-xs">
-                        No users match your query.
-                      </td>
+                      <th className="px-5 py-4">User</th>
+                      <th className="px-5 py-4">Email</th>
+                      <th className="px-5 py-4">Status</th>
+                      <th className="px-5 py-4">Friends & Links</th>
+                      <th className="px-5 py-4">Transactions</th>
+                      <th className="px-5 py-4">Joined Date</th>
+                      <th className="px-5 py-4 text-right">Admin Actions</th>
                     </tr>
-                  ) : (
-                    filteredUsers.map((u) => (
-                      <tr key={u.id} className="hover:bg-slate-800/50 transition-colors">
-                        <td className="px-5 py-4 font-black text-white">
-                          <div className="flex items-center gap-2.5">
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-xs shadow-xs text-white ${
-                              u.isLocked
-                                ? 'bg-gradient-to-tr from-rose-600 to-amber-600 animate-pulse'
-                                : 'bg-gradient-to-tr from-purple-600 to-indigo-600'
-                            }`}>
-                              {u.name?.charAt(0).toUpperCase() || 'U'}
-                            </div>
-                            <div>
-                              <div>{u.name}</div>
-                              {u.username ? (
-                                <div className="text-[11px] text-purple-400 font-bold">@{u.username}</div>
-                              ) : (
-                                <div className="text-[10px] text-amber-400 font-bold flex items-center gap-1 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 mt-0.5 w-fit">
-                                  <AlertCircle className="w-2.5 h-2.5" />
-                                  <span>No @username</span>
-                                </div>
-                              )}
-                              <div className="text-[10px] text-slate-500 font-mono">ID: {u.id?.substring(0, 8)}...</div>
-                            </div>
-                          </div>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60 bg-slate-900/60">
+                    {filteredUsers.length === 0 ? (
+                      <tr>
+                        <td colSpan="7" className="p-8 text-center text-slate-500 text-xs">
+                          No users match your query.
                         </td>
-                        <td className="px-5 py-4 text-slate-300 font-medium">{u.email}</td>
-                        <td className="px-5 py-4">
-                          {u.isLocked ? (
-                            <div>
-                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-rose-500/20 text-rose-300 font-black text-[11px] border border-rose-500/30 animate-pulse">
-                                <Lock className="w-3 h-3" />
-                                <span>LOCKED (5 Failed)</span>
-                              </span>
-                              <div className="text-[10px] text-rose-400 font-mono mt-0.5">
-                                {u.lockedAt ? new Date(u.lockedAt).toLocaleTimeString() : 'Auto-locked'}
+                      </tr>
+                    ) : (
+                      filteredUsers.map((u) => (
+                        <tr key={u.id} className="hover:bg-slate-800/50 transition-colors">
+                          <td className="px-5 py-4 font-black text-white">
+                            <div className="flex items-center gap-2.5">
+                              <div className="relative flex-shrink-0">
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-xs shadow-xs text-white ${
+                                  u.isLocked
+                                    ? 'bg-gradient-to-tr from-rose-600 to-amber-600 animate-pulse'
+                                    : 'bg-gradient-to-tr from-purple-600 to-indigo-600'
+                                }`}>
+                                  {u.name?.charAt(0).toUpperCase() || 'U'}
+                                </div>
+                                {u.isOnline && !u.isLocked && (
+                                  <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-400 border-2 border-slate-900 rounded-full shadow-xs" title="Online now" />
+                                )}
+                              </div>
+                              <div>
+                                <div>{u.name}</div>
+                                {u.username ? (
+                                  <div className="text-[11px] text-purple-400 font-bold">@{u.username}</div>
+                                ) : (
+                                  <div className="text-[10px] text-amber-400 font-bold flex items-center gap-1 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 mt-0.5 w-fit">
+                                    <AlertCircle className="w-2.5 h-2.5" />
+                                    <span>No @username</span>
+                                  </div>
+                                )}
+                                <div className="text-[10px] text-slate-500 font-mono">ID: {u.id?.substring(0, 8)}...</div>
                               </div>
                             </div>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-300 font-bold text-[11px] border border-emerald-500/20">
-                              <CheckCircle2 className="w-3 h-3" />
-                              <span>Active</span>
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-5 py-4">
-                          <div className="font-bold text-slate-200">
-                            {u.friendsCount || 0} {u.friendsCount === 1 ? 'Friend' : 'Friends'}
+                          </td>
+                          <td className="px-5 py-4 text-slate-300 font-medium">{u.email}</td>
+                          <td className="px-5 py-4">
+                            {u.isLocked ? (
+                              <div>
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-rose-500/20 text-rose-300 font-black text-[11px] border border-rose-500/30 animate-pulse">
+                                  <Lock className="w-3 h-3" />
+                                  <span>LOCKED (5 Failed)</span>
+                                </span>
+                                <div className="text-[10px] text-rose-400 font-mono mt-0.5">
+                                  {u.lockedAt ? new Date(u.lockedAt).toLocaleTimeString() : 'Auto-locked'}
+                                </div>
+                              </div>
+                            ) : u.isOnline ? (
+                              <div>
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-black text-[11px] border border-emerald-500/40 shadow-xs shadow-emerald-500/10">
+                                  <span className="relative flex h-2 w-2">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
+                                  </span>
+                                  <span>Online Now</span>
+                                </span>
+                                <div className="text-[10px] text-emerald-400/80 font-medium mt-0.5">
+                                  Active in app
+                                </div>
+                              </div>
+                            ) : (
+                              <div>
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 font-bold text-[10px] border border-slate-700">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
+                                  <span>Offline</span>
+                                </span>
+                                <div className="text-[10px] text-slate-500 font-medium mt-0.5">
+                                  {formatLastSeen(u.lastActiveAt)}
+                                </div>
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-5 py-4">
+                            <div className="font-bold text-slate-200">
+                              {u.friendsCount || 0} {u.friendsCount === 1 ? 'Friend' : 'Friends'}
                           </div>
                           {u.connectedCount > 0 ? (
                             <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 text-[10px] font-bold border border-emerald-500/30 mt-1">
@@ -1059,6 +1174,7 @@ export default function Admin() {
                 </tbody>
               </table>
             </div>
+          </div>
           </div>
         )}
 

@@ -103,7 +103,8 @@ exports.register = async (req, res) => {
       username: cleanUsername,
       email: cleanEmail,
       pin: hashedPin,
-      currency
+      currency,
+      lastActiveAt: new Date()
     });
 
     // -------------------------------------------------------------
@@ -240,8 +241,9 @@ exports.login = async (req, res) => {
       user.failedLoginAttempts = 0;
       user.isLocked = false;
       user.lockedAt = null;
-      await user.save();
     }
+    user.lastActiveAt = new Date();
+    await user.save();
 
     // Demo account active time set to 5 minutes ('5m')
     const isDemo = cleanEmail === 'demo@moneytracker.com';

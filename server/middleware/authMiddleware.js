@@ -29,6 +29,14 @@ async function protect(req, res, next) {
     }
 
     req.user = user;
+
+    // Asynchronously update lastActiveAt (throttled to at most once per 20 seconds)
+    const now = new Date();
+    if (!user.lastActiveAt || (now.getTime() - new Date(user.lastActiveAt).getTime() > 20000)) {
+      User.updateOne({ _id: user._id }, { lastActiveAt: now }).exec().catch(() => {});
+      user.lastActiveAt = now;
+    }
+
     next();
   } catch (err) {
     return res.status(401).json({
