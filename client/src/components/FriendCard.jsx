@@ -39,6 +39,7 @@ export default function FriendCard({
 
   const isConnected = friend.connectionStatus === 'CONNECTED';
   const isPendingMatch = friend.connectionStatus === 'PENDING_MATCH';
+  const isRequestSent = friend.connectionStatus === 'REQUEST_SENT';
   const isAuthorized = friend.permission === 'AUTHORIZED';
   const isFriendAuthorized = friend.friendPermission === 'AUTHORIZED';
   const friendUsername = friend.connectedUser?.username || friend.pendingUsername || friend.name;
@@ -196,6 +197,25 @@ export default function FriendCard({
                 className="text-[11px] font-black text-purple-700 bg-white hover:bg-purple-100 px-2.5 py-0.5 rounded-lg border border-purple-200 transition-colors shadow-2xs"
               >
                 Connect
+              </button>
+            </div>
+          ) : isRequestSent ? (
+            <div className="p-2 rounded-xl bg-amber-50/90 border border-amber-200/90 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 text-xs min-w-0">
+                <Clock className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
+                <span className="text-[11px] font-bold text-amber-950 truncate">
+                  Request Sent: <strong className="text-amber-800 font-mono">@{friendUsername}</strong>
+                </span>
+                <span className="text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-amber-200/80 text-amber-900 flex-shrink-0">
+                  Pending
+                </span>
+              </div>
+              <button
+                onClick={() => onLinkAccount(friend)}
+                className="text-[10px] font-bold text-amber-900 hover:text-amber-950 bg-white/90 hover:bg-white px-2 py-0.5 rounded-lg border border-amber-300 shadow-2xs transition-colors flex-shrink-0"
+                title="Manage connection request"
+              >
+                Manage
               </button>
             </div>
           ) : friend.pendingUsername ? (

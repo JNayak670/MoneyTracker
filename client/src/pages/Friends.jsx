@@ -248,6 +248,7 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
       if (activeLedger?.friend?.id === friend.id) {
         await loadFriendLedger(friend.id, false);
       }
+      window.dispatchEvent(new Event('transaction-updated'));
     } catch (err) {
       alert(err.response?.data?.error || err.message || 'Failed to update permission');
       throw err;
@@ -400,7 +401,7 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
               <span>Pending Connection Requests ({pendingRequests.length})</span>
             </h3>
             <span className="text-[11px] text-purple-700 font-bold bg-white/90 px-2.5 py-0.5 rounded-full border border-purple-200">
-              Only accepted connections appear in your active friend circle
+              Manage connection requests · Pending friends remain active in your circle
             </span>
           </div>
 
@@ -577,17 +578,17 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
           <div className="bg-white border border-slate-200 rounded-2xl sm:rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] m-auto">
             
             {/* Header */}
-            <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-100 bg-slate-50/90 flex-shrink-0">
-              <div className="flex items-center gap-2.5 sm:gap-3">
+            <div className="flex items-center justify-between gap-2.5 px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-100 bg-slate-50/90 flex-shrink-0">
+              <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1 mr-2">
                 <div 
                   className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center text-lg sm:text-xl shadow-xs border border-slate-200 flex-shrink-0"
                   style={{ backgroundColor: activeLedger.friend.avatarColor || '#6366f1' }}
                 >
                   {activeLedger.friend.avatarEmoji || '👤'}
                 </div>
-                <div>
+                <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h2 className="text-sm sm:text-lg font-extrabold text-slate-900 truncate max-w-[140px] xs:max-w-[220px]">{activeLedger.friend.name}</h2>
+                    <h2 className="text-sm sm:text-lg font-extrabold text-slate-900 truncate max-w-[120px] xs:max-w-[200px] sm:max-w-[260px]">{activeLedger.friend.name}</h2>
                     {activeLedger.friend.connectionStatus === 'CONNECTED' && (
                       <div className="flex items-center gap-1.5 flex-wrap">
                         {/* You Setting (Clickable / Changeable) */}
@@ -632,6 +633,12 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
                         </span>
                       </div>
                     )}
+                    {activeLedger.friend.connectionStatus === 'REQUEST_SENT' && (
+                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-lg flex items-center gap-1 border border-amber-300 bg-amber-100/90 text-amber-950 shadow-2xs select-none">
+                        <Clock className="w-3 h-3 text-amber-600 flex-shrink-0" />
+                        <span>Request Sent: @{activeLedger.friend.connectedUser?.username || activeLedger.friend.pendingUsername || 'friend'} (Pending)</span>
+                      </span>
+                    )}
                   </div>
                   <span className="text-[10px] sm:text-xs font-semibold text-slate-500">{activeLedger.friend.relationshipTag || 'Friend'}</span>
                 </div>
@@ -654,11 +661,14 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
                   <Printer className="w-4 h-4 sm:w-5 sm:h-5" />
                 </button>
                 <button
+                  type="button"
                   onClick={() => {
                     setActiveLedger(null);
                     onCloseHistory?.();
                   }}
-                  className="p-1.5 sm:p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors"
+                  className="p-1.5 sm:p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors flex-shrink-0"
+                  aria-label="Close"
+                  title="Close"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -771,13 +781,16 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
       {friendModalOpen && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-2.5 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn overflow-y-auto">
           <div className="bg-white border border-slate-200 rounded-2xl sm:rounded-3xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[92vh] m-auto">
-            <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-slate-100 bg-slate-50/90 flex-shrink-0">
-              <h2 className="text-sm sm:text-base font-bold text-slate-900">
+            <div className="flex items-center justify-between gap-3 px-4 sm:px-6 py-3.5 sm:py-4 border-b border-slate-100 bg-slate-50/90 flex-shrink-0">
+              <h2 className="text-sm sm:text-base font-bold text-slate-900 truncate min-w-0 flex-1">
                 {(currentEditingFriend?.id || editingFriend?.id) ? 'Edit Friend Details' : 'Add Friend to Circle'}
               </h2>
               <button
+                type="button"
                 onClick={handleCloseFriendModal}
-                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors"
+                className="p-1.5 -mr-1 text-slate-400 hover:text-slate-700 active:text-slate-900 rounded-xl hover:bg-slate-100 active:bg-slate-200 transition-colors flex-shrink-0 ml-auto"
+                aria-label="Close"
+                title="Close"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1012,6 +1025,7 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
         onUpdated={() => {
           fetchFriends(false);
           if (activeLedger) loadFriendLedger(activeLedger.friend.id, false);
+          window.dispatchEvent(new Event('transaction-updated'));
         }}
       />
 

@@ -67,23 +67,26 @@ export default function ShareHistoryModal({ isOpen, onClose, friend, transaction
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-700 px-6 py-5 text-white flex items-center justify-between relative flex-shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center text-xl border border-white/20">
+        <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-700 px-4 sm:px-6 py-4 sm:py-5 text-white flex items-center justify-between gap-3 relative flex-shrink-0">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center text-xl border border-white/20 flex-shrink-0">
               <Share2 className="w-5 h-5 text-emerald-200" />
             </div>
-            <div>
-              <h3 className="font-display font-black text-lg leading-tight">
+            <div className="min-w-0 flex-1">
+              <h3 className="font-display font-black text-sm sm:text-lg leading-tight truncate">
                 Share Previous Transactions?
               </h3>
-              <p className="text-emerald-100 text-xs font-medium">
+              <p className="text-emerald-100 text-xs font-medium truncate" title={`Friend: ${friend.name}`}>
                 Friend: <span className="font-bold text-white">{friend.name}</span>
               </p>
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
+            className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 active:bg-white/30 text-white flex items-center justify-center transition-colors flex-shrink-0 ml-auto"
+            aria-label="Close modal"
+            title="Close"
           >
             <X className="w-4 h-4" />
           </button>

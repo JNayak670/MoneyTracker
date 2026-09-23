@@ -75,26 +75,42 @@ export default function ShareCodeModal({ isOpen, onClose, friendId, friendName, 
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn overflow-y-auto">
-      <div className="bg-white border border-slate-200 rounded-2xl sm:rounded-3xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[92vh] m-auto">
+    <div 
+      onClick={() => {
+        setShareData(null);
+        onClose();
+      }}
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn overflow-y-auto"
+    >
+      <div 
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white border border-slate-200 rounded-2xl sm:rounded-3xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[92vh] m-auto"
+      >
         
         {/* Header */}
-        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-slate-100 bg-gradient-to-r from-indigo-50/80 via-purple-50/50 to-white flex-shrink-0">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-md shadow-indigo-500/20">
+        <div className="flex items-center justify-between gap-2.5 px-4 sm:px-6 py-3.5 sm:py-4 border-b border-slate-100 bg-gradient-to-r from-indigo-50/80 via-purple-50/50 to-white flex-shrink-0">
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+            <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-md shadow-indigo-500/20 flex-shrink-0">
               <Share2 className="w-4 h-4" />
             </div>
-            <div>
-              <h2 className="text-sm sm:text-base font-black text-slate-900 truncate">Share Statement with {friendName}</h2>
-              <p className="text-[10px] sm:text-[11px] text-slate-500 font-semibold">Generate a secure, time-limited access code</p>
+            <div className="min-w-0 flex-1">
+              <h2 className="text-xs sm:text-base font-black text-slate-900 truncate leading-snug" title={`Share Statement with ${friendName}`}>
+                Share Statement with {friendName}
+              </h2>
+              <p className="text-[10px] sm:text-[11px] text-slate-500 font-semibold truncate">
+                Generate a secure, time-limited access code
+              </p>
             </div>
           </div>
           <button 
+            type="button"
             onClick={() => {
               setShareData(null);
               onClose();
             }} 
-            className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors"
+            className="p-1.5 -mr-1 text-slate-400 hover:text-slate-700 active:text-slate-900 rounded-xl hover:bg-slate-100 active:bg-slate-200 transition-colors flex-shrink-0 ml-auto"
+            aria-label="Close modal"
+            title="Close"
           >
             <X className="w-5 h-5" />
           </button>

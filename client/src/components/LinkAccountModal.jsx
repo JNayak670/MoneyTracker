@@ -11,7 +11,8 @@ import {
   Unlink,
   Loader2,
   ShieldCheck,
-  Sparkles
+  Sparkles,
+  Clock
 } from 'lucide-react';
 import api from '../services/api';
 
@@ -67,10 +68,12 @@ export default function LinkAccountModal({ isOpen, onClose, friend, onUpdated })
       
       if (data.status === 'MATCH_FOUND') {
         setSuccessMsg(`Connection request sent to @${clean}! They will appear as a connected friend once accepted.`);
+        window.dispatchEvent(new Event('transaction-updated'));
         if (onUpdated) onUpdated();
         setTimeout(() => onClose(), 1500);
       } else {
         setSuccessMsg(data.message || 'Username saved as pending.');
+        window.dispatchEvent(new Event('transaction-updated'));
         if (onUpdated) onUpdated();
         setTimeout(() => onClose(), 1400);
       }
@@ -89,6 +92,7 @@ export default function LinkAccountModal({ isOpen, onClose, friend, onUpdated })
     try {
       await api.post(`/friends/${friend.id}/link-username`, { username: '' });
       setSuccessMsg('Account unlinked successfully.');
+      window.dispatchEvent(new Event('transaction-updated'));
       if (onUpdated) onUpdated();
       setTimeout(() => onClose(), 1000);
     } catch (err) {
@@ -107,23 +111,26 @@ export default function LinkAccountModal({ isOpen, onClose, friend, onUpdated })
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="bg-gradient-to-r from-purple-600 via-indigo-600 to-indigo-700 px-6 py-5 text-white flex items-center justify-between relative">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center text-xl border border-white/20">
+        <div className="bg-gradient-to-r from-purple-600 via-indigo-600 to-indigo-700 px-4 sm:px-6 py-4 sm:py-5 text-white flex items-center justify-between gap-3 relative flex-shrink-0">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center text-xl border border-white/20 flex-shrink-0">
               <Link2 className="w-5 h-5 text-purple-200" />
             </div>
-            <div>
-              <h3 className="font-display font-black text-lg leading-tight">
+            <div className="min-w-0 flex-1">
+              <h3 className="font-display font-black text-sm sm:text-lg leading-tight truncate">
                 {isConnected ? 'Connected MoneyTracker Friend' : 'Link MoneyTracker Account'}
               </h3>
-              <p className="text-purple-200 text-xs font-medium">
+              <p className="text-purple-200 text-xs font-medium truncate" title={`Friend: ${friend.name}`}>
                 Friend: <span className="font-bold text-white">{friend.name}</span>
               </p>
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
+            className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 active:bg-white/30 text-white flex items-center justify-center transition-colors flex-shrink-0 ml-auto"
+            aria-label="Close modal"
+            title="Close"
           >
             <X className="w-4 h-4" />
           </button>
@@ -139,6 +146,19 @@ export default function LinkAccountModal({ isOpen, onClose, friend, onUpdated })
                 <p className="font-black text-emerald-900">Connected MoneyTracker Account</p>
                 <p className="text-emerald-700 mt-0.5">
                   Linked to <span className="font-bold">@{friend.connectedUser?.username || friend.pendingUsername}</span>. Shared ledger sync is active.
+                </p>
+              </div>
+            </div>
+          ) : friend.connectionStatus === 'REQUEST_SENT' ? (
+            <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 flex items-start gap-2.5 text-xs text-amber-900">
+              <Clock className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold flex items-center gap-1.5">
+                  <span>Connection Request Pending</span>
+                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-200/80 text-amber-900 font-extrabold">Waiting</span>
+                </p>
+                <p className="text-amber-800 text-[11px] mt-0.5">
+                  Request sent to <strong className="font-mono">@{friend.connectedUser?.username || friend.pendingUsername}</strong>. This friend remains active in your list as an offline friend and will automatically sync once they accept.
                 </p>
               </div>
             </div>

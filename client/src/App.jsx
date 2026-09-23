@@ -62,6 +62,39 @@ function MainApp() {
     }
   }, [user, addTxModalOpen]);
 
+  // Automatic live refresh:
+  // 1. Silent periodic background poll every 4 seconds when tab is active
+  // 2. Immediate auto-refresh when switching back to tab or focusing window
+  useEffect(() => {
+    if (!user) return;
+
+    const triggerRefresh = () => {
+      if (!document.hidden) {
+        fetchFriends();
+        window.dispatchEvent(new Event('transaction-updated'));
+      }
+    };
+
+    // Auto-refresh interval (every 4 seconds)
+    const interval = setInterval(triggerRefresh, 4000);
+
+    // Auto-refresh when user focuses window or returns to tab
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        triggerRefresh();
+      }
+    };
+
+    window.addEventListener('focus', triggerRefresh);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', triggerRefresh);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [user]);
+
   const handleOpenAddTx = (friendId = '') => {
     setPreselectedFriendId(friendId);
     setAddTxModalOpen(true);

@@ -6,18 +6,24 @@ exports.getAllFriends = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    // Active friends: only OFFLINE or mutually CONNECTED
-    // (Pending connection requests are excluded from the main friends list until accepted)
+    // Fetch transactions first to retain any friend who has existing ledger history
+    const transactions = await Transaction.find({ userId, approvalStatus: { $ne: 'REJECTED' } });
+    const txFriendIds = transactions
+      .filter(t => t.friendId)
+      .map(t => (t.friendId._id ? t.friendId._id.toString() : t.friendId.toString()));
+
+    // Active friends: OFFLINE, CONNECTED, REQUEST_SENT (pending out request), PENDING_MATCH,
+    // or any friend record with existing transaction history so it never vanishes from circle
     const friends = await Friend.find({ 
       userId,
       $or: [
-        { connectionStatus: { $in: ['OFFLINE', 'CONNECTED'] } },
+        { connectionStatus: { $in: ['OFFLINE', 'CONNECTED', 'REQUEST_SENT', 'PENDING_MATCH'] } },
+        { _id: { $in: txFriendIds } },
         { connectionStatus: { $exists: false } }
       ]
     })
       .populate('connectedUserId', 'id name username email')
       .sort({ name: 1 });
-    const transactions = await Transaction.find({ userId, approvalStatus: { $ne: 'REJECTED' } });
 
     // Map transactions by friendId
     const txByFriend = {};
@@ -421,6 +427,29 @@ exports.linkUsernameToFriend = async (req, res) => {
     }
 
     if (!username || !username.trim()) {
+      const oldConnectedId = friend.connectedUserId;
+      if (oldConnectedId) {
+        const reciprocal = await Friend.findOne({ userId: oldConnectedId, connectedUserId: userId });
+        if (reciprocal) {
+          const otherTx = await Transaction.countDocuments({ userId: oldConnectedId, friendId: reciprocal._id });
+          if (otherTx === 0 && (reciprocal.connectionStatus === 'REQUEST_RECEIVED' || reciprocal.connectionStatus === 'PENDING_MATCH')) {
+            await Friend.deleteOne({ _id: reciprocal._id });
+          } else {
+            reciprocal.connectionStatus = 'OFFLINE';
+            reciprocal.connectedUserId = null;
+            await reciprocal.save();
+          }
+        }
+        await Notification.deleteMany({
+          userId: oldConnectedId,
+          type: 'FRIEND_REQUEST',
+          $or: [
+            { 'data.connectedUserId': userId },
+            { 'data.friendId': reciprocal?._id }
+          ]
+        });
+      }
+
       // Unlink username
       friend.pendingUsername = null;
       friend.connectedUserId = null;
@@ -786,14 +815,10 @@ exports.cancelConnectionRequest = async (req, res) => {
       });
     }
 
-    const myTx = await Transaction.countDocuments({ userId, friendId: friend._id });
-    if (myTx === 0) {
-      await Friend.deleteOne({ _id: friend._id });
-    } else {
-      friend.connectionStatus = 'OFFLINE';
-      friend.connectedUserId = null;
-      await friend.save();
-    }
+    // Revert friend back to standard offline mode in sender's circle
+    friend.connectionStatus = 'OFFLINE';
+    friend.connectedUserId = null;
+    await friend.save();
 
     res.json({
       success: true,

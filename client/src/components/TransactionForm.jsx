@@ -151,12 +151,18 @@ export default function TransactionForm({ isOpen, onClose, onSave, friends = [],
       <div className="bg-white border border-slate-200 rounded-2xl sm:rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[92vh] my-auto sm:my-0">
         
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/80">
-          <div className="flex items-center gap-2">
-            <span className="text-xl">💸</span>
-            <h2 className="text-lg font-bold text-slate-900">Record Transaction</h2>
+        <div className="flex items-center justify-between gap-3 px-4 sm:px-6 py-3.5 sm:py-4 border-b border-slate-100 bg-slate-50/80 flex-shrink-0">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <span className="text-xl flex-shrink-0">💸</span>
+            <h2 className="text-base sm:text-lg font-bold text-slate-900 truncate">Record Transaction</h2>
           </div>
-          <button onClick={onClose} className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors">
+          <button 
+            type="button"
+            onClick={onClose} 
+            className="p-1.5 -mr-1 text-slate-400 hover:text-slate-700 active:text-slate-900 rounded-xl hover:bg-slate-100 active:bg-slate-200 transition-colors flex-shrink-0 ml-auto"
+            aria-label="Close"
+            title="Close"
+          >
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -225,7 +231,7 @@ export default function TransactionForm({ isOpen, onClose, onSave, friends = [],
                   <option value="">-- Choose a friend --</option>
                   {friends.map(f => (
                     <option key={f.id || f._id} value={f.id || f._id}>
-                      {f.name} {f.connectionStatus === 'CONNECTED' ? `(@${f.connectedUserId?.username || f.pendingUsername || 'connected'})` : ''} ({f.relationshipTag || 'Friend'}) {f.currentBalance > 0 ? `[Owes ₹${f.currentBalance}]` : f.currentBalance < 0 ? `[You owe ₹${Math.abs(f.currentBalance)}]` : '[Settled]'}
+                      {f.name} {f.connectionStatus === 'CONNECTED' ? `(@${f.connectedUserId?.username || f.pendingUsername || 'connected'})` : f.connectionStatus === 'REQUEST_SENT' ? `(@${f.connectedUser?.username || f.pendingUsername || 'user'} - Pending Request)` : ''} ({f.relationshipTag || 'Friend'}) {f.currentBalance > 0 ? `[Owes ₹${f.currentBalance}]` : f.currentBalance < 0 ? `[You owe ₹${Math.abs(f.currentBalance)}]` : '[Settled]'}
                     </option>
                   ))}
                 </select>
@@ -252,6 +258,21 @@ export default function TransactionForm({ isOpen, onClose, onSave, friends = [],
                             {isAuth 
                               ? `Will automatically reflect on @${targetUsername}'s MoneyTracker balance.`
                               : `A request will be sent to @${targetUsername} to approve before it affects their ledger.`}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  if (selFriend.connectionStatus === 'REQUEST_SENT') {
+                    const targetUsername = selFriend.connectedUser?.username || selFriend.pendingUsername;
+                    return (
+                      <div className="mt-2 p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center gap-2">
+                        <span className="text-base">⏳</span>
+                        <div>
+                          <p className="font-bold">Connection Request Sent (@{targetUsername}) · Pending Acceptance</p>
+                          <p className="text-[11px] text-amber-800 mt-0.5">
+                            This transaction is recorded on your ledger immediately and will automatically sync once they accept.
                           </p>
                         </div>
                       </div>

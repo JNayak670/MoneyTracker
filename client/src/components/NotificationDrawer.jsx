@@ -90,6 +90,7 @@ export default function NotificationDrawer({ isOpen, onClose, onDataChanged }) {
     try {
       await api.post(`/friends/${friendId}/confirm-connect`);
       setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, isActioned: true, actionTaken: 'CONNECTED', isRead: true } : n));
+      window.dispatchEvent(new Event('transaction-updated'));
       if (onDataChanged) onDataChanged();
     } catch (err) {
       alert(err.message || 'Failed to connect friend');
@@ -106,6 +107,7 @@ export default function NotificationDrawer({ isOpen, onClose, onDataChanged }) {
     try {
       await api.post(`/friends/${friendId}/ignore-connect`);
       setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, isActioned: true, actionTaken: 'IGNORED', isRead: true } : n));
+      window.dispatchEvent(new Event('transaction-updated'));
       if (onDataChanged) onDataChanged();
     } catch (err) {
       alert(err.message || 'Failed to ignore match');
@@ -122,6 +124,7 @@ export default function NotificationDrawer({ isOpen, onClose, onDataChanged }) {
     try {
       await api.post(`/transactions/${txId}/approve`);
       setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, isActioned: true, actionTaken: 'APPROVED', isRead: true } : n));
+      window.dispatchEvent(new Event('transaction-updated'));
       if (onDataChanged) onDataChanged();
     } catch (err) {
       alert(err.message || 'Failed to approve transaction');
@@ -138,6 +141,7 @@ export default function NotificationDrawer({ isOpen, onClose, onDataChanged }) {
     try {
       await api.post(`/transactions/${txId}/reject`);
       setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, isActioned: true, actionTaken: 'REJECTED', isRead: true } : n));
+      window.dispatchEvent(new Event('transaction-updated'));
       if (onDataChanged) onDataChanged();
     } catch (err) {
       alert(err.message || 'Failed to reject transaction');

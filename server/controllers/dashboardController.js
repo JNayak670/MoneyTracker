@@ -6,14 +6,17 @@ exports.getSummary = async (req, res) => {
   try {
     const userId = req.user.id;
 
+    const transactions = await Transaction.find({ userId, approvalStatus: { $ne: 'REJECTED' } });
+    const txFriendIds = transactions.filter(t => t.friendId).map(t => (t.friendId._id ? t.friendId._id.toString() : t.friendId.toString()));
+
     const friends = await Friend.find({
       userId,
       $or: [
-        { connectionStatus: { $in: ['OFFLINE', 'CONNECTED'] } },
+        { connectionStatus: { $in: ['OFFLINE', 'CONNECTED', 'REQUEST_SENT', 'PENDING_MATCH'] } },
+        { _id: { $in: txFriendIds } },
         { connectionStatus: { $exists: false } }
       ]
     });
-    const transactions = await Transaction.find({ userId, approvalStatus: { $ne: 'REJECTED' } });
 
     const txByFriend = {};
     for (const t of transactions) {
