@@ -25,6 +25,18 @@ const terminalEventLogger = () => ({
 
 export default defineConfig({
   plugins: [react(), terminalEventLogger()],
+  build: {
+    chunkSizeWarningLimit: 1200,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor': ['react', 'react-dom', 'react-router-dom', 'axios'],
+          'charts': ['recharts'],
+          'icons': ['lucide-react']
+        }
+      }
+    }
+  },
   server: {
     host: true,
     port: 5173,
