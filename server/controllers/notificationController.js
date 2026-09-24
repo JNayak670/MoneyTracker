@@ -6,11 +6,19 @@ exports.getNotifications = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    const notifications = await Notification.find({ userId })
-      .sort({ createdAt: -1 })
-      .limit(50);
+    // Parallel fetch: feed and unread count execute concurrently using compound indexes
+    const [rawNotifications, unreadCount] = await Promise.all([
+      Notification.find({ userId })
+        .sort({ createdAt: -1 })
+        .limit(50)
+        .lean(),
+      Notification.countDocuments({ userId, isRead: false })
+    ]);
 
-    const unreadCount = await Notification.countDocuments({ userId, isRead: false });
+    const notifications = rawNotifications.map(n => ({
+      ...n,
+      id: n._id ? n._id.toString() : (n.id || '')
+    }));
 
     res.json({
       success: true,
@@ -35,7 +43,7 @@ exports.markAsRead = async (req, res) => {
     const notif = await Notification.findOneAndUpdate(
       { _id: id, userId },
       { isRead: true },
-      { new: true }
+      { returnDocument: 'after' }
     );
 
     if (!notif) {

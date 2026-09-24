@@ -62,4 +62,8 @@ const notificationSchema = new mongoose.Schema({
   }
 });
 
+// Compound indexes for fast unread count and chronologically sorted notification feed
+notificationSchema.index({ userId: 1, createdAt: -1 });
+notificationSchema.index({ userId: 1, isRead: 1 });
+
 module.exports = mongoose.model('Notification', notificationSchema);

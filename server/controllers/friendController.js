@@ -6,33 +6,37 @@ exports.getAllFriends = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    // Fetch transactions first to retain any friend who has existing ledger history
-    const transactions = await Transaction.find({ userId, approvalStatus: { $ne: 'REJECTED' } });
-    const txFriendIds = transactions
-      .filter(t => t.friendId)
-      .map(t => (t.friendId._id ? t.friendId._id.toString() : t.friendId.toString()));
+    // Parallel fetch: fetch user's friends and transactions concurrently with lean()
+    const [allFriends, transactions] = await Promise.all([
+      Friend.find({ userId })
+        .populate('connectedUserId', 'id name username email')
+        .sort({ name: 1 })
+        .lean(),
+      Transaction.find({ userId, approvalStatus: { $ne: 'REJECTED' } })
+        .select('friendId type amount impactOnUser date')
+        .lean()
+    ]);
 
-    // Active friends: OFFLINE, CONNECTED, REQUEST_SENT (pending out request), PENDING_MATCH,
-    // or any friend record with existing transaction history so it never vanishes from circle
-    const friends = await Friend.find({ 
-      userId,
-      $or: [
-        { connectionStatus: { $in: ['OFFLINE', 'CONNECTED', 'REQUEST_SENT', 'PENDING_MATCH'] } },
-        { _id: { $in: txFriendIds } },
-        { connectionStatus: { $exists: false } }
-      ]
-    })
-      .populate('connectedUserId', 'id name username email')
-      .sort({ name: 1 });
-
-    // Map transactions by friendId
+    // Map transactions by friendId and collect friends with tx history
     const txByFriend = {};
+    const txFriendIdSet = new Set();
     for (const t of transactions) {
       if (!t.friendId) continue;
       const fId = t.friendId._id ? t.friendId._id.toString() : t.friendId.toString();
+      txFriendIdSet.add(fId);
       if (!txByFriend[fId]) txByFriend[fId] = [];
       txByFriend[fId].push(t);
     }
+
+    // Filter active friends: OFFLINE, CONNECTED, REQUEST_SENT, PENDING_MATCH, or any with transaction history
+    const friends = allFriends.filter(f => {
+      const fIdStr = f._id ? f._id.toString() : (f.id || '');
+      return (
+        !f.connectionStatus ||
+        ['OFFLINE', 'CONNECTED', 'REQUEST_SENT', 'PENDING_MATCH'].includes(f.connectionStatus) ||
+        txFriendIdSet.has(fIdStr)
+      );
+    });
 
     // Batch fetch reciprocal friend records to determine friendPermission
     const connectedUserIds = friends
@@ -44,7 +48,7 @@ exports.getAllFriends = async (req, res) => {
       const reciprocals = await Friend.find({
         userId: { $in: connectedUserIds },
         connectedUserId: userId
-      });
+      }).select('userId permission').lean();
       for (const r of reciprocals) {
         reciprocalMap[r.userId.toString()] = r;
       }
@@ -52,7 +56,7 @@ exports.getAllFriends = async (req, res) => {
 
     const enriched = friends.map(f => {
       const fIdStr = f._id ? f._id.toString() : (f.id || '');
-      const fTxs = txByFriend[fIdStr] || txByFriend[f.id] || [];
+      const fTxs = txByFriend[fIdStr] || [];
       let totalGiven = 0;
       let totalReceived = 0;
       let balance = 0;
@@ -81,7 +85,7 @@ exports.getAllFriends = async (req, res) => {
         : (f.connectionStatus === 'CONNECTED' ? 'NORMAL' : null);
 
       return {
-        id: f.id,
+        id: fIdStr,
         name: f.name,
         phone: f.phone,
         email: f.email,
@@ -95,7 +99,7 @@ exports.getAllFriends = async (req, res) => {
         friendPermission,
         linkedAt: f.linkedAt,
         connectedUser: f.connectedUserId ? {
-          id: f.connectedUserId.id || f.connectedUserId._id.toString(),
+          id: f.connectedUserId.id || (f.connectedUserId._id ? f.connectedUserId._id.toString() : f.connectedUserId.toString()),
           name: f.connectedUserId.name,
           username: f.connectedUserId.username,
           email: f.connectedUserId.email
@@ -117,32 +121,27 @@ exports.getAllFriends = async (req, res) => {
       return Math.abs(b.currentBalance) - Math.abs(a.currentBalance);
     });
 
-    // Fetch pending connection requests (both incoming and outgoing)
-    const pendingFriends = await Friend.find({
-      userId,
-      connectionStatus: { $in: ['REQUEST_SENT', 'REQUEST_RECEIVED', 'PENDING_MATCH'] }
-    })
-      .populate('connectedUserId', 'id name username email')
-      .sort({ createdAt: -1 });
-
-    const enrichedPending = pendingFriends.map(f => ({
-      id: f.id,
-      name: f.name,
-      phone: f.phone,
-      email: f.email,
-      avatarColor: f.avatarColor,
-      avatarEmoji: f.avatarEmoji,
-      relationshipTag: f.relationshipTag,
-      pendingUsername: f.pendingUsername,
-      connectionStatus: f.connectionStatus,
-      createdAt: f.createdAt,
-      connectedUser: f.connectedUserId ? {
-        id: f.connectedUserId.id || f.connectedUserId._id.toString(),
-        name: f.connectedUserId.name,
-        username: f.connectedUserId.username,
-        email: f.connectedUserId.email
-      } : null
-    }));
+    // In-memory derivation of pending connection requests (zero extra DB round trips)
+    const enrichedPending = allFriends
+      .filter(f => ['REQUEST_SENT', 'REQUEST_RECEIVED', 'PENDING_MATCH'].includes(f.connectionStatus))
+      .map(f => ({
+        id: f._id ? f._id.toString() : (f.id || ''),
+        name: f.name,
+        phone: f.phone,
+        email: f.email,
+        avatarColor: f.avatarColor,
+        avatarEmoji: f.avatarEmoji,
+        relationshipTag: f.relationshipTag,
+        pendingUsername: f.pendingUsername,
+        connectionStatus: f.connectionStatus,
+        createdAt: f.createdAt,
+        connectedUser: f.connectedUserId ? {
+          id: f.connectedUserId.id || (f.connectedUserId._id ? f.connectedUserId._id.toString() : f.connectedUserId.toString()),
+          name: f.connectedUserId.name,
+          username: f.connectedUserId.username,
+          email: f.connectedUserId.email
+        } : null
+      }));
 
     res.json({
       success: true,
@@ -161,17 +160,21 @@ exports.getFriendLedger = async (req, res) => {
     const userId = req.user.id;
     const friendId = req.params.id;
 
-    const friend = await Friend.findOne({ _id: friendId, userId })
-      .populate('connectedUserId', 'id name username email');
+    // Parallel fetch: retrieve friend details and all ledger transactions concurrently
+    const [friend, transactions] = await Promise.all([
+      Friend.findOne({ _id: friendId, userId })
+        .populate('connectedUserId', 'id name username email')
+        .lean(),
+      Transaction.find({ 
+        friendId, 
+        userId, 
+        approvalStatus: { $ne: 'REJECTED' } 
+      }).sort({ date: 1, createdAt: 1 }).lean()
+    ]);
+
     if (!friend) {
       return res.status(404).json({ success: false, error: 'Friend not found.' });
     }
-
-    const transactions = await Transaction.find({ 
-      friendId: friend._id, 
-      userId, 
-      approvalStatus: { $ne: 'REJECTED' } 
-    }).sort({ date: 1, createdAt: 1 });
 
     // Compute running balance at each point in time
     let runningBalance = 0;
@@ -184,7 +187,7 @@ exports.getFriendLedger = async (req, res) => {
       if (t.impactOnUser < 0 && t.type !== 'SETTLED') totalReceived += t.amount;
 
       return {
-        id: t.id,
+        id: t._id ? t._id.toString() : t.id,
         userId: t.userId.toString(),
         friendId: t.friendId.toString(),
         type: t.type,
@@ -210,15 +213,17 @@ exports.getFriendLedger = async (req, res) => {
     let friendPermission = null;
     if (friend.connectedUserId) {
       const connId = friend.connectedUserId._id || friend.connectedUserId;
-      const reciprocal = await Friend.findOne({ userId: connId, connectedUserId: userId });
+      const reciprocal = await Friend.findOne({ userId: connId, connectedUserId: userId }).select('permission').lean();
       friendPermission = reciprocal?.permission || 'NORMAL';
     }
+
+    const friendIdStr = friend._id ? friend._id.toString() : (friend.id || friendId);
 
     res.json({
       success: true,
       data: {
         friend: {
-          id: friend.id,
+          id: friendIdStr,
           name: friend.name,
           phone: friend.phone,
           email: friend.email,
@@ -232,7 +237,7 @@ exports.getFriendLedger = async (req, res) => {
           friendPermission: friendPermission || (friend.connectionStatus === 'CONNECTED' ? 'NORMAL' : null),
           linkedAt: friend.linkedAt,
           connectedUser: friend.connectedUserId ? {
-            id: friend.connectedUserId.id || friend.connectedUserId._id.toString(),
+            id: friend.connectedUserId.id || (friend.connectedUserId._id ? friend.connectedUserId._id.toString() : friend.connectedUserId.toString()),
             name: friend.connectedUserId.name,
             username: friend.connectedUserId.username,
             email: friend.connectedUserId.email

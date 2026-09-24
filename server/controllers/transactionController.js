@@ -30,10 +30,11 @@ exports.getTransactions = async (req, res) => {
     const transactions = await Transaction.find(query)
       .sort({ date: -1, createdAt: -1 })
       .limit(Number(limit))
-      .populate('friendId', 'id name avatarColor avatarEmoji relationshipTag phone connectionStatus permission');
+      .populate('friendId', 'id name avatarColor avatarEmoji relationshipTag phone connectionStatus permission')
+      .lean();
 
     const formatted = transactions.map(t => ({
-      id: t.id,
+      id: t._id ? t._id.toString() : t.id,
       userId: t.userId.toString(),
       friendId: t.friendId ? (t.friendId.id || t.friendId._id.toString()) : null,
       type: t.type,

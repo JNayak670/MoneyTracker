@@ -6,25 +6,38 @@ exports.getSummary = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    const transactions = await Transaction.find({ userId, approvalStatus: { $ne: 'REJECTED' } });
-    const txFriendIds = transactions.filter(t => t.friendId).map(t => (t.friendId._id ? t.friendId._id.toString() : t.friendId.toString()));
-
-    const friends = await Friend.find({
-      userId,
-      $or: [
-        { connectionStatus: { $in: ['OFFLINE', 'CONNECTED', 'REQUEST_SENT', 'PENDING_MATCH'] } },
-        { _id: { $in: txFriendIds } },
-        { connectionStatus: { $exists: false } }
-      ]
-    });
+    // Parallel fetch: retrieve user's friends, active transactions, and recent 5 transactions concurrently
+    const [allFriends, transactions, recentTransactionsRaw] = await Promise.all([
+      Friend.find({ userId }).lean(),
+      Transaction.find({ userId, approvalStatus: { $ne: 'REJECTED' } })
+        .select('friendId type amount impactOnUser')
+        .lean(),
+      Transaction.find({ userId })
+        .sort({ date: -1, createdAt: -1 })
+        .limit(5)
+        .populate('friendId', 'id name avatarColor avatarEmoji')
+        .lean()
+    ]);
 
     const txByFriend = {};
+    const txFriendIdSet = new Set();
     for (const t of transactions) {
       if (!t.friendId) continue;
       const fId = t.friendId._id ? t.friendId._id.toString() : t.friendId.toString();
+      txFriendIdSet.add(fId);
       if (!txByFriend[fId]) txByFriend[fId] = [];
       txByFriend[fId].push(t);
     }
+
+    // Active friends: OFFLINE, CONNECTED, REQUEST_SENT, PENDING_MATCH, or any with transaction history
+    const friends = allFriends.filter(f => {
+      const fIdStr = f._id ? f._id.toString() : (f.id || '');
+      return (
+        !f.connectionStatus ||
+        ['OFFLINE', 'CONNECTED', 'REQUEST_SENT', 'PENDING_MATCH'].includes(f.connectionStatus) ||
+        txFriendIdSet.has(fIdStr)
+      );
+    });
 
     let totalGiven = 0;      // Total amount user lent/paid
     let totalReceived = 0;   // Total amount user borrowed/received
@@ -35,7 +48,7 @@ exports.getSummary = async (req, res) => {
 
     for (const f of friends) {
       const fIdStr = f._id ? f._id.toString() : (f.id || '');
-      const fTxs = txByFriend[fIdStr] || txByFriend[f.id] || [];
+      const fTxs = txByFriend[fIdStr] || [];
       let friendBal = 0;
 
       for (const t of fTxs) {
@@ -61,14 +74,8 @@ exports.getSummary = async (req, res) => {
 
     const netBalance = totalReceivable - totalPayable;
 
-    // Recent 5 transactions sorted by date & createdAt
-    const recentTransactionsRaw = await Transaction.find({ userId })
-      .sort({ date: -1, createdAt: -1 })
-      .limit(5)
-      .populate('friendId', 'id name avatarColor avatarEmoji');
-
     const recentTransactions = recentTransactionsRaw.map(t => ({
-      id: t.id,
+      id: t._id ? t._id.toString() : t.id,
       userId: t.userId.toString(),
       friendId: t.friendId ? (t.friendId.id || t.friendId._id.toString()) : null,
       type: t.type,

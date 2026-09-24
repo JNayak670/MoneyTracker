@@ -63,4 +63,10 @@ const friendSchema = new mongoose.Schema({
   }
 });
 
+// Compound and single-field indexes for instant lookups and fast sorting
+friendSchema.index({ userId: 1, name: 1 });
+friendSchema.index({ userId: 1, connectionStatus: 1 });
+friendSchema.index({ userId: 1, connectedUserId: 1 });
+friendSchema.index({ connectedUserId: 1, userId: 1 });
+
 module.exports = mongoose.model('Friend', friendSchema);

@@ -78,7 +78,10 @@ const transactionSchema = new mongoose.Schema({
   }
 });
 
-// Create index for fast sorting by date & createdAt
+// Create indexes for fast sorting by date & createdAt and fast friend ledger / balance queries
 transactionSchema.index({ userId: 1, date: -1, createdAt: -1 });
+transactionSchema.index({ userId: 1, approvalStatus: 1 });
+transactionSchema.index({ userId: 1, friendId: 1, approvalStatus: 1 });
+transactionSchema.index({ friendId: 1, userId: 1, date: 1 });
 
 module.exports = mongoose.model('Transaction', transactionSchema);

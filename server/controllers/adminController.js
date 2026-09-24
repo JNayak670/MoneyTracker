@@ -151,7 +151,7 @@ exports.changeAdminPassword = async (req, res) => {
         plainPasskey: cleanNew,
         updatedAt: new Date()
       },
-      { upsert: true, new: true }
+      { upsert: true, returnDocument: 'after' }
     );
 
     res.json({
