@@ -11,8 +11,11 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
+import useModalBackHandler from '../hooks/useModalBackHandler';
 
 export default function EditUsernameModal({ isOpen, onClose }) {
+  useModalBackHandler(isOpen, onClose);
+
   const { user, updateSettings } = useAuth();
   
   const [usernameInput, setUsernameInput] = useState('');

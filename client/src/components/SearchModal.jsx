@@ -3,8 +3,11 @@ import { createPortal } from 'react-dom';
 import { Search, X, User, ArrowRight, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import useModalBackHandler from '../hooks/useModalBackHandler';
 
 export default function SearchModal({ isOpen, onClose, onViewFriend, onOpenAddTx }) {
+  useModalBackHandler(isOpen, onClose);
+
   const [query, setQuery] = useState('');
   const [friends, setFriends] = useState([]);
   const [transactions, setTransactions] = useState([]);

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Users, User, ArrowUpRight, ArrowDownLeft, Calendar, Tag, CreditCard, Sparkles } from 'lucide-react';
+import useModalBackHandler from '../hooks/useModalBackHandler';
 
 const CATEGORIES = [
   { name: 'Food & Dining', icon: '🍕' },
@@ -13,6 +14,7 @@ const CATEGORIES = [
 ];
 
 export default function TransactionForm({ isOpen, onClose, onSave, friends = [], preselectedFriendId = '', onOpenAddFriend }) {
+  useModalBackHandler(isOpen, onClose);
   const [tab, setTab] = useState('single'); // 'single' | 'split'
   const [friendId, setFriendId] = useState(preselectedFriendId || '');
   const [type, setType] = useState('GIVEN'); // 'GIVEN' (You gave / paid) | 'RECEIVED' (Friend gave / paid)

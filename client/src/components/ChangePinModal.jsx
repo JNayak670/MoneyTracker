@@ -3,8 +3,11 @@ import { createPortal } from 'react-dom';
 import { X, Lock, KeyRound, Check, AlertCircle, Sparkles, ShieldAlert } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
+import useModalBackHandler from '../hooks/useModalBackHandler';
 
 export default function ChangePinModal({ isOpen, onClose }) {
+  useModalBackHandler(isOpen, onClose);
+
   const { user } = useAuth();
   const isDemo = user?.email === 'demo@moneytracker.com';
 

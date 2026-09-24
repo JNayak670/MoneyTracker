@@ -44,6 +44,7 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 import AppLogo from '../components/AppLogo';
+import useModalBackHandler from '../hooks/useModalBackHandler';
 
 const ADMIN_TOKEN_KEY = 'moneytracker_admin_token';
 const API_URL = import.meta.env.VITE_API_URL || '/api';
@@ -87,6 +88,10 @@ export default function Admin() {
   const [msgSending, setMsgSending] = useState(false);
   const [msgError, setMsgError] = useState('');
   const [msgSuccess, setMsgSuccess] = useState('');
+
+  // Close Admin modals when phone/browser Back button is pressed
+  useModalBackHandler(Boolean(usernameModalUser), () => setUsernameModalUser(null));
+  useModalBackHandler(messageModalOpen, () => setMessageModalOpen(false));
 
   // Change Admin Password state
   const [pwdCurrent, setPwdCurrent] = useState('');

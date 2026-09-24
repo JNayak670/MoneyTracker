@@ -15,8 +15,11 @@ import {
   Clock
 } from 'lucide-react';
 import api from '../services/api';
+import useModalBackHandler from '../hooks/useModalBackHandler';
 
 export default function LinkAccountModal({ isOpen, onClose, friend, onUpdated }) {
+  useModalBackHandler(isOpen && Boolean(friend), onClose);
+
   const [usernameInput, setUsernameInput] = useState('');
   const [searching, setSearching] = useState(false);
   const [saving, setSaving] = useState(false);

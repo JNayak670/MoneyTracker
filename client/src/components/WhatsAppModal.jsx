@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, MessageSquare, Copy, ExternalLink, Check } from 'lucide-react';
+import useModalBackHandler from '../hooks/useModalBackHandler';
 
 export default function WhatsAppModal({ 
   isOpen, 
@@ -12,6 +13,7 @@ export default function WhatsAppModal({
   userName = 'Me',
   type = 'OWED' 
 }) {
+  useModalBackHandler(isOpen, onClose);
   const [tone, setTone] = useState('polite');
   const [phoneNumber, setPhoneNumber] = useState(phone || '');
   const [reason, setReason] = useState('');

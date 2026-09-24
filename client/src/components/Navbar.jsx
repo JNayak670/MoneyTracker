@@ -25,11 +25,16 @@ import {
   AtSign
 } from 'lucide-react';
 import api from '../services/api';
+import useModalBackHandler from '../hooks/useModalBackHandler';
 
 export default function Navbar({ onOpenAddModal, onViewFriend, onDataChanged }) {
   const { user, logout } = useAuth();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Close mobile navigation menu on phone Back button
+  useModalBackHandler(mobileMenuOpen, () => setMobileMenuOpen(false));
+
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [pinModalOpen, setPinModalOpen] = useState(false);
   const [usernameModalOpen, setUsernameModalOpen] = useState(false);

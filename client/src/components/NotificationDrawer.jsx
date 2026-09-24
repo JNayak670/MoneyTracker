@@ -17,8 +17,10 @@ import {
   Megaphone
 } from 'lucide-react';
 import api from '../services/api';
+import useModalBackHandler from '../hooks/useModalBackHandler';
 
 export default function NotificationDrawer({ isOpen, onClose, onDataChanged }) {
+  useModalBackHandler(isOpen, onClose);
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(null);

@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Zap, Clock, ShieldCheck, CheckCircle2, X, AlertCircle, ArrowRight, Loader2, Sparkles } from 'lucide-react';
+import useModalBackHandler from '../hooks/useModalBackHandler';
 
 export default function SyncPermissionModal({ isOpen, onClose, friend, onConfirm }) {
+  useModalBackHandler(isOpen && Boolean(friend), onClose);
+
   const [loading, setLoading] = useState(false);
 
   if (!isOpen || !friend) return null;

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Clock, Copy, Check, MessageSquare, ShieldCheck, Share2, Sparkles, ArrowRight } from 'lucide-react';
 import api from '../services/api';
+import useModalBackHandler from '../hooks/useModalBackHandler';
 
 const DURATIONS = [
   { label: '15 Mins', minutes: 15 },
@@ -11,6 +12,7 @@ const DURATIONS = [
 ];
 
 export default function ShareCodeModal({ isOpen, onClose, friendId, friendName, currency = '₹' }) {
+  useModalBackHandler(isOpen, onClose);
   const [duration, setDuration] = useState(60);
   const [shareData, setShareData] = useState(null);
   const [loading, setLoading] = useState(false);

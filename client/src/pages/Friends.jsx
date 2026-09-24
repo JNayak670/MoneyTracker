@@ -8,6 +8,7 @@ import ShareCodeModal from '../components/ShareCodeModal';
 import LinkAccountModal from '../components/LinkAccountModal';
 import SyncPermissionModal from '../components/SyncPermissionModal';
 import ColorfulLoader from '../components/ColorfulLoader';
+import useModalBackHandler from '../hooks/useModalBackHandler';
 import { printFriendStatement } from '../services/exportService';
 import { 
   Users, 
@@ -262,6 +263,15 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
     setUsernameChecking(false);
     onCloseFriendModal?.();
   };
+
+  // Close active history ledger drawer on mobile Back button
+  useModalBackHandler(Boolean(activeLedger), () => {
+    setActiveLedger(null);
+    onCloseHistory?.();
+  });
+
+  // Close Add/Edit friend modal on mobile Back button
+  useModalBackHandler(friendModalOpen, handleCloseFriendModal);
 
   const handleSaveFriend = async (e) => {
     e.preventDefault();

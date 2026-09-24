@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, CheckCircle2 } from 'lucide-react';
+import useModalBackHandler from '../hooks/useModalBackHandler';
 
 export default function SettleModal({ isOpen, onClose, onSettle, friendId, friendName, initialAmount = 0, currency = '₹' }) {
+  useModalBackHandler(isOpen, onClose);
   const [amount, setAmount] = useState(initialAmount || '');
   const [paymentMethod, setPaymentMethod] = useState('UPI');
   const [note, setNote] = useState('');

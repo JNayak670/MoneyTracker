@@ -13,8 +13,11 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import api from '../services/api';
+import useModalBackHandler from '../hooks/useModalBackHandler';
 
 export default function ShareHistoryModal({ isOpen, onClose, friend, transactions = [], onComplete }) {
+  useModalBackHandler(isOpen && Boolean(friend), onClose);
+
   const [selectedIds, setSelectedIds] = useState([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
