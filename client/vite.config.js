@@ -8,15 +8,13 @@ const terminalEventLogger = () => ({
     server.middlewares.use((req, res, next) => {
       const isStatic = req.url.startsWith('/@') || req.url.startsWith('/node_modules') || req.url.includes('.vite') || req.url.startsWith('/src/');
       if (!isStatic && !req.url.startsWith('/api')) {
-        const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
-        const cleanIp = ip.replace(/^.*:/, '');
-        const isLocal = cleanIp === '1' || cleanIp === '127.0.0.1';
-        const deviceTag = isLocal ? '💻 Localhost' : `📱 Phone / Network (${cleanIp})`;
+        const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+        const firstIp = rawIp.split(',')[0].trim();
+        const cleanIp = firstIp.replace(/^.*:/, '');
+        const isLocal = cleanIp === '1' || cleanIp === '127.0.0.1' || cleanIp === 'unknown';
+        const deviceTag = isLocal ? '💻 Localhost' : `📱 ${cleanIp}`;
         
-        const now = new Date();
-        const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${now.toLocaleTimeString('en-US', { hour12: true })}`;
-        
-        console.log(`[CLIENT EVENT • ${timestamp}] 🌐 ${req.method} ${req.url} • ${deviceTag}`);
+        console.log(`🌐 ${req.method} ${req.url} • ${deviceTag}`);
       }
       next();
     });

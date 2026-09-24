@@ -288,9 +288,11 @@ export default function NotificationToastContainer() {
   // Mark single notification as read & open drawer
   const handleOpenNotification = async (notif) => {
     if (!notif) return;
+    const notifId = notif.id || notif._id;
+    // Dismiss toast immediately from screen
+    setToasts(prev => prev.filter(t => t.notif?.id !== notifId && t.notif?._id !== notifId && t.id !== notifId));
     try {
-      if (!notif.isRead && (notif.id || notif._id)) {
-        const notifId = notif.id || notif._id;
+      if (!notif.isRead && notifId) {
         await api.put(`/notifications/${notifId}/read`);
         window.dispatchEvent(new Event('notifications-updated'));
       }
@@ -313,13 +315,31 @@ export default function NotificationToastContainer() {
       const list = res?.notifications || res?.data?.notifications || (Array.isArray(res) ? res : []);
       if (!Array.isArray(list)) return;
 
-      // On first run, record all existing IDs so we do NOT blast toasts for historical notifications
+      // On first run (when user logs in or loads the app):
       if (!hasInitialized.current) {
         list.forEach(n => {
           const id = n.id || n._id;
           if (id) knownNotificationIds.current.add(id);
         });
         hasInitialized.current = true;
+
+        // Display any unread / unseen notifications that arrived while the user was offline/logged out
+        const unseenNotifications = list.filter(n => !n.isRead);
+
+        if (unseenNotifications.length > 0) {
+          // Play gentle audio chime
+          playNotificationChime();
+
+          // Show up to 3 most recent unread notifications as side pop-up toasts
+          const initialToasts = unseenNotifications.slice(0, 3).map((n, idx) => ({
+            id: n.id || n._id || `login-unseen-${idx}-${Date.now()}`,
+            notif: n,
+            duration: 8000, // 8 seconds duration so user clearly sees them upon returning
+            createdAt: Date.now()
+          }));
+
+          setToasts(initialToasts);
+        }
         return;
       }
 
