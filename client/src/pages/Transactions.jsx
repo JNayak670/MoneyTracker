@@ -19,7 +19,8 @@ import {
   Calendar,
   Sparkles,
   Loader2,
-  Users
+  Users,
+  Lock
 } from 'lucide-react';
 import SplitGroupModal from '../components/SplitGroupModal';
 
@@ -115,13 +116,18 @@ export default function Transactions({ onOpenAddTx }) {
   };
 
   const handleDelete = async (id) => {
+    const tx = transactions.find(t => t.id === id);
+    if (tx && tx.canDelete === false) {
+      alert('Only the person who entered this transaction can delete or change it.');
+      return;
+    }
     if (!confirm('Are you sure you want to delete this transaction? Balance will be adjusted.')) return;
     try {
       await api.delete(`/transactions/${id}`);
       await fetchData(false);
       window.dispatchEvent(new Event('transaction-updated'));
     } catch (err) {
-      alert(`Delete error: ${err.message}`);
+      alert(`Delete error: ${err.response?.data?.error || err.message}`);
     }
   };
 
@@ -463,14 +469,21 @@ export default function Transactions({ onOpenAddTx }) {
                                   <span>Reject</span>
                                 </button>
                               </>
-                            ) : (
+                            ) : t.canDelete !== false ? (
                               <button
                                 onClick={() => handleDelete(t.id)}
-                                className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                                className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
                                 title="Delete Record"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
+                            ) : (
+                              <span 
+                                className="p-1 text-slate-300 inline-flex items-center cursor-not-allowed" 
+                                title={`Entered by ${t.friend?.name || 'friend'}. Shared entries cannot be modified or deleted by the recipient.`}
+                              >
+                                <Lock className="w-3.5 h-3.5 text-slate-300" />
+                              </span>
                             )}
                           </div>
                         </td>
@@ -615,14 +628,22 @@ export default function Transactions({ onOpenAddTx }) {
                               Reject
                             </button>
                           </>
-                        ) : (
+                        ) : t.canDelete !== false ? (
                           <button
                             onClick={() => handleDelete(t.id)}
-                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
                             title="Delete Record"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
+                        ) : (
+                          <span 
+                            className="inline-flex items-center gap-1 text-[9.5px] font-bold text-slate-400 bg-slate-50 px-2 py-0.5 rounded border border-slate-200 cursor-not-allowed" 
+                            title={`Entered by ${t.friend?.name || 'friend'}. Shared entries cannot be modified or deleted by the recipient.`}
+                          >
+                            <Lock className="w-2.5 h-2.5 text-slate-400" />
+                            <span>Shared</span>
+                          </span>
                         )}
                       </div>
                     </div>

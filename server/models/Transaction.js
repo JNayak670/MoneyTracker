@@ -64,6 +64,11 @@ const transactionSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  createdByUserId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
   receiptNote: String,
   splitGroupId: String,
   splitDetails: {

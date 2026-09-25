@@ -16,7 +16,8 @@ import {
   AlertTriangle,
   Loader2,
   CheckCircle2,
-  Sparkles
+  Sparkles,
+  Lock
 } from 'lucide-react';
 import api from '../services/api';
 import useModalBackHandler from '../hooks/useModalBackHandler';
@@ -357,15 +358,25 @@ export default function SplitGroupModal({ isOpen, onClose, splitGroupId, onSplit
 
             <div className="flex items-center gap-2">
               {!confirmDelete && (
-                <button
-                  type="button"
-                  onClick={() => setConfirmDelete(true)}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 border border-rose-200 transition-colors"
-                  title="Delete Entire Group Split"
-                >
-                  <Trash2 className="w-3.5 h-3.5 text-rose-500" />
-                  <span>Delete Bill</span>
-                </button>
+                groupData.canDelete !== false ? (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDelete(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 border border-rose-200 transition-colors cursor-pointer"
+                    title="Delete Entire Group Split"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                    <span>Delete Bill</span>
+                  </button>
+                ) : (
+                  <span 
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-400 bg-slate-100 border border-slate-200 cursor-not-allowed"
+                    title={`Entered by ${groupData.payerName || 'friend'}. Shared splits can only be deleted by the person who entered them.`}
+                  >
+                    <Lock className="w-3.5 h-3.5 text-slate-400" />
+                    <span>Shared Split</span>
+                  </span>
+                )
               )}
 
               <button

@@ -1,6 +1,25 @@
 const mongoose = require('mongoose');
 const { Transaction, Friend, User, Notification } = require('../db');
 
+// Helper to check if a user is the owner who originally entered this transaction
+const checkIsEntryOwner = (transaction, userId) => {
+  if (!transaction) return false;
+  if (transaction.createdByUserId) {
+    return transaction.createdByUserId.toString() === userId.toString();
+  }
+  // Fallback for older transactions before createdByUserId was added:
+  const rNote = transaction.receiptNote || '';
+  if (
+    rNote.startsWith('From ') || 
+    rNote.startsWith('Split from ') || 
+    rNote.startsWith('Settlement from ') ||
+    (transaction.isShared && transaction.linkedTransactionId && transaction.approvalStatus === 'PENDING_APPROVAL')
+  ) {
+    return false;
+  }
+  return true;
+};
+
 // @route   GET /api/transactions
 // @desc    Get transactions with search and filters for logged in user
 exports.getTransactions = async (req, res) => {
@@ -33,36 +52,42 @@ exports.getTransactions = async (req, res) => {
       .populate('friendId', 'id name avatarColor avatarEmoji relationshipTag phone connectionStatus permission')
       .lean();
 
-    const formatted = transactions.map(t => ({
-      id: t._id ? t._id.toString() : t.id,
-      userId: t.userId.toString(),
-      friendId: t.friendId ? (t.friendId.id || t.friendId._id.toString()) : null,
-      type: t.type,
-      amount: t.amount,
-      impactOnUser: t.impactOnUser,
-      category: t.category,
-      note: t.note,
-      date: t.date,
-      time: t.time,
-      paymentMethod: t.paymentMethod,
-      status: t.status,
-      receiptNote: t.receiptNote,
-      splitGroupId: t.splitGroupId,
-      splitDetails: t.splitDetails,
-      isShared: t.isShared,
-      approvalStatus: t.approvalStatus,
-      createdAt: t.createdAt,
-      friend: t.friendId ? {
-        id: t.friendId.id || t.friendId._id.toString(),
-        name: t.friendId.name,
-        avatarColor: t.friendId.avatarColor,
-        avatarEmoji: t.friendId.avatarEmoji,
-        relationshipTag: t.friendId.relationshipTag,
-        phone: t.friendId.phone,
-        connectionStatus: t.friendId.connectionStatus,
-        permission: t.friendId.permission
-      } : null
-    }));
+    const formatted = transactions.map(t => {
+      const isEntryOwner = checkIsEntryOwner(t, userId);
+      return {
+        id: t._id ? t._id.toString() : t.id,
+        userId: t.userId.toString(),
+        friendId: t.friendId ? (t.friendId.id || t.friendId._id.toString()) : null,
+        type: t.type,
+        amount: t.amount,
+        impactOnUser: t.impactOnUser,
+        category: t.category,
+        note: t.note,
+        date: t.date,
+        time: t.time,
+        paymentMethod: t.paymentMethod,
+        status: t.status,
+        receiptNote: t.receiptNote,
+        splitGroupId: t.splitGroupId,
+        splitDetails: t.splitDetails,
+        isShared: t.isShared,
+        approvalStatus: t.approvalStatus,
+        createdAt: t.createdAt,
+        createdByUserId: t.createdByUserId ? t.createdByUserId.toString() : null,
+        isEntryOwner,
+        canDelete: isEntryOwner,
+        friend: t.friendId ? {
+          id: t.friendId.id || t.friendId._id.toString(),
+          name: t.friendId.name,
+          avatarColor: t.friendId.avatarColor,
+          avatarEmoji: t.friendId.avatarEmoji,
+          relationshipTag: t.friendId.relationshipTag,
+          phone: t.friendId.phone,
+          connectionStatus: t.friendId.connectionStatus,
+          permission: t.friendId.permission
+        } : null
+      };
+    });
 
     res.json({
       success: true,
@@ -146,7 +171,8 @@ exports.createTransaction = async (req, res) => {
               userShare: userShareNum,
               participantCount: splits.length + (userShareNum > 0 ? 1 : 0)
             },
-            approvalStatus: 'ACTIVE'
+            approvalStatus: 'ACTIVE',
+            createdByUserId: userId
           });
           createdList.push(tx);
 
@@ -175,6 +201,7 @@ exports.createTransaction = async (req, res) => {
                 sharedWithUserId: userId,
                 approvalStatus: 'ACTIVE',
                 linkedTransactionId: tx._id,
+                createdByUserId: userId,
                 splitGroupId,
                 splitDetails: {
                   totalBillAmount: totalAmount,
@@ -246,7 +273,8 @@ exports.createTransaction = async (req, res) => {
               userShare: userShareNum,
               participantCount: splits.length + 1
             },
-            approvalStatus: 'ACTIVE'
+            approvalStatus: 'ACTIVE',
+            createdByUserId: userId
           });
           createdList.push(tx);
 
@@ -275,6 +303,7 @@ exports.createTransaction = async (req, res) => {
                 sharedWithUserId: userId,
                 approvalStatus: 'ACTIVE',
                 linkedTransactionId: tx._id,
+                createdByUserId: userId,
                 splitGroupId,
                 splitDetails: {
                   totalBillAmount: totalAmount,
@@ -370,7 +399,8 @@ exports.createTransaction = async (req, res) => {
       receiptNote: receiptNote || null,
       isShared: Boolean(hasLinkedAccount),
       sharedWithUserId: hasLinkedAccount ? friend.connectedUserId : null,
-      approvalStatus: 'ACTIVE'
+      approvalStatus: 'ACTIVE',
+      createdByUserId: userId
     });
 
     // 2. Handle linked MoneyTracker Friend Two-Way Sync
@@ -424,7 +454,8 @@ exports.createTransaction = async (req, res) => {
           isShared: true,
           sharedWithUserId: userId,
           approvalStatus: mirroredStatus,
-          linkedTransactionId: tx._id
+          linkedTransactionId: tx._id,
+          createdByUserId: userId
         });
 
         tx.linkedTransactionId = mirroredTx._id;
@@ -522,7 +553,8 @@ exports.settleUp = async (req, res) => {
       receiptNote: `Settled via ${paymentMethod}`,
       isShared: Boolean(hasLinkedAccount),
       sharedWithUserId: hasLinkedAccount ? friend.connectedUserId : null,
-      approvalStatus: 'ACTIVE'
+      approvalStatus: 'ACTIVE',
+      createdByUserId: userId
     });
 
     if (hasLinkedAccount) {
@@ -551,7 +583,8 @@ exports.settleUp = async (req, res) => {
           isShared: true,
           sharedWithUserId: userId,
           approvalStatus: mirroredStatus,
-          linkedTransactionId: tx._id
+          linkedTransactionId: tx._id,
+          createdByUserId: userId
         });
 
         tx.linkedTransactionId = mirroredTx._id;
@@ -716,6 +749,15 @@ exports.updateTransaction = async (req, res) => {
       return res.status(404).json({ success: false, error: 'Transaction not found.' });
     }
 
+    // Only creator who entered this transaction can edit it
+    const isEntryOwner = checkIsEntryOwner(existing, userId);
+    if (!isEntryOwner) {
+      return res.status(403).json({
+        success: false,
+        error: 'Only the user who entered this transaction can edit or modify it. Shared recipients cannot change this record.'
+      });
+    }
+
     if (amount !== undefined) {
       const numAmount = Math.abs(Number(amount));
       existing.amount = numAmount;
@@ -772,6 +814,15 @@ exports.deleteTransaction = async (req, res) => {
       return res.status(404).json({ success: false, error: 'Transaction not found.' });
     }
 
+    // Only creator who entered this transaction can delete it
+    const isEntryOwner = checkIsEntryOwner(existing, userId);
+    if (!isEntryOwner) {
+      return res.status(403).json({
+        success: false,
+        error: 'Only the user who entered this transaction can delete it. Shared recipients cannot delete or change this record.'
+      });
+    }
+
     if (existing.linkedTransactionId) {
       await Transaction.deleteOne({ _id: existing.linkedTransactionId });
     }
@@ -803,6 +854,7 @@ exports.getGroupSplitDetails = async (req, res) => {
     }
 
     const primary = groupTransactions[0];
+    const isEntryOwner = checkIsEntryOwner(primary, userId);
     const totalBillAmount = primary.splitDetails?.totalBillAmount || 
       (groupTransactions.reduce((acc, t) => acc + t.amount, 0) + (primary.splitDetails?.userShare || 0));
     const payerName = primary.splitDetails?.payerName || (primary.splitDetails?.payerIsUser ? req.user.name : 'Unknown');
@@ -860,7 +912,9 @@ exports.getGroupSplitDetails = async (req, res) => {
         splitMode,
         userShare,
         participants,
-        transactionCount: groupTransactions.length
+        transactionCount: groupTransactions.length,
+        isEntryOwner,
+        canDelete: isEntryOwner
       }
     });
   } catch (err) {
@@ -878,6 +932,16 @@ exports.deleteGroupSplit = async (req, res) => {
     const transactions = await Transaction.find({ userId, splitGroupId });
     if (!transactions || transactions.length === 0) {
       return res.status(404).json({ success: false, error: 'Group split bill not found or already deleted.' });
+    }
+
+    // Only creator who entered the group split can delete it
+    const primary = transactions[0];
+    const isEntryOwner = checkIsEntryOwner(primary, userId);
+    if (!isEntryOwner) {
+      return res.status(403).json({
+        success: false,
+        error: 'Only the user who entered this group split can delete it. Shared recipients cannot delete or change this bill.'
+      });
     }
 
     // Delete mirrored linked transactions
