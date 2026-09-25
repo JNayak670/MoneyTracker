@@ -301,7 +301,7 @@ export default function Transactions({ onOpenAddTx }) {
                     <th className="px-3.5 py-3 w-[100px] whitespace-nowrap">Date</th>
                     <th className="px-3.5 py-3 w-[150px] whitespace-nowrap">Friend</th>
                     <th className="px-3.5 py-3 w-[115px] whitespace-nowrap">Flow / Type</th>
-                    <th className="px-3.5 py-3 min-w-[150px]">Description</th>
+                    <th className="px-3.5 py-3 min-w-[180px] max-w-[280px]">Description & Receipt</th>
                     <th className="px-3.5 py-3 w-[115px] whitespace-nowrap">Status</th>
                     <th className="px-3.5 py-3 w-[110px] whitespace-nowrap">Category</th>
                     <th className="px-3.5 py-3 w-[75px] whitespace-nowrap">Method</th>
@@ -374,9 +374,9 @@ export default function Transactions({ onOpenAddTx }) {
                           </span>
                         </td>
 
-                        <td className="px-3.5 py-3 min-w-[140px] max-w-[220px]">
+                        <td className="px-3.5 py-3 min-w-[180px] max-w-[280px]">
                           <div className="font-bold text-slate-900 text-xs flex items-center gap-1.5 flex-wrap">
-                            <span className="truncate max-w-[160px]">{t.note}</span>
+                            <span className="truncate max-w-[170px]" title={t.note}>{t.note}</span>
                             {t.splitGroupId && (
                               <button
                                 type="button"
@@ -385,12 +385,61 @@ export default function Transactions({ onOpenAddTx }) {
                                 title="Click to view full group split breakdown & participants"
                               >
                                 <Users className="w-2.5 h-2.5 text-indigo-600" />
-                                <span>Split</span>
+                                <span>Group Split</span>
                               </button>
                             )}
                           </div>
+
+                          {/* Short summary for all shared users */}
+                          {t.splitGroupId && (
+                            <div 
+                              onClick={() => setSelectedSplitGroupId(t.splitGroupId)}
+                              className="mt-1 p-1.5 rounded-lg bg-indigo-50/70 hover:bg-indigo-100/80 border border-indigo-200/80 cursor-pointer transition-all duration-150 group/split shadow-2xs"
+                              title="Click to view full group split breakdown & settle up"
+                            >
+                              <div className="flex items-center justify-between gap-1 text-[10px] font-black text-indigo-900 leading-tight">
+                                <span className="flex items-center gap-1">
+                                  <Users className="w-2.5 h-2.5 text-indigo-600 flex-shrink-0" />
+                                  <span>Group Split ({t.groupSplitShares?.length || t.splitDetails?.participantCount || 2}):</span>
+                                </span>
+                                <span className="text-[9px] text-indigo-600 font-semibold group-hover/split:underline flex-shrink-0">
+                                  View →
+                                </span>
+                              </div>
+
+                              {t.groupSplitShares && t.groupSplitShares.length > 0 ? (
+                                <div className="flex flex-wrap items-center gap-1 mt-1">
+                                  {t.groupSplitShares.map((s, idx) => (
+                                    <span 
+                                      key={idx}
+                                      className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9.5px] font-bold leading-none ${
+                                        s.isSelf 
+                                          ? 'bg-indigo-600 text-white shadow-2xs' 
+                                          : s.isPayer 
+                                          ? 'bg-amber-100 text-amber-900 border border-amber-300' 
+                                          : 'bg-white text-slate-700 border border-indigo-200/70'
+                                      }`}
+                                    >
+                                      <span>{s.name}:</span>
+                                      <span className="font-mono">₹{Number(s.amount || 0).toLocaleString()}</span>
+                                      {s.isPayer && <span title="Payer">👑</span>}
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : t.groupSplitSummary ? (
+                                <div className="text-[9.5px] text-indigo-800 font-medium truncate mt-0.5">
+                                  {t.groupSplitSummary}
+                                </div>
+                              ) : (
+                                <div className="text-[9.5px] text-indigo-700 font-medium mt-0.5">
+                                  Click to view shares
+                                </div>
+                              )}
+                            </div>
+                          )}
+
                           {t.receiptNote && (
-                            <div className="text-[9.5px] text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded mt-0.5 inline-flex items-center gap-1 font-mono border border-purple-200/60 max-w-[190px] truncate" title={t.receiptNote}>
+                            <div className="text-[9.5px] text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded mt-1 inline-flex items-center gap-1 font-mono border border-purple-200/60 max-w-full truncate" title={t.receiptNote}>
                               <span>🧾</span>
                               <span className="truncate">{t.receiptNote}</span>
                             </div>
@@ -575,6 +624,47 @@ export default function Transactions({ onOpenAddTx }) {
                         </button>
                       )}
                     </div>
+
+                    {/* Short summary for all shared users on mobile */}
+                    {t.splitGroupId && (
+                      <div
+                        onClick={() => setSelectedSplitGroupId(t.splitGroupId)}
+                        className="p-2 rounded-lg bg-indigo-50/70 hover:bg-indigo-100/80 border border-indigo-200/80 cursor-pointer transition-all group/split shadow-2xs"
+                      >
+                        <div className="flex items-center justify-between gap-1 text-[10.5px] font-black text-indigo-900">
+                          <span className="flex items-center gap-1">
+                            <Users className="w-3 h-3 text-indigo-600" />
+                            <span>Group Split ({t.groupSplitShares?.length || t.splitDetails?.participantCount || 2} People):</span>
+                          </span>
+                          <span className="text-[10px] text-indigo-600 underline font-semibold">View Details →</span>
+                        </div>
+
+                        {t.groupSplitShares && t.groupSplitShares.length > 0 ? (
+                          <div className="flex flex-wrap items-center gap-1 mt-1.5">
+                            {t.groupSplitShares.map((s, idx) => (
+                              <span
+                                key={idx}
+                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                                  s.isSelf
+                                    ? 'bg-indigo-600 text-white shadow-2xs'
+                                    : s.isPayer
+                                    ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                                    : 'bg-white text-slate-700 border border-indigo-200/70'
+                                }`}
+                              >
+                                <span>{s.name}:</span>
+                                <span className="font-mono">₹{Number(s.amount || 0).toLocaleString()}</span>
+                                {s.isPayer && <span title="Payer">👑</span>}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-[10px] text-indigo-800 font-medium mt-1 truncate">
+                            {t.groupSplitSummary || 'Split between participants'}
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {t.receiptNote && (
                       <div className="text-[10px] text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md inline-flex items-center gap-1 font-mono border border-purple-200/60 max-w-full truncate">

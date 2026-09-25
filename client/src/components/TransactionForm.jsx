@@ -359,11 +359,15 @@ export default function TransactionForm({
       }
 
       const payingFriend = friends.find(f => (f.id || f._id) === payingFriendId);
-      const splits = selectedFriendIds.map(id => ({
-        friendId: id,
-        shareAmount: calculatedShares.friends[id] || 0,
-        paidByUser: payerType === 'USER'
-      }));
+      const splits = selectedFriendIds.map(id => {
+        const fr = friends.find(f => (f.id || f._id) === id);
+        return {
+          friendId: id,
+          friendName: fr?.name || 'Friend',
+          shareAmount: calculatedShares.friends[id] || 0,
+          paidByUser: payerType === 'USER'
+        };
+      });
 
       onSave({
         isGroupSplit: true,

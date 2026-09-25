@@ -52,8 +52,97 @@ exports.getTransactions = async (req, res) => {
       .populate('friendId', 'id name avatarColor avatarEmoji relationshipTag phone connectionStatus permission')
       .lean();
 
+    // Batch resolve short summary for group split bills
+    const splitGroupIds = [...new Set(transactions.map(t => t.splitGroupId).filter(Boolean))];
+    const groupSplitMap = {};
+
+    if (splitGroupIds.length > 0) {
+      const allGroupTxs = await Transaction.find({ splitGroupId: { $in: splitGroupIds } })
+        .populate('friendId', 'id name')
+        .lean();
+
+      for (const sgId of splitGroupIds) {
+        const txsInGroup = allGroupTxs.filter(t => t.splitGroupId === sgId);
+        if (!txsInGroup.length) continue;
+
+        // Primary tx to inspect splitDetails
+        const primary = txsInGroup.find(t => t.userId.toString() === userId.toString()) || txsInGroup[0];
+        const splitDetails = primary.splitDetails || {};
+
+        let shares = [];
+
+        if (splitDetails.participantsSummary && Array.isArray(splitDetails.participantsSummary) && splitDetails.participantsSummary.length > 0) {
+          shares = splitDetails.participantsSummary.map(p => {
+            const isSelf = p.name === 'You' || p.isSelf === true || (req.user?.name && p.name === req.user.name);
+            return {
+              name: isSelf ? 'You' : p.name,
+              amount: p.amount,
+              isPayer: !!p.isPayer,
+              isSelf
+            };
+          });
+        } else {
+          // Reconstruct shares for transactions created before participantsSummary was saved
+          const payerIsUser = splitDetails.payerIsUser !== false;
+          const userShare = typeof splitDetails.userShare === 'number' ? splitDetails.userShare : 0;
+          const userTxs = txsInGroup.filter(t => t.userId.toString() === userId.toString());
+
+          // 1. User share
+          if (userShare > 0 || payerIsUser) {
+            shares.push({
+              name: 'You',
+              amount: userShare,
+              isPayer: payerIsUser,
+              isSelf: true
+            });
+          }
+
+          // 2. Friends from user's records in this group
+          for (const gt of userTxs) {
+            const friendName = gt.friendId?.name || 'Friend';
+            if (!shares.some(s => s.name === friendName)) {
+              shares.push({
+                name: friendName,
+                amount: gt.amount,
+                isPayer: false,
+                isSelf: false
+              });
+            }
+          }
+
+          // 3. Friend payer if user was not the payer
+          if (!payerIsUser && splitDetails.payerName) {
+            const existingPayer = shares.find(s => s.name === splitDetails.payerName);
+            if (existingPayer) {
+              existingPayer.isPayer = true;
+            } else {
+              const allocated = shares.reduce((sum, s) => sum + (s.amount || 0), 0);
+              const payerShare = Math.max(0, (splitDetails.totalBillAmount || 0) - allocated);
+              shares.unshift({
+                name: splitDetails.payerName,
+                amount: payerShare,
+                isPayer: true,
+                isSelf: false
+              });
+            }
+          }
+        }
+
+        const summaryText = shares.map(s => `${s.name}: ₹${Number(s.amount || 0).toLocaleString()}`).join(', ');
+
+        groupSplitMap[sgId] = {
+          summaryText,
+          shares,
+          totalBillAmount: splitDetails.totalBillAmount || shares.reduce((sum, s) => sum + (s.amount || 0), 0),
+          participantCount: shares.length
+        };
+      }
+    }
+
     const formatted = transactions.map(t => {
       const isEntryOwner = checkIsEntryOwner(t, userId);
+      const groupData = t.splitGroupId ? groupSplitMap[t.splitGroupId] : null;
+
       return {
         id: t._id ? t._id.toString() : t.id,
         userId: t.userId.toString(),
@@ -70,6 +159,9 @@ exports.getTransactions = async (req, res) => {
         receiptNote: t.receiptNote,
         splitGroupId: t.splitGroupId,
         splitDetails: t.splitDetails,
+        groupSplitSummary: groupData ? groupData.summaryText : null,
+        groupSplitShares: groupData ? groupData.shares : [],
+        groupSplitTotal: groupData ? groupData.totalBillAmount : null,
         isShared: t.isShared,
         approvalStatus: t.approvalStatus,
         createdAt: t.createdAt,
@@ -134,7 +226,38 @@ exports.createTransaction = async (req, res) => {
 
       const createdList = [];
 
+      // Build full participantsSummary array for the bill
+      const participantsSummary = [];
+
       if (isUserPayer) {
+        if (userShareNum > 0 || splits.length === 0) {
+          participantsSummary.push({
+            name: 'You',
+            amount: userShareNum,
+            isPayer: true,
+            isSelf: true
+          });
+        }
+        for (const s of splits) {
+          let fName = s.friendName;
+          if (!fName) {
+            let tf = null;
+            if (mongoose.Types.ObjectId.isValid(s.friendId)) {
+              tf = await Friend.findOne({ _id: s.friendId, userId });
+            }
+            if (!tf) {
+              tf = await Friend.findOne({ userId, $or: [{ id: s.friendId }, { name: s.friendId }] });
+            }
+            fName = tf ? tf.name : 'Friend';
+          }
+          participantsSummary.push({
+            name: fName,
+            amount: Math.abs(Number(s.shareAmount)) || 0,
+            isPayer: false,
+            isSelf: false
+          });
+        }
+
         // User paid the whole bill -> selected friends owe the user their respective shares
         for (const s of splits) {
           const numShare = Math.abs(Number(s.shareAmount));
@@ -169,7 +292,8 @@ exports.createTransaction = async (req, res) => {
               payerIsUser: true,
               splitMode,
               userShare: userShareNum,
-              participantCount: splits.length + (userShareNum > 0 ? 1 : 0)
+              participantCount: participantsSummary.length,
+              participantsSummary
             },
             approvalStatus: 'ACTIVE',
             createdByUserId: userId
@@ -210,7 +334,8 @@ exports.createTransaction = async (req, res) => {
                   payerIsUser: false,
                   splitMode,
                   userShare: numShare,
-                  participantCount: splits.length + (userShareNum > 0 ? 1 : 0)
+                  participantCount: participantsSummary.length,
+                  participantsSummary
                 }
               });
 
@@ -249,6 +374,41 @@ exports.createTransaction = async (req, res) => {
           return res.status(400).json({ success: false, error: 'Paying friend could not be found.' });
         }
 
+        const friendSharesTotal = splits.reduce((sum, s) => sum + (Math.abs(Number(s.shareAmount)) || 0), 0);
+        const payerShare = Math.max(0, totalAmount - (userShareNum + friendSharesTotal));
+
+        participantsSummary.push({
+          name: payerFriend.name,
+          amount: payerShare,
+          isPayer: true,
+          isSelf: false
+        });
+
+        if (userShareNum > 0) {
+          participantsSummary.push({
+            name: 'You',
+            amount: userShareNum,
+            isPayer: false,
+            isSelf: true
+          });
+        }
+
+        for (const s of splits) {
+          if (s.friendId && s.friendId.toString() !== payerFriend._id.toString()) {
+            let otherFriend = null;
+            if (mongoose.Types.ObjectId.isValid(s.friendId)) {
+              otherFriend = await Friend.findOne({ _id: s.friendId, userId });
+            }
+            if (!otherFriend) otherFriend = await Friend.findOne({ userId, $or: [{ id: s.friendId }, { name: s.friendId }] });
+            participantsSummary.push({
+              name: otherFriend ? otherFriend.name : (s.friendName || 'Friend'),
+              amount: Math.abs(Number(s.shareAmount)) || 0,
+              isPayer: false,
+              isSelf: false
+            });
+          }
+        }
+
         // The user owes their own share to payerFriend
         if (userShareNum > 0) {
           const tx = await Transaction.create({
@@ -271,7 +431,8 @@ exports.createTransaction = async (req, res) => {
               payerIsUser: false,
               splitMode,
               userShare: userShareNum,
-              participantCount: splits.length + 1
+              participantCount: participantsSummary.length,
+              participantsSummary
             },
             approvalStatus: 'ACTIVE',
             createdByUserId: userId
@@ -312,7 +473,8 @@ exports.createTransaction = async (req, res) => {
                   payerIsUser: true,
                   splitMode,
                   userShare: userShareNum,
-                  participantCount: splits.length + 1
+                  participantCount: participantsSummary.length,
+                  participantsSummary
                 }
               });
 
@@ -845,9 +1007,19 @@ exports.getGroupSplitDetails = async (req, res) => {
     const userId = req.user.id;
     const { splitGroupId } = req.params;
 
-    const groupTransactions = await Transaction.find({ userId, splitGroupId })
+    let groupTransactions = await Transaction.find({ userId, splitGroupId })
       .populate('friendId', 'id name avatarColor avatarEmoji relationshipTag phone connectionStatus permission currentBalance')
       .lean();
+
+    if (!groupTransactions || groupTransactions.length === 0) {
+      // Allow shared participants to view the split details as well
+      const sharedTx = await Transaction.findOne({ splitGroupId, $or: [{ sharedWithUserId: userId }, { createdByUserId: userId }] });
+      if (sharedTx) {
+        groupTransactions = await Transaction.find({ splitGroupId })
+          .populate('friendId', 'id name avatarColor avatarEmoji relationshipTag phone connectionStatus permission currentBalance')
+          .lean();
+      }
+    }
 
     if (!groupTransactions || groupTransactions.length === 0) {
       return res.status(404).json({ success: false, error: 'Group split bill not found.' });
@@ -862,38 +1034,58 @@ exports.getGroupSplitDetails = async (req, res) => {
     const splitMode = primary.splitDetails?.splitMode || 'EQUAL';
     const userShare = primary.splitDetails?.userShare || 0;
 
-    const participants = groupTransactions.map(t => ({
-      transactionId: t._id ? t._id.toString() : t.id,
-      friendId: t.friendId ? (t.friendId.id || t.friendId._id.toString()) : null,
-      name: t.friendId ? t.friendId.name : 'Friend',
-      avatarColor: t.friendId?.avatarColor || '#6366f1',
-      avatarEmoji: t.friendId?.avatarEmoji || '👤',
-      relationshipTag: t.friendId?.relationshipTag || 'Friend',
-      phone: t.friendId?.phone,
-      amount: t.amount,
-      type: t.type,
-      impactOnUser: t.impactOnUser,
-      approvalStatus: t.approvalStatus,
-      isShared: t.isShared,
-      isPayer: false,
-      isSelf: false
-    }));
-
-    // Add logged-in user to participants list if they had a share or were the payer
-    if (userShare > 0 || payerIsUser) {
-      participants.unshift({
-        transactionId: 'USER_SELF',
-        friendId: 'USER_SELF',
-        name: `${req.user.name} (You)`,
-        avatarColor: '#4f46e5',
-        avatarEmoji: '🌟',
-        relationshipTag: 'Self',
-        amount: userShare,
-        type: payerIsUser ? 'PAID' : 'OWING',
-        impactOnUser: 0,
-        isPayer: payerIsUser,
-        isSelf: true
+    let participants = [];
+    if (primary.splitDetails?.participantsSummary && Array.isArray(primary.splitDetails.participantsSummary) && primary.splitDetails.participantsSummary.length > 0) {
+      participants = primary.splitDetails.participantsSummary.map((p, idx) => {
+        const isSelf = p.name === 'You' || p.isSelf === true || (req.user?.name && p.name === req.user.name);
+        return {
+          transactionId: 'PARTICIPANT_' + idx,
+          friendId: isSelf ? 'USER_SELF' : ('FRIEND_' + idx),
+          name: isSelf ? `${req.user.name} (You)` : p.name,
+          avatarColor: isSelf ? '#4f46e5' : (p.isPayer ? '#f59e0b' : '#6366f1'),
+          avatarEmoji: isSelf ? '🌟' : (p.isPayer ? '👑' : '👤'),
+          relationshipTag: isSelf ? 'Self' : (p.isPayer ? 'Payer' : 'Friend'),
+          amount: p.amount,
+          type: p.isPayer ? 'PAID' : 'OWING',
+          impactOnUser: 0,
+          isPayer: !!p.isPayer,
+          isSelf
+        };
       });
+    } else {
+      participants = groupTransactions.map(t => ({
+        transactionId: t._id ? t._id.toString() : t.id,
+        friendId: t.friendId ? (t.friendId.id || t.friendId._id.toString()) : null,
+        name: t.friendId ? t.friendId.name : 'Friend',
+        avatarColor: t.friendId?.avatarColor || '#6366f1',
+        avatarEmoji: t.friendId?.avatarEmoji || '👤',
+        relationshipTag: t.friendId?.relationshipTag || 'Friend',
+        phone: t.friendId?.phone,
+        amount: t.amount,
+        type: t.type,
+        impactOnUser: t.impactOnUser,
+        approvalStatus: t.approvalStatus,
+        isShared: t.isShared,
+        isPayer: false,
+        isSelf: false
+      }));
+
+      // Add logged-in user to participants list if they had a share or were the payer
+      if (userShare > 0 || payerIsUser) {
+        participants.unshift({
+          transactionId: 'USER_SELF',
+          friendId: 'USER_SELF',
+          name: `${req.user.name} (You)`,
+          avatarColor: '#4f46e5',
+          avatarEmoji: '🌟',
+          relationshipTag: 'Self',
+          amount: userShare,
+          type: payerIsUser ? 'PAID' : 'OWING',
+          impactOnUser: 0,
+          isPayer: payerIsUser,
+          isSelf: true
+        });
+      }
     }
 
     res.json({

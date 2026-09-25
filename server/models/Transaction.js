@@ -89,7 +89,13 @@ const transactionSchema = new mongoose.Schema({
       default: 'EQUAL'
     },
     userShare: Number,
-    participantCount: Number
+    participantCount: Number,
+    participantsSummary: [{
+      name: String,
+      amount: Number,
+      isPayer: Boolean,
+      isSelf: Boolean
+    }]
   }
 }, {
   timestamps: true,
