@@ -1,159 +1,150 @@
-# 💸 MoneyTracker - Full-Stack Friend Money & Debt Tracker
+# 💸 MoneyTracker
 
-A modern, production-grade full-stack web application built with **React (Vite) + Tailwind CSS + Node.js/Express + Prisma ORM (PostgreSQL & SQLite) + JWT Authentication**.
+> **Simple, smart, and collaborative money tracker for friends and roommates.**  
+> Track who owes what, split group bills easily, and settle balances with 2-way live sync!
 
 ---
 
-## 🏗️ Architecture & Tech Stack
+## ✨ Features at a Glance
 
-```text
-                  USER
-                   │
-                   ▼
-         ┌──────────────────┐
-         │ React + Tailwind │  → Client (Port 5173)
-         │  Vite Frontend   │
-         └────────┬─────────┘
-                  │ JWT Bearer / REST API
-                  ▼
-         ┌──────────────────┐
-         │ Node + Express   │  → Backend (Port 5000)
-         │  Server API      │
-         └────────┬─────────┘
-                  │ Prisma ORM
-                  ▼
-         ┌──────────────────┐
-         │ PostgreSQL / DB  │  → Persistent Database
-         │ (Render / Local) │
-         └──────────────────┘
+* 👥 **Group Split Bills**: Split dining, rent, or travel bills across multiple friends (equal, custom, or exact shares). Supports both *"You Paid"* and *"A Friend Paid"*!
+* ⚡ **2-Way Live Sync**: Link accounts with friends using their username. Transactions and balances update automatically on both users' apps.
+* 💬 **WhatsApp Reminders**: Generate polite, friendly, or direct payment reminder messages and send them directly through WhatsApp in 1 click.
+* 🤝 **1-Click Settle Up**: Clear full or partial debts instantly with automatic balance adjustments.
+* 📊 **Smart Analytics**: Beautiful visual charts (Recharts) showing spending trends and category breakdowns (Food, Rent, Shopping, Bills).
+* 📄 **Export Statements**: Download transaction records as CSV spreadsheets or clean, printable PDF reports.
+* 🔒 **Secure & Fast**: Powered by JWT authentication, password hashing (`bcryptjs`), and optional PIN lock protection.
+* 🚀 **Instant 1-Click Demo**: Test the app immediately without signing up by clicking *"Try as Demo User"* on the login page!
+
+---
+
+## 🛠️ Tech Stack
+
+* **Frontend:** React 18, Vite, Tailwind CSS, Lucide Icons, Recharts, Axios
+* **Backend:** Node.js, Express.js (REST API, JWT Authentication)
+* **Database:** MongoDB & Mongoose
+* **Sound Effects:** Audio notification chime for transactions and alerts
+
+---
+
+## 🚀 Quick Start (Run Locally in 2 Minutes)
+
+### Prerequisites
+Make sure you have installed on your machine:
+* [Node.js](https://nodejs.org/) (version 18 or newer)
+* [MongoDB](https://www.mongodb.com/) (running locally, or a free [MongoDB Atlas](https://www.mongodb.com/atlas) cloud database URL)
+
+---
+
+### Step 1: Install All Dependencies
+Run this single command from the project root to install dependencies for root, client, and server:
+
+```bash
+npm run install:all
 ```
 
-| Layer | Technology |
-| :--- | :--- |
-| **Frontend** | React 18, Vite, Tailwind CSS, Lucide React, Recharts, Axios |
-| **Backend** | Node.js, Express.js (Modular Controllers, Routes, Middleware) |
-| **Database** | PostgreSQL / SQLite with Prisma ORM |
-| **Authentication** | JWT (JSON Web Tokens) + bcryptjs password hashing |
-| **Deployment** | Render / Vercel / Railway / Supabase |
+---
+
+### Step 2: Configure Environment Variables
+Create a `.env` file inside the `server/` directory:
+
+```bash
+# In server/.env
+PORT=5000
+DATABASE_URL="mongodb://127.0.0.1:27017/moneytracker"
+JWT_SECRET="your_secret_key_here_any_random_text"
+```
+*(You can also use a free cloud MongoDB Atlas connection string!)*
+
+---
+
+### Step 3: Start the App
+Start both backend and frontend servers together with one command:
+
+```bash
+npm run dev
+```
+
+* 🌐 **Frontend:** [http://localhost:5173](http://localhost:5173)
+* ⚙️ **Backend API:** [http://localhost:5000](http://localhost:5000)
+
+Open [http://localhost:5173](http://localhost:5173) in your browser, click **"Try as Demo User (1-Click)"**, and explore! 🎉
 
 ---
 
 ## 📁 Project Structure
 
 ```text
-website/
-├── client/                               # React + Vite Frontend
+MoneyTracker/
+├── client/                     # 💻 React + Vite Frontend
 │   ├── src/
-│   │   ├── components/
-│   │   │   ├── Navbar.jsx                # Responsive navbar, user info & logout
-│   │   │   ├── SummaryCard.jsx           # Total Given, Received, Pending & Net Balance cards
-│   │   │   ├── FriendCard.jsx            # Friend cards with avatar, balance pill, quick actions
-│   │   │   ├── TransactionForm.jsx       # Modal for Single Entry & Group Split bills
-│   │   │   ├── SettleModal.jsx           # 1-Click quick settlement modal
-│   │   │   ├── WhatsAppModal.jsx         # Multi-tone WhatsApp reminder generator (wa.me)
-│   │   │   └── ProtectedRoute.jsx        # JWT route guard
-│   │   ├── pages/
-│   │   │   ├── Dashboard.jsx             # Overview hero metrics, quick actions & recent activity
-│   │   │   ├── Friends.jsx               # Friends circle grid, balance filter & friend ledger drawer
-│   │   │   ├── Transactions.jsx          # Complete history, date/type filters, CSV export
-│   │   │   ├── Analytics.jsx             # Category spending breakdown & monthly trends
-│   │   │   ├── Login.jsx                 # Modern auth login page (+ Quick 1-Click Demo login)
-│   │   │   └── Register.jsx              # New user registration
-│   │   ├── context/
-│   │   │   └── AuthContext.jsx           # Global Auth state, token handling & persistence
-│   │   ├── services/
-│   │   │   ├── api.js                    # Axios client with JWT interceptor
-│   │   │   └── exportService.js          # CSV & Printable PDF statement builder
-│   │   ├── App.jsx                       # Routing & App layout
-│   │   ├── main.jsx                      # Entrypoint
-│   │   └── index.css                     # Tailwind CSS directives & animations
-│   ├── tailwind.config.js
-│   ├── vite.config.js
+│   │   ├── components/         # Modals, Navbar, Cards, Form
+│   │   ├── pages/              # Dashboard, Friends, Transactions, Analytics
+│   │   ├── context/            # AuthContext (login state & persistence)
+│   │   ├── services/           # Axios API client & export utilities
+│   │   └── App.jsx             # Main routing and navigation
 │   └── package.json
 │
-├── server/                               # Node.js + Express Backend
-│   ├── controllers/
-│   │   ├── authController.js             # register, login, me, updateSettings
-│   │   ├── friendController.js           # CRUD friends & calculate friend ledger
-│   │   ├── transactionController.js      # CRUD transactions, splits, settle-up
-│   │   └── dashboardController.js        # summary metrics & category analytics
-│   ├── routes/
-│   │   ├── authRoutes.js
-│   │   ├── friendRoutes.js
-│   │   ├── transactionRoutes.js
-│   │   └── dashboardRoutes.js
-│   ├── middleware/
-│   │   └── authMiddleware.js             # JWT authentication verification middleware
-│   ├── prisma/
-│   │   ├── schema.prisma                 # User, Friend, Transaction schema definition
-│   │   └── seed.js                       # Realistic sample data seeder
-│   ├── server.js                         # Express entrypoint with CORS & routes
-│   ├── package.json
-│   └── .env.example
+├── server/                     # ⚙️ Node.js + Express Backend
+│   ├── controllers/            # Business logic (transactions, splits, friends, auth)
+│   ├── models/                 # Mongoose database schemas (User, Friend, Transaction)
+│   ├── routes/                 # Express API endpoints (/api/transactions, /api/friends)
+│   ├── middleware/             # JWT auth verification
+│   ├── db.js                   # MongoDB database connection
+│   └── server.js               # Backend entry point
 │
-├── package.json                          # Monorepo runner (npm run dev runs client + server)
-└── README.md
+├── package.json                # Monorepo runner scripts
+└── README.md                   # Project documentation
 ```
 
 ---
 
-## 🚀 Quick Start (Local Development)
+## ⚙️ Environment Variables Guide
 
-### 1. Start Both Backend & Frontend in 1 Command:
-```bash
-npm run dev
-```
+### Server (`server/.env`)
+| Variable | Description | Example / Default |
+| :--- | :--- | :--- |
+| `PORT` | Backend port | `5000` |
+| `DATABASE_URL` | MongoDB connection URI | `mongodb://127.0.0.1:27017/moneytracker` |
+| `JWT_SECRET` | Secret key used for signing JWT tokens | `super_secret_jwt_string_123` |
+| `NODE_ENV` | Environment mode | `development` or `production` |
 
-This starts:
-- **Backend API**: `http://localhost:5000`
-- **React Frontend**: `http://localhost:5173`
-
-Open [http://localhost:5173](http://localhost:5173) in your browser!
-
-### 2. Instant Demo Login
-On the login screen, click **"Try as Demo User (1-Click Instant)"** to immediately access the preloaded friends circle, split bills, and transactions.
-
----
-
-## 🗄️ Database Setup & PostgreSQL (Render / Supabase / Neon)
-
-### Local Zero-Setup (SQLite):
-By default, `server/.env` is configured with `DATABASE_URL="file:./dev.db"`. Everything works out of the box with zero external database setup.
-
-### Production PostgreSQL (Render):
-1. Create a PostgreSQL database on **Render** (or **Supabase** / **Neon**).
-2. Copy the Internal or External Database URL (e.g. `postgresql://user:pass@host:5432/money_tracker?sslmode=require`).
-3. In `server/prisma/schema.prisma`, change `provider = "sqlite"` to `provider = "postgresql"`.
-4. Set `DATABASE_URL` in your environment variables on Render.
-5. Run:
-   ```bash
-   npx prisma db push
-   ```
+### Client (`client/.env`) *(Optional)*
+| Variable | Description | Example |
+| :--- | :--- | :--- |
+| `VITE_API_URL` | Custom backend URL (only needed if backend is hosted on a separate domain) | `https://your-api.onrender.com/api` |
 
 ---
 
-## 🌐 Render Deployment Guide
+## 🌐 Deployment
 
-### Deploy Backend (Web Service):
-1. **Root Directory**: `server`
-2. **Build Command**: `npm install && npx prisma generate && npx prisma db push`
-3. **Start Command**: `node server.js`
-4. **Environment Variables**:
-   - `DATABASE_URL`: `postgresql://...`
-   - `JWT_SECRET`: `your_random_secret_string`
-   - `NODE_ENV`: `production`
+### Deploy on Render (Recommended)
 
-### Deploy Frontend (Static Site):
-1. **Root Directory**: `client`
-2. **Build Command**: `npm install && npm run build`
-3. **Publish Directory**: `dist`
-4. **Rewrite Rules**: Add a rewrite rule for SPA routing (`/*` -> `/index.html`).
+1. **Deploy Backend (Web Service):**
+   * **Root Directory:** `server`
+   * **Build Command:** `npm install`
+   * **Start Command:** `node server.js`
+   * **Environment Variables:** Add `DATABASE_URL` (MongoDB Atlas), `JWT_SECRET`, `NODE_ENV=production`.
+
+2. **Deploy Frontend (Static Site):**
+   * **Root Directory:** `client`
+   * **Build Command:** `npm install && npm run build`
+   * **Publish Directory:** `dist`
+   * **Environment Variables:** Set `VITE_API_URL` to your Render backend URL (e.g. `https://moneytracker-api.onrender.com/api`).
+   * **Rewrite Rule:** Add rewrite rule for SPA routing (`/*` → `/index.html`).
 
 ---
 
-## 🧪 Verification & Testing
+## 📜 Useful Scripts
 
-To run the automated API integration test suite:
-```bash
-npm run test:api
-```
+| Command | What it does |
+| :--- | :--- |
+| `npm run dev` | Runs both backend and frontend concurrently in development mode |
+| `npm run install:all` | Installs dependencies for root, client, and server in one go |
+| `npm run build` | Builds the client for production (`client/dist/`) |
+| `npm start` | Starts the production backend server |
+
+---
+
+## 📄 License
+This project is open-source and available under the [MIT License](LICENSE).
