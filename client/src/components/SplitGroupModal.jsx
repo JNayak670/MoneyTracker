@@ -28,6 +28,7 @@ export default function SplitGroupModal({ isOpen, onClose, splitGroupId, onSplit
   const [error, setError] = useState(null);
   const [groupData, setGroupData] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [copiedShort, setCopiedShort] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -36,6 +37,7 @@ export default function SplitGroupModal({ isOpen, onClose, splitGroupId, onSplit
       loadGroupDetails();
       setConfirmDelete(false);
       setCopied(false);
+      setCopiedShort(false);
     }
   }, [isOpen, splitGroupId]);
 
@@ -44,7 +46,29 @@ export default function SplitGroupModal({ isOpen, onClose, splitGroupId, onSplit
       setLoading(true);
       setError(null);
       const res = await api.get(`/transactions/group/${splitGroupId}`);
-      setGroupData(res.data?.data || null);
+      // Handle both unwrapped (api interceptor returns response.data) and wrapped Axios responses
+      let data = null;
+      if (res?.data?.splitGroupId) {
+        data = res.data;
+      } else if (res?.splitGroupId) {
+        data = res;
+      } else if (res?.data?.data?.splitGroupId) {
+        data = res.data.data;
+      } else if (res?.data) {
+        data = res.data;
+      } else {
+        data = res;
+      }
+
+      if (!data || !data.splitGroupId) {
+        throw new Error('Group split bill details could not be found.');
+      }
+
+      if (!Array.isArray(data.participants)) {
+        data.participants = [];
+      }
+
+      setGroupData(data);
     } catch (err) {
       setError(err.response?.data?.error || err.message || 'Failed to load group split details.');
     } finally {
@@ -54,15 +78,16 @@ export default function SplitGroupModal({ isOpen, onClose, splitGroupId, onSplit
 
   const handleCopyBreakdown = () => {
     if (!groupData) return;
-    const { title, totalBillAmount, payerName, date, participants } = groupData;
+    const { title, totalBillAmount, payerName, date } = groupData;
+    const participants = groupData.participants || [];
     let text = `🧾 *MoneyTracker Split Bill Summary*\n`;
-    text += `📌 *Bill:* ${title}\n`;
-    text += `💰 *Total Amount:* ₹${Number(totalBillAmount).toLocaleString()}\n`;
-    text += `👤 *Paid by:* ${payerName}\n`;
-    text += `📅 *Date:* ${date}\n\n`;
+    text += `📌 *Bill:* ${title || 'Group Split'}\n`;
+    text += `💰 *Total Amount:* ₹${Number(totalBillAmount || 0).toLocaleString()}\n`;
+    text += `👤 *Paid by:* ${payerName || 'Friend'}\n`;
+    text += `📅 *Date:* ${date || 'Today'}\n\n`;
     text += `👥 *Individual Shares:*\n`;
     participants.forEach(p => {
-      text += `• ${p.name}: ₹${Number(p.amount).toLocaleString()}${p.isPayer ? ' (Payer)' : ''}\n`;
+      text += `• ${p.name}: ₹${Number(p.amount || 0).toLocaleString()}${p.isPayer ? ' (Payer)' : ''}\n`;
     });
     text += `\nTracked via MoneyTracker ⚡`;
 
@@ -71,17 +96,30 @@ export default function SplitGroupModal({ isOpen, onClose, splitGroupId, onSplit
     setTimeout(() => setCopied(false), 2500);
   };
 
+  const handleCopyShortSummary = () => {
+    if (!groupData) return;
+    const participants = groupData.participants || [];
+    if (participants.length === 0) return;
+    const summary = participants
+      .map(p => `${p.name}: ₹${Number(p.amount || 0).toLocaleString()}${p.isPayer ? ' (Payer 👑)' : ''}`)
+      .join(', ');
+    navigator.clipboard.writeText(`Short Summary: ${summary}`);
+    setCopiedShort(true);
+    setTimeout(() => setCopiedShort(false), 2500);
+  };
+
   const handleShareWhatsApp = () => {
     if (!groupData) return;
-    const { title, totalBillAmount, payerName, date, participants } = groupData;
+    const { title, totalBillAmount, payerName, date } = groupData;
+    const participants = groupData.participants || [];
     let text = `🧾 *MoneyTracker Split Bill Summary*\n`;
-    text += `📌 *Bill:* ${title}\n`;
-    text += `💰 *Total Amount:* ₹${Number(totalBillAmount).toLocaleString()}\n`;
-    text += `👤 *Paid by:* ${payerName}\n`;
-    text += `📅 *Date:* ${date}\n\n`;
+    text += `📌 *Bill:* ${title || 'Group Split'}\n`;
+    text += `💰 *Total Amount:* ₹${Number(totalBillAmount || 0).toLocaleString()}\n`;
+    text += `👤 *Paid by:* ${payerName || 'Friend'}\n`;
+    text += `📅 *Date:* ${date || 'Today'}\n\n`;
     text += `👥 *Individual Shares:*\n`;
     participants.forEach(p => {
-      text += `• ${p.name}: ₹${Number(p.amount).toLocaleString()}${p.isPayer ? ' (Payer)' : ''}\n`;
+      text += `• ${p.name}: ₹${Number(p.amount || 0).toLocaleString()}${p.isPayer ? ' (Payer)' : ''}\n`;
     });
     text += `\nTracked via MoneyTracker ⚡`;
 
@@ -197,8 +235,95 @@ export default function SplitGroupModal({ isOpen, onClose, splitGroupId, onSplit
                   </div>
                   <div className="flex items-center gap-1 text-emerald-300 font-mono text-[11px]">
                     <span className="capitalize">{groupData.splitMode?.toLowerCase() || 'equal'} Split</span>
-                    <span>• {groupData.participants.length} Participants</span>
+                    <span>• {(groupData.participants || []).length} Participants</span>
                   </div>
+                </div>
+              </div>
+
+              {/* Short Summary for All Shared Users in Pop-up */}
+              <div className="rounded-2xl p-4 bg-gradient-to-r from-amber-50/80 via-indigo-50/70 to-purple-50/80 border border-indigo-200/90 shadow-xs">
+                <div className="flex items-center justify-between gap-2 mb-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="w-7 h-7 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-white flex items-center justify-center text-xs font-black shadow-2xs">
+                      📋
+                    </span>
+                    <div>
+                      <h4 className="text-xs sm:text-sm font-black text-slate-900 tracking-tight flex items-center gap-1.5">
+                        <span>Short Summary (All Shared Users)</span>
+                        <span className="text-[10px] font-bold bg-indigo-100 text-indigo-800 px-1.5 py-0.2 rounded-md">
+                          {(groupData.participants || []).length} People
+                        </span>
+                      </h4>
+                      <p className="text-[10px] text-slate-500 font-medium">
+                        Quick overview of each shared user's split amount
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleCopyShortSummary}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10.5px] font-black bg-white hover:bg-slate-50 text-indigo-700 border border-indigo-200 shadow-2xs transition-all active:scale-95 cursor-pointer flex-shrink-0"
+                    title="Copy short summary to clipboard"
+                  >
+                    {copiedShort ? (
+                      <>
+                        <Check className="w-3 h-3 text-emerald-600" />
+                        <span className="text-emerald-700">Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3 h-3 text-indigo-600" />
+                        <span>Copy Summary</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {/* Plain Text Box representation */}
+                <div className="p-2.5 rounded-xl bg-white/90 border border-indigo-100 text-xs text-slate-800 font-medium leading-relaxed">
+                  <span className="font-extrabold text-indigo-950">Short Summary: </span>
+                  {(groupData.participants || []).length > 0 ? (
+                    (groupData.participants || []).map((p, idx) => (
+                      <span key={idx}>
+                        <span className={p.isSelf ? 'text-indigo-700 font-extrabold' : p.isPayer ? 'text-amber-800 font-bold' : 'text-slate-800 font-semibold'}>
+                          {p.name}: <span className="font-mono font-bold">₹{Number(p.amount || 0).toLocaleString()}</span>
+                          {p.isPayer ? ' (Payer 👑)' : ''}
+                        </span>
+                        {idx < (groupData.participants || []).length - 1 ? '  •  ' : ''}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-slate-400 italic">No participant details</span>
+                  )}
+                </div>
+
+                {/* Visual Chips of each user */}
+                <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
+                  {(groupData.participants || []).map((p, idx) => {
+                    const isPayer = p.isPayer || (groupData.payerIsUser && p.isSelf) || (!groupData.payerIsUser && p.name === groupData.payerName);
+                    return (
+                      <div
+                        key={idx}
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold border transition-all ${
+                          p.isSelf
+                            ? 'bg-indigo-600 text-white border-indigo-700 shadow-xs'
+                            : isPayer
+                            ? 'bg-amber-100 text-amber-950 border-amber-300'
+                            : 'bg-white text-slate-800 border-slate-200 hover:border-slate-300'
+                        }`}
+                      >
+                        <span className="text-xs">{p.avatarEmoji || (p.isSelf ? '🌟' : '👤')}</span>
+                        <span>{p.name}:</span>
+                        <span className="font-mono font-black">₹{Number(p.amount || 0).toLocaleString()}</span>
+                        {isPayer && (
+                          <span className="text-[9px] bg-amber-200/80 text-amber-900 px-1 rounded font-extrabold" title="Paid the bill">
+                            👑 Payer
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -210,15 +335,16 @@ export default function SplitGroupModal({ isOpen, onClose, splitGroupId, onSplit
                     <span>Participant Shares & Debts</span>
                   </h4>
                   <span className="text-[11px] text-slate-500 font-medium">
-                    {groupData.participants.length} people
+                    {(groupData.participants || []).length} people
                   </span>
                 </div>
 
                 <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                  {groupData.participants.map((p, idx) => {
+                  {(groupData.participants || []).map((p, idx) => {
                     const isPayer = p.isPayer || (groupData.payerIsUser && p.isSelf) || (!groupData.payerIsUser && p.name === groupData.payerName);
-                    const pct = groupData.totalBillAmount > 0 
-                      ? Math.round((Number(p.amount) / Number(groupData.totalBillAmount)) * 100) 
+                    const totalAmt = Number(groupData.totalBillAmount || 0);
+                    const pct = totalAmt > 0 
+                      ? Math.round((Number(p.amount || 0) / totalAmt) * 100) 
                       : 0;
 
                     return (
@@ -263,17 +389,17 @@ export default function SplitGroupModal({ isOpen, onClose, splitGroupId, onSplit
 
                         <div className="text-right flex-shrink-0">
                           <div className="text-sm font-black text-slate-900 font-mono">
-                            ₹{Number(p.amount).toLocaleString()}
+                            ₹{Number(p.amount || 0).toLocaleString()}
                           </div>
                           <div className="text-[10px] font-bold mt-0.5">
                             {isPayer ? (
                               <span className="text-emerald-700">Paid full bill</span>
                             ) : groupData.payerIsUser ? (
-                              <span className="text-indigo-600">Owes you ₹{Number(p.amount).toLocaleString()}</span>
+                              <span className="text-indigo-600">Owes you ₹{Number(p.amount || 0).toLocaleString()}</span>
                             ) : p.isSelf ? (
                               <span className="text-rose-600">You owe {groupData.payerName}</span>
                             ) : (
-                              <span className="text-slate-500">Share: ₹{Number(p.amount).toLocaleString()}</span>
+                              <span className="text-slate-500">Share: ₹{Number(p.amount || 0).toLocaleString()}</span>
                             )}
                           </div>
                         </div>
@@ -302,7 +428,7 @@ export default function SplitGroupModal({ isOpen, onClose, splitGroupId, onSplit
                     <div>
                       <p className="font-black text-xs">Delete entire group split?</p>
                       <p className="text-[11px] text-rose-700">
-                        This will remove all {groupData.participants.length} transactions across your friends' ledgers and adjust balances accordingly.
+                        This will remove all {(groupData.participants || []).length} transactions across your friends' ledgers and adjust balances accordingly.
                       </p>
                     </div>
                   </div>
@@ -328,7 +454,19 @@ export default function SplitGroupModal({ isOpen, onClose, splitGroupId, onSplit
                 </div>
               )}
             </>
-          ) : null}
+          ) : (
+            <div className="py-12 text-center space-y-2">
+              <AlertTriangle className="w-8 h-8 text-amber-500 mx-auto" />
+              <p className="text-sm font-bold text-slate-700">No split details available</p>
+              <p className="text-xs text-slate-500">Could not retrieve information for this split bill.</p>
+              <button
+                onClick={loadGroupDetails}
+                className="mt-2 inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100"
+              >
+                Try Reloading
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Footer Actions */}

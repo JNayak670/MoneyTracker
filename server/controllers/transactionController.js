@@ -1007,41 +1007,70 @@ exports.getGroupSplitDetails = async (req, res) => {
     const userId = req.user.id;
     const { splitGroupId } = req.params;
 
-    let groupTransactions = await Transaction.find({ userId, splitGroupId })
+    // Check if user is authorized to view this group split
+    const userAccessTx = await Transaction.findOne({
+      splitGroupId,
+      $or: [
+        { userId },
+        { sharedWithUserId: userId },
+        { createdByUserId: userId }
+      ]
+    });
+
+    if (!userAccessTx) {
+      return res.status(404).json({ success: false, error: 'Group split bill not found or access denied.' });
+    }
+
+    // Retrieve all transactions belonging to this group split
+    const allGroupTxs = await Transaction.find({ splitGroupId })
       .populate('friendId', 'id name avatarColor avatarEmoji relationshipTag phone connectionStatus permission currentBalance')
       .lean();
 
-    if (!groupTransactions || groupTransactions.length === 0) {
-      // Allow shared participants to view the split details as well
-      const sharedTx = await Transaction.findOne({ splitGroupId, $or: [{ sharedWithUserId: userId }, { createdByUserId: userId }] });
-      if (sharedTx) {
-        groupTransactions = await Transaction.find({ splitGroupId })
-          .populate('friendId', 'id name avatarColor avatarEmoji relationshipTag phone connectionStatus permission currentBalance')
-          .lean();
-      }
-    }
-
-    if (!groupTransactions || groupTransactions.length === 0) {
+    if (!allGroupTxs || allGroupTxs.length === 0) {
       return res.status(404).json({ success: false, error: 'Group split bill not found.' });
     }
 
-    const primary = groupTransactions[0];
+    // Find the primary transaction that contains totalBillAmount / participantsSummary
+    const primary = allGroupTxs.find(t => t.splitDetails?.totalBillAmount || (t.splitDetails?.participantsSummary && t.splitDetails.participantsSummary.length > 0)) || allGroupTxs[0];
     const isEntryOwner = checkIsEntryOwner(primary, userId);
     const totalBillAmount = primary.splitDetails?.totalBillAmount || 
-      (groupTransactions.reduce((acc, t) => acc + t.amount, 0) + (primary.splitDetails?.userShare || 0));
+      (allGroupTxs.reduce((acc, t) => acc + (t.amount || 0), 0) + (primary.splitDetails?.userShare || 0));
     const payerName = primary.splitDetails?.payerName || (primary.splitDetails?.payerIsUser ? req.user.name : 'Unknown');
-    const payerIsUser = primary.splitDetails?.payerIsUser !== false;
     const splitMode = primary.splitDetails?.splitMode || 'EQUAL';
     const userShare = primary.splitDetails?.userShare || 0;
+
+    // Check if current user is the payer
+    const payerIsUser = isEntryOwner 
+      ? (primary.splitDetails?.payerIsUser !== false)
+      : (payerName.toLowerCase() === (req.user?.name || '').toLowerCase() || payerName.toLowerCase() === (req.user?.username || '').toLowerCase());
+
+    const isCreator = primary.createdByUserId 
+      ? primary.createdByUserId.toString() === userId.toString()
+      : isEntryOwner;
 
     let participants = [];
     if (primary.splitDetails?.participantsSummary && Array.isArray(primary.splitDetails.participantsSummary) && primary.splitDetails.participantsSummary.length > 0) {
       participants = primary.splitDetails.participantsSummary.map((p, idx) => {
-        const isSelf = p.name === 'You' || p.isSelf === true || (req.user?.name && p.name === req.user.name);
+        let isSelf = false;
+        let displayName = p.name;
+        if (isCreator) {
+          isSelf = p.name === 'You' || p.isSelf === true || (req.user?.name && p.name === req.user.name);
+          displayName = isSelf ? `${req.user.name} (You)` : p.name;
+        } else {
+          // If viewing user is a recipient friend, "You" in stored summary belonged to the creator / payer
+          if (p.name === 'You' || p.isSelf === true) {
+            displayName = primary.splitDetails?.payerName || 'Payer';
+            isSelf = false;
+          } else if (req.user?.name && (p.name.toLowerCase() === req.user.name.toLowerCase() || p.name.toLowerCase() === (req.user.username || '').toLowerCase())) {
+            isSelf = true;
+            displayName = `${req.user.name} (You)`;
+          }
+        }
+
         return {
           transactionId: 'PARTICIPANT_' + idx,
           friendId: isSelf ? 'USER_SELF' : ('FRIEND_' + idx),
-          name: isSelf ? `${req.user.name} (You)` : p.name,
+          name: displayName,
           avatarColor: isSelf ? '#4f46e5' : (p.isPayer ? '#f59e0b' : '#6366f1'),
           avatarEmoji: isSelf ? '🌟' : (p.isPayer ? '👑' : '👤'),
           relationshipTag: isSelf ? 'Self' : (p.isPayer ? 'Payer' : 'Friend'),
@@ -1053,7 +1082,7 @@ exports.getGroupSplitDetails = async (req, res) => {
         };
       });
     } else {
-      participants = groupTransactions.map(t => ({
+      participants = allGroupTxs.map(t => ({
         transactionId: t._id ? t._id.toString() : t.id,
         friendId: t.friendId ? (t.friendId.id || t.friendId._id.toString()) : null,
         name: t.friendId ? t.friendId.name : 'Friend',
@@ -1104,7 +1133,7 @@ exports.getGroupSplitDetails = async (req, res) => {
         splitMode,
         userShare,
         participants,
-        transactionCount: groupTransactions.length,
+        transactionCount: allGroupTxs.length,
         isEntryOwner,
         canDelete: isEntryOwner
       }
@@ -1121,13 +1150,13 @@ exports.deleteGroupSplit = async (req, res) => {
     const userId = req.user.id;
     const { splitGroupId } = req.params;
 
-    const transactions = await Transaction.find({ userId, splitGroupId });
-    if (!transactions || transactions.length === 0) {
+    const allGroupTxs = await Transaction.find({ splitGroupId });
+    if (!allGroupTxs || allGroupTxs.length === 0) {
       return res.status(404).json({ success: false, error: 'Group split bill not found or already deleted.' });
     }
 
     // Only creator who entered the group split can delete it
-    const primary = transactions[0];
+    const primary = allGroupTxs.find(t => t.userId.toString() === userId.toString() || (t.createdByUserId && t.createdByUserId.toString() === userId.toString())) || allGroupTxs[0];
     const isEntryOwner = checkIsEntryOwner(primary, userId);
     if (!isEntryOwner) {
       return res.status(403).json({
@@ -1137,17 +1166,17 @@ exports.deleteGroupSplit = async (req, res) => {
     }
 
     // Delete mirrored linked transactions
-    const linkedIds = transactions.map(t => t.linkedTransactionId).filter(Boolean);
+    const linkedIds = allGroupTxs.map(t => t.linkedTransactionId).filter(Boolean);
     if (linkedIds.length > 0) {
       await Transaction.deleteMany({ _id: { $in: linkedIds } });
     }
 
     // Delete notifications associated with these transactions
-    const txIds = transactions.map(t => t._id);
+    const txIds = allGroupTxs.map(t => t._id);
     await Notification.deleteMany({ 'data.transactionId': { $in: txIds } });
 
-    // Delete the transactions themselves
-    const result = await Transaction.deleteMany({ userId, splitGroupId });
+    // Delete all transactions belonging to this split group
+    const result = await Transaction.deleteMany({ splitGroupId });
 
     res.json({
       success: true,
