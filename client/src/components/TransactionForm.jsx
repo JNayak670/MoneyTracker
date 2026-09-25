@@ -63,6 +63,7 @@ export default function TransactionForm({
   const [splitNote, setSplitNote] = useState('');
   const [payerType, setPayerType] = useState('USER'); // 'USER' (You paid) | 'FRIEND' (Friend paid)
   const [payingFriendId, setPayingFriendId] = useState('');
+  const [showFriendPaidPopup, setShowFriendPaidPopup] = useState(false);
   const [includeSelf, setIncludeSelf] = useState(true);
   const [friendsSearch, setFriendsSearch] = useState('');
 
@@ -88,6 +89,7 @@ export default function TransactionForm({
 
   useEffect(() => {
     if (isOpen) {
+      setTab(initialTab || 'single');
       setFriendId(preselectedFriendId || '');
       setAmount('');
       setNote('');
@@ -99,7 +101,7 @@ export default function TransactionForm({
       setSplitMode('EQUAL');
       setFriendsSearch('');
     }
-  }, [isOpen, preselectedFriendId]);
+  }, [isOpen, preselectedFriendId, initialTab]);
 
   // Initialize friends map whenever friends list changes or modal opens
   useEffect(() => {
@@ -133,6 +135,11 @@ export default function TransactionForm({
       f.phone?.includes(q)
     );
   }, [friends, friendsSearch]);
+
+  const currentPayingFriend = useMemo(() => {
+    return friends.find(f => (f.id || f._id) === payingFriendId) || null;
+  }, [friends, payingFriendId]);
+  const currentPayingFriendName = currentPayingFriend?.name || 'Paying Friend';
 
   const selectedFriendIds = useMemo(() => {
     return Object.keys(splitFriends).filter(id => splitFriends[id]?.selected);
@@ -706,7 +713,13 @@ export default function TransactionForm({
 
                   <button
                     type="button"
-                    onClick={() => setPayerType('FRIEND')}
+                    onClick={() => {
+                      setPayerType('FRIEND');
+                      if (!payingFriendId && friends.length > 0) {
+                        setPayingFriendId(friends[0].id || friends[0]._id);
+                      }
+                      setShowFriendPaidPopup(true);
+                    }}
                     className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
                       payerType === 'FRIEND'
                         ? 'bg-purple-600 text-white shadow-xs font-black'
@@ -718,21 +731,48 @@ export default function TransactionForm({
                 </div>
 
                 {payerType === 'FRIEND' && (
-                  <div className="pt-1 animate-fadeIn">
-                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                      Select Paying Friend:
-                    </label>
-                    <select
-                      value={payingFriendId}
-                      onChange={(e) => setPayingFriendId(e.target.value)}
-                      className="w-full bg-white border border-purple-200 rounded-xl px-3 py-2 text-xs font-bold text-purple-950 focus:outline-none focus:ring-2 focus:ring-purple-500/20"
-                    >
-                      {friends.map(f => (
-                        <option key={f.id || f._id} value={f.id || f._id}>
-                          {f.name} ({f.relationshipTag || 'Friend'})
-                        </option>
-                      ))}
-                    </select>
+                  <div className="pt-1.5 space-y-2.5 animate-fadeIn">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                        Select Paying Friend:
+                      </label>
+                      <select
+                        value={payingFriendId}
+                        onChange={(e) => setPayingFriendId(e.target.value)}
+                        className="w-full bg-white border border-purple-200 rounded-xl px-3 py-2 text-xs font-bold text-purple-950 focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                      >
+                        {friends.map(f => (
+                          <option key={f.id || f._id} value={f.id || f._id}>
+                            {f.name} ({f.relationshipTag || 'Friend'})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Notice Card: explains only balance between you and paying friend is changed */}
+                    <div className="p-3 rounded-2xl bg-purple-50 border border-purple-200 text-purple-950 text-xs shadow-2xs">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-start gap-2.5">
+                          <span className="text-base flex-shrink-0">💡</span>
+                          <div className="space-y-0.5">
+                            <p className="font-extrabold text-purple-900 leading-tight">
+                              Only updates balance between You and {currentPayingFriendName}
+                            </p>
+                            <p className="text-[11px] text-purple-800 leading-relaxed font-medium">
+                              Records what you owe to <strong>{currentPayingFriendName}</strong>. Other friends' shares will not affect your balance with them.
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setShowFriendPaidPopup(true)}
+                          className="text-[10px] font-bold px-2 py-1 bg-purple-200/80 hover:bg-purple-300 text-purple-950 rounded-lg flex-shrink-0 transition-colors cursor-pointer"
+                          title="View Details"
+                        >
+                          View Info
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
@@ -1195,6 +1235,116 @@ export default function TransactionForm({
 
         </form>
       </div>
+
+      {/* Friend Paid Info Pop-up Modal */}
+      {showFriendPaidPopup && (
+        <div 
+          className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/65 backdrop-blur-sm animate-fadeIn"
+          onClick={() => setShowFriendPaidPopup(false)}
+        >
+          <div 
+            className="bg-white border border-purple-200/90 rounded-3xl p-5 sm:p-6 max-w-md w-full shadow-2xl space-y-4 animate-scaleUp relative overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Top decorative gradient glow */}
+            <div className="absolute -top-12 -right-12 w-32 h-32 bg-purple-200/60 rounded-full blur-2xl pointer-events-none" />
+            <div className="absolute -bottom-12 -left-12 w-32 h-32 bg-indigo-200/50 rounded-full blur-2xl pointer-events-none" />
+
+            {/* Modal Header */}
+            <div className="flex items-start justify-between relative">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-100 to-indigo-100 text-purple-700 flex items-center justify-center text-2xl shadow-xs border border-purple-200/60">
+                  👥
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-900">
+                    A Friend Paid The Bill
+                  </h3>
+                  <span className="inline-block px-2 py-0.5 bg-purple-100 text-purple-800 text-[10px] font-bold rounded-md uppercase tracking-wider">
+                    Balance Update Notice
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowFriendPaidPopup(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Core Message Callout */}
+            <div className="p-3.5 bg-gradient-to-br from-purple-50 via-purple-50/50 to-indigo-50/40 rounded-2xl border border-purple-200 text-xs space-y-1.5 relative">
+              <p className="font-black text-purple-950 text-sm leading-snug">
+                📢 Only changes balance between <span className="underline decoration-purple-400 decoration-2">YOU</span> and <span className="text-purple-700">{currentPayingFriendName}</span>!
+              </p>
+              <p className="text-[11.5px] text-purple-900/90 font-medium leading-relaxed">
+                When a friend pays for the group, your MoneyTracker account will only record what <strong>you owe to {currentPayingFriendName}</strong>.
+              </p>
+            </div>
+
+            {/* Breakdown Cards */}
+            <div className="space-y-2 text-xs relative">
+              <div className="p-3 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 flex items-start gap-2.5">
+                <span className="text-base flex-shrink-0">✅</span>
+                <div className="space-y-0.5">
+                  <p className="font-extrabold text-emerald-950 text-[11.5px]">
+                    You & {currentPayingFriendName}
+                  </p>
+                  <p className="text-[11px] text-emerald-900 font-medium leading-relaxed">
+                    Your personal share {calculatedShares.self > 0 ? `(₹${calculatedShares.self})` : ''} will be recorded as money <strong>you owe to {currentPayingFriendName}</strong>.
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-start gap-2.5">
+                <span className="text-base flex-shrink-0">⏸️</span>
+                <div className="space-y-0.5">
+                  <p className="font-extrabold text-slate-900 text-[11.5px]">
+                    Other Friends in Split
+                  </p>
+                  <p className="text-[11px] text-slate-600 font-medium leading-relaxed">
+                    Other friends owe their shares directly to <strong>{currentPayingFriendName}</strong>. Your personal balances with them will <strong>remain unchanged</strong>.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Friend Selector inside popup */}
+            {friends && friends.length > 0 && (
+              <div className="pt-1">
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Paying Friend:
+                </label>
+                <select
+                  value={payingFriendId}
+                  onChange={(e) => setPayingFriendId(e.target.value)}
+                  className="w-full bg-slate-50 border border-purple-200 rounded-xl px-3 py-2 text-xs font-bold text-purple-950 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                >
+                  {friends.map(f => (
+                    <option key={f.id || f._id} value={f.id || f._id}>
+                      {f.name} ({f.relationshipTag || 'Friend'})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Got It Button */}
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => setShowFriendPaidPopup(false)}
+                className="w-full py-2.5 px-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 active:scale-[0.98] text-white text-xs font-black rounded-xl shadow-md hover:shadow-lg transition-all cursor-pointer"
+              >
+                Understood, Got It 👍
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>,
     document.body
   );

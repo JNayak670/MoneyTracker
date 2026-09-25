@@ -286,198 +286,351 @@ export default function Transactions({ onOpenAddTx }) {
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-100/80 border-b border-slate-200 text-slate-700 uppercase tracking-wider font-extrabold">
-                <tr>
-                  <th className="px-5 py-4">Date</th>
-                  <th className="px-5 py-4">Friend</th>
-                  <th className="px-5 py-4">Flow / Type</th>
-                  <th className="px-5 py-4">Description & Receipt</th>
-                  <th className="px-5 py-4">Status & Sync</th>
-                  <th className="px-5 py-4">Category</th>
-                  <th className="px-5 py-4">Payment</th>
-                  <th className="px-5 py-4 text-right">Amount</th>
-                  <th className="px-5 py-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 bg-white">
-                {filteredTransactions.map(t => {
-                  const isGiven = t.type === 'GIVEN' || t.impactOnUser > 0;
-                  const isSettled = t.type === 'SETTLED';
-                  const isPending = t.approvalStatus === 'PENDING_APPROVAL';
-                  const isRejected = t.approvalStatus === 'REJECTED';
+          <>
+            {/* Desktop / Tablet Table View (fit neatly inside card container) */}
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full text-left text-xs table-auto">
+                <thead className="bg-slate-100/80 border-b border-slate-200 text-slate-700 uppercase tracking-wider font-extrabold text-[11px]">
+                  <tr>
+                    <th className="px-3.5 py-3 w-[100px] whitespace-nowrap">Date</th>
+                    <th className="px-3.5 py-3 w-[150px] whitespace-nowrap">Friend</th>
+                    <th className="px-3.5 py-3 w-[115px] whitespace-nowrap">Flow / Type</th>
+                    <th className="px-3.5 py-3 min-w-[150px]">Description</th>
+                    <th className="px-3.5 py-3 w-[115px] whitespace-nowrap">Status</th>
+                    <th className="px-3.5 py-3 w-[110px] whitespace-nowrap">Category</th>
+                    <th className="px-3.5 py-3 w-[75px] whitespace-nowrap">Method</th>
+                    <th className="px-3.5 py-3 w-[95px] text-right whitespace-nowrap">Amount</th>
+                    <th className="px-3.5 py-3 w-[75px] text-right whitespace-nowrap">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {filteredTransactions.map(t => {
+                    const isGiven = t.type === 'GIVEN' || t.impactOnUser > 0;
+                    const isSettled = t.type === 'SETTLED';
+                    const isPending = t.approvalStatus === 'PENDING_APPROVAL';
+                    const isRejected = t.approvalStatus === 'REJECTED';
 
-                  const categoryColors = {
-                    'Food & Dining': 'bg-amber-50 text-amber-800 border-amber-200',
-                    'Rent & Bills': 'bg-blue-50 text-blue-800 border-blue-200',
-                    'Travel & Trips': 'bg-purple-50 text-purple-800 border-purple-200',
-                    'Entertainment': 'bg-pink-50 text-pink-800 border-pink-200',
-                    'Loans & Cash': 'bg-emerald-50 text-emerald-800 border-emerald-200',
-                    'Settlement': 'bg-cyan-50 text-cyan-800 border-cyan-200',
-                    'Shopping': 'bg-indigo-50 text-indigo-800 border-indigo-200',
-                  }[t.category] || 'bg-slate-100 text-slate-700 border-slate-200';
+                    const categoryColors = {
+                      'Food & Dining': 'bg-amber-50 text-amber-800 border-amber-200',
+                      'Rent & Bills': 'bg-blue-50 text-blue-800 border-blue-200',
+                      'Travel & Trips': 'bg-purple-50 text-purple-800 border-purple-200',
+                      'Entertainment': 'bg-pink-50 text-pink-800 border-pink-200',
+                      'Loans & Cash': 'bg-emerald-50 text-emerald-800 border-emerald-200',
+                      'Settlement': 'bg-cyan-50 text-cyan-800 border-cyan-200',
+                      'Shopping': 'bg-indigo-50 text-indigo-800 border-indigo-200',
+                    }[t.category] || 'bg-slate-100 text-slate-700 border-slate-200';
 
-                  return (
-                    <tr key={t.id} className={`hover:bg-slate-50/80 transition-colors ${isPending ? 'bg-amber-50/30' : isRejected ? 'bg-rose-50/30 opacity-75' : ''}`}>
-                      <td className="px-5 py-4 text-slate-500 font-mono font-medium whitespace-nowrap">
-                        <div>{t.date}</div>
-                        {t.time && <div className="text-[10px] text-slate-400 font-bold">{t.time}</div>}
-                      </td>
+                    return (
+                      <tr key={t.id} className={`hover:bg-slate-50/80 transition-colors ${isPending ? 'bg-amber-50/30' : isRejected ? 'bg-rose-50/30 opacity-75' : ''}`}>
+                        <td className="px-3.5 py-3 text-slate-500 font-mono text-[11px] font-medium whitespace-nowrap">
+                          <div>{t.date}</div>
+                          {t.time && <div className="text-[10px] text-slate-400 font-bold">{t.time}</div>}
+                        </td>
 
-                      <td className="px-5 py-4 font-black text-slate-900 whitespace-nowrap">
-                        <div className="flex items-center gap-2.5">
-                          <span 
-                            className="w-7 h-7 rounded-xl flex items-center justify-center text-sm shadow-xs border border-black/5 flex-shrink-0"
-                            style={{ backgroundColor: t.friend?.avatarColor || '#6366f1' }}
-                          >
-                            {t.friend?.avatarEmoji || '👤'}
+                        <td className="px-3.5 py-3 font-black text-slate-900 whitespace-nowrap">
+                          <div className="flex items-center gap-2">
+                            <span 
+                              className="w-7 h-7 rounded-xl flex items-center justify-center text-xs shadow-2xs border border-black/5 flex-shrink-0"
+                              style={{ backgroundColor: t.friend?.avatarColor || '#6366f1' }}
+                            >
+                              {t.friend?.avatarEmoji || '👤'}
+                            </span>
+                            <div className="min-w-0">
+                              <div className="text-xs font-bold text-slate-900 truncate max-w-[120px]">{t.friend?.name || 'Friend'}</div>
+                              {t.friend?.relationshipTag && (
+                                <span className="text-[9.5px] text-slate-400 font-semibold block truncate max-w-[120px]">{t.friend.relationshipTag}</span>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+
+                        <td className="px-3.5 py-3 whitespace-nowrap">
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg font-black text-[10.5px] border ${
+                            isSettled
+                              ? 'bg-cyan-50 text-cyan-700 border-cyan-200'
+                              : isGiven
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              : 'bg-rose-50 text-rose-700 border-rose-200'
+                          }`}>
+                            {isSettled ? (
+                              <span>🤝 Settled</span>
+                            ) : isGiven ? (
+                              <>
+                                <ArrowUpRight className="w-3 h-3 text-emerald-600" />
+                                <span>↗️ Lent</span>
+                              </>
+                            ) : (
+                              <>
+                                <ArrowDownLeft className="w-3 h-3 text-rose-600" />
+                                <span>↙️ Borrowed</span>
+                              </>
+                            )}
                           </span>
-                          <div>
-                            <div>{t.friend?.name || 'Friend'}</div>
-                            {t.friend?.relationshipTag && (
-                              <span className="text-[10px] text-slate-400 font-semibold">{t.friend.relationshipTag}</span>
+                        </td>
+
+                        <td className="px-3.5 py-3 min-w-[140px] max-w-[220px]">
+                          <div className="font-bold text-slate-900 text-xs flex items-center gap-1.5 flex-wrap">
+                            <span className="truncate max-w-[160px]">{t.note}</span>
+                            {t.splitGroupId && (
+                              <button
+                                type="button"
+                                onClick={() => setSelectedSplitGroupId(t.splitGroupId)}
+                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-black bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 shadow-2xs transition-all active:scale-95 cursor-pointer flex-shrink-0"
+                                title="Click to view full group split breakdown & participants"
+                              >
+                                <Users className="w-2.5 h-2.5 text-indigo-600" />
+                                <span>Split</span>
+                              </button>
                             )}
                           </div>
-                        </div>
-                      </td>
+                          {t.receiptNote && (
+                            <div className="text-[9.5px] text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded mt-0.5 inline-flex items-center gap-1 font-mono border border-purple-200/60 max-w-[190px] truncate" title={t.receiptNote}>
+                              <span>🧾</span>
+                              <span className="truncate">{t.receiptNote}</span>
+                            </div>
+                          )}
+                        </td>
 
-                      <td className="px-5 py-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg font-black text-[11px] border ${
+                        {/* Status & Sync Column */}
+                        <td className="px-3.5 py-3 whitespace-nowrap">
+                          <div className="flex flex-col gap-0.5 items-start">
+                            {isPending ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9.5px] font-black bg-amber-100 text-amber-900 border border-amber-300 animate-pulse">
+                                <Clock className="w-2.5 h-2.5 text-amber-700" />
+                                <span>Pending</span>
+                              </span>
+                            ) : isRejected ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9.5px] font-bold bg-rose-100 text-rose-800 border border-rose-300 line-through">
+                                <XCircle className="w-2.5 h-2.5 text-rose-600" />
+                                <span>Declined</span>
+                              </span>
+                            ) : t.isShared ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9.5px] font-black bg-emerald-50 text-emerald-800 border border-emerald-300">
+                                <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" />
+                                <span>2-Way Synced</span>
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9.5px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+                                <span>📝 Local</span>
+                              </span>
+                            )}
+                          </div>
+                        </td>
+
+                        <td className="px-3.5 py-3 whitespace-nowrap">
+                          <span className={`px-2 py-0.5 rounded-md font-bold text-[10px] border ${categoryColors}`}>
+                            {t.category}
+                          </span>
+                        </td>
+
+                        <td className="px-3.5 py-3 whitespace-nowrap">
+                          <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[10px] font-mono font-bold border border-slate-200">
+                            {t.paymentMethod || 'UPI'}
+                          </span>
+                        </td>
+
+                        <td className={`px-3.5 py-3 text-right font-black text-xs sm:text-sm whitespace-nowrap ${
+                          isSettled
+                            ? 'text-cyan-700'
+                            : isGiven
+                            ? 'text-emerald-700'
+                            : 'text-rose-700'
+                        }`}>
+                          {isSettled ? '' : isGiven ? '+' : '-'}₹{t.amount.toLocaleString()}
+                        </td>
+
+                        {/* Action buttons (Approve / Reject / Delete) */}
+                        <td className="px-3.5 py-3 text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-1">
+                            {isPending ? (
+                              <>
+                                <button
+                                  onClick={() => handleApprove(t.id)}
+                                  disabled={actionLoading === t.id}
+                                  className="inline-flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black px-2 py-1 rounded shadow-2xs transition-all disabled:opacity-50"
+                                  title="Accept & Confirm this transaction"
+                                >
+                                  {actionLoading === t.id ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Check className="w-2.5 h-2.5" />}
+                                  <span>Accept</span>
+                                </button>
+                                <button
+                                  onClick={() => handleReject(t.id)}
+                                  disabled={actionLoading === t.id}
+                                  className="inline-flex items-center gap-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 text-[10px] font-bold px-1.5 py-1 rounded transition-all disabled:opacity-50"
+                                  title="Decline this transaction"
+                                >
+                                  <X className="w-2.5 h-2.5" />
+                                  <span>Reject</span>
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                onClick={() => handleDelete(t.id)}
+                                className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                                title="Delete Record"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Card List View (Dedicated responsive cards on mobile screens) */}
+            <div className="sm:hidden divide-y divide-slate-100 bg-white">
+              {filteredTransactions.map(t => {
+                const isGiven = t.type === 'GIVEN' || t.impactOnUser > 0;
+                const isSettled = t.type === 'SETTLED';
+                const isPending = t.approvalStatus === 'PENDING_APPROVAL';
+                const isRejected = t.approvalStatus === 'REJECTED';
+
+                const categoryColor = {
+                  'Food & Dining': 'bg-amber-50 text-amber-800 border-amber-200',
+                  'Rent & Bills': 'bg-blue-50 text-blue-800 border-blue-200',
+                  'Travel & Trips': 'bg-purple-50 text-purple-800 border-purple-200',
+                  'Entertainment': 'bg-pink-50 text-pink-800 border-pink-200',
+                  'Loans & Cash': 'bg-emerald-50 text-emerald-800 border-emerald-200',
+                  'Settlement': 'bg-cyan-50 text-cyan-800 border-cyan-200',
+                  'Shopping': 'bg-indigo-50 text-indigo-800 border-indigo-200',
+                }[t.category] || 'bg-slate-100 text-slate-700 border-slate-200';
+
+                return (
+                  <div 
+                    key={t.id} 
+                    className={`p-3.5 space-y-2.5 transition-colors ${
+                      isPending ? 'bg-amber-50/40' : isRejected ? 'bg-rose-50/30 opacity-75' : 'hover:bg-slate-50/60'
+                    }`}
+                  >
+                    {/* Top: Friend + Date & Amount */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span 
+                          className="w-8 h-8 rounded-xl flex items-center justify-center text-sm shadow-xs border border-black/5 flex-shrink-0"
+                          style={{ backgroundColor: t.friend?.avatarColor || '#6366f1' }}
+                        >
+                          {t.friend?.avatarEmoji || '👤'}
+                        </span>
+                        <div className="min-w-0">
+                          <div className="text-xs font-black text-slate-900 truncate">
+                            {t.friend?.name || 'Friend'}
+                          </div>
+                          <div className="text-[10px] text-slate-400 font-mono flex items-center gap-1">
+                            <span>{t.date}</span>
+                            {t.time && <span>• {t.time}</span>}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="text-right flex-shrink-0">
+                        <div className={`font-black text-sm sm:text-base ${
+                          isSettled
+                            ? 'text-cyan-700'
+                            : isGiven
+                            ? 'text-emerald-700'
+                            : 'text-rose-700'
+                        }`}>
+                          {isSettled ? '' : isGiven ? '+' : '-'}₹{t.amount.toLocaleString()}
+                        </div>
+                        <span className={`inline-block px-1.5 py-0.2 rounded text-[9.5px] font-black border ${
                           isSettled
                             ? 'bg-cyan-50 text-cyan-700 border-cyan-200'
                             : isGiven
                             ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                             : 'bg-rose-50 text-rose-700 border-rose-200'
                         }`}>
-                          {isSettled ? (
-                            <span>🤝 Settled</span>
-                          ) : isGiven ? (
-                            <>
-                              <ArrowUpRight className="w-3.5 h-3.5 text-emerald-600" />
-                              <span>↗️ Lent</span>
-                            </>
-                          ) : (
-                            <>
-                              <ArrowDownLeft className="w-3.5 h-3.5 text-rose-600" />
-                              <span>↙️ Borrowed</span>
-                            </>
-                          )}
+                          {isSettled ? '🤝 Settled' : isGiven ? '↗️ Lent' : '↙️ Borrowed'}
                         </span>
-                      </td>
+                      </div>
+                    </div>
 
-                      <td className="px-5 py-4 max-w-xs">
-                        <div className="font-bold text-slate-900 flex items-center gap-1.5 flex-wrap">
-                          <span>{t.note}</span>
-                          {t.splitGroupId && (
-                            <button
-                              type="button"
-                              onClick={() => setSelectedSplitGroupId(t.splitGroupId)}
-                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 shadow-2xs transition-all active:scale-95 cursor-pointer"
-                              title="Click to view full group split breakdown & participants"
-                            >
-                              <Users className="w-3 h-3 text-indigo-600" />
-                              <span>Group Split</span>
-                            </button>
-                          )}
-                        </div>
-                        {t.receiptNote && (
-                          <div className="text-[10px] text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md mt-1 inline-flex items-center gap-1 font-mono border border-purple-200/60 max-w-full truncate">
-                            <span>🧾</span>
-                            <span className="truncate">{t.receiptNote}</span>
-                          </div>
-                        )}
-                      </td>
+                    {/* Note / Description */}
+                    <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5 flex-wrap">
+                      <span>{t.note}</span>
+                      {t.splitGroupId && (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedSplitGroupId(t.splitGroupId)}
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-black bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 shadow-2xs active:scale-95 cursor-pointer"
+                        >
+                          <Users className="w-2.5 h-2.5 text-indigo-600" />
+                          <span>Group Split</span>
+                        </button>
+                      )}
+                    </div>
 
-                      {/* Status & Sync Column */}
-                      <td className="px-5 py-4 whitespace-nowrap">
-                        <div className="flex flex-col gap-1 items-start">
-                          {isPending ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300 animate-pulse">
-                              <Clock className="w-3 h-3 text-amber-700" />
-                              <span>Pending Approval</span>
-                            </span>
-                          ) : isRejected ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300 line-through">
-                              <XCircle className="w-3 h-3 text-rose-600" />
-                              <span>Declined / Rejected</span>
-                            </span>
-                          ) : t.isShared ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black bg-emerald-50 text-emerald-800 border border-emerald-300">
-                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                              <span>2-Way Synced</span>
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
-                              <span>📝 Local Entry</span>
-                            </span>
-                          )}
-                        </div>
-                      </td>
+                    {t.receiptNote && (
+                      <div className="text-[10px] text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md inline-flex items-center gap-1 font-mono border border-purple-200/60 max-w-full truncate">
+                        <span>🧾</span>
+                        <span className="truncate">{t.receiptNote}</span>
+                      </div>
+                    )}
 
-                      <td className="px-5 py-4 whitespace-nowrap">
-                        <span className={`px-2.5 py-1 rounded-lg font-bold text-[11px] border ${categoryColors}`}>
+                    {/* Footer Badges & Actions */}
+                    <div className="flex items-center justify-between pt-1 border-t border-slate-100/80 gap-2">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${categoryColor}`}>
                           {t.category}
                         </span>
-                      </td>
-
-                      <td className="px-5 py-4 whitespace-nowrap">
-                        <span className="bg-slate-100 text-slate-700 px-2.5 py-1 rounded-md text-[11px] font-mono font-bold border border-slate-200">
+                        <span className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded text-[9.5px] font-mono font-bold border border-slate-200">
                           {t.paymentMethod || 'UPI'}
                         </span>
-                      </td>
+                        {isPending ? (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9.5px] font-black bg-amber-100 text-amber-900 border border-amber-300 animate-pulse">
+                            <Clock className="w-2.5 h-2.5 text-amber-700" />
+                            <span>Pending</span>
+                          </span>
+                        ) : isRejected ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9.5px] font-bold bg-rose-100 text-rose-800 border border-rose-300">
+                            <XCircle className="w-2.5 h-2.5 text-rose-600" />
+                            <span>Declined</span>
+                          </span>
+                        ) : t.isShared ? (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9.5px] font-black bg-emerald-50 text-emerald-800 border border-emerald-300">
+                            <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" />
+                            <span>2-Way</span>
+                          </span>
+                        ) : null}
+                      </div>
 
-                      <td className={`px-5 py-4 text-right font-black text-sm whitespace-nowrap ${
-                        isSettled
-                          ? 'text-cyan-700'
-                          : isGiven
-                          ? 'text-emerald-700'
-                          : 'text-rose-700'
-                      }`}>
-                        {isSettled ? '' : isGiven ? '+' : '-'}₹{t.amount.toLocaleString()}
-                      </td>
-
-                      {/* Action buttons (Approve / Reject / Delete) */}
-                      <td className="px-5 py-4 text-right whitespace-nowrap">
-                        <div className="flex items-center justify-end gap-1.5">
-                          {isPending ? (
-                            <>
-                              <button
-                                onClick={() => handleApprove(t.id)}
-                                disabled={actionLoading === t.id}
-                                className="inline-flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-black px-2.5 py-1 rounded-lg shadow-2xs transition-all disabled:opacity-50"
-                                title="Accept & Confirm this transaction"
-                              >
-                                {actionLoading === t.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
-                                <span>Accept</span>
-                              </button>
-                              <button
-                                onClick={() => handleReject(t.id)}
-                                disabled={actionLoading === t.id}
-                                className="inline-flex items-center gap-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 text-[11px] font-bold px-2 py-1 rounded-lg transition-all disabled:opacity-50"
-                                title="Decline this transaction"
-                              >
-                                <X className="w-3 h-3" />
-                                <span>Reject</span>
-                              </button>
-                            </>
-                          ) : (
+                      <div className="flex items-center gap-1">
+                        {isPending ? (
+                          <>
                             <button
-                              onClick={() => handleDelete(t.id)}
-                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                              title="Delete Record"
+                              onClick={() => handleApprove(t.id)}
+                              disabled={actionLoading === t.id}
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black px-2 py-1 rounded shadow-xs"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              Accept
                             </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                            <button
+                              onClick={() => handleReject(t.id)}
+                              disabled={actionLoading === t.id}
+                              className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 text-[10px] font-bold px-2 py-1 rounded"
+                            >
+                              Reject
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            onClick={() => handleDelete(t.id)}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                            title="Delete Record"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
         )}
       </div>
 

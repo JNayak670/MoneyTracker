@@ -184,7 +184,7 @@ function MainApp() {
           element={
             user ? (
               <AppLayout onOpenAddTx={handleOpenAddTx} onViewFriendHistory={handleViewFriendHistory}>
-                <Transactions onOpenAddTx={() => handleOpenAddTx('')} />
+                <Transactions onOpenAddTx={handleOpenAddTx} />
               </AppLayout>
             ) : (
               <Navigate to="/login" replace />
