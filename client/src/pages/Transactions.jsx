@@ -18,11 +18,14 @@ import {
   Share2,
   Calendar,
   Sparkles,
-  Loader2
+  Loader2,
+  Users
 } from 'lucide-react';
+import SplitGroupModal from '../components/SplitGroupModal';
 
 export default function Transactions({ onOpenAddTx }) {
   const [transactions, setTransactions] = useState([]);
+  const [selectedSplitGroupId, setSelectedSplitGroupId] = useState(null);
   const [friends, setFriends] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(null);
@@ -134,6 +137,7 @@ export default function Transactions({ onOpenAddTx }) {
 
   const filteredTransactions = transactions.filter(t => {
     if (!statusFilter) return true;
+    if (statusFilter === 'SPLIT') return Boolean(t.splitGroupId);
     if (statusFilter === 'PENDING') return t.approvalStatus === 'PENDING_APPROVAL';
     if (statusFilter === 'REJECTED') return t.approvalStatus === 'REJECTED';
     if (statusFilter === 'ACTIVE') return t.approvalStatus === 'ACTIVE' || !t.approvalStatus;
@@ -168,7 +172,15 @@ export default function Transactions({ onOpenAddTx }) {
             <span>Export CSV</span>
           </button>
           <button
-            onClick={onOpenAddTx}
+            onClick={() => onOpenAddTx('', 'split')}
+            className="flex items-center gap-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-sm font-bold px-4 py-2.5 rounded-xl shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all"
+            title="Split group bill across friends"
+          >
+            <Users className="w-4 h-4" />
+            <span>Split Bill</span>
+          </button>
+          <button
+            onClick={() => onOpenAddTx('', 'single')}
             className="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold px-4 py-2.5 rounded-xl shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all"
           >
             <span>+ Add Entry</span>
@@ -227,6 +239,7 @@ export default function Transactions({ onOpenAddTx }) {
             className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 font-semibold"
           >
             <option value="">All Statuses</option>
+            <option value="SPLIT">👥 Group Splits</option>
             <option value="PENDING">⏳ Pending Approval</option>
             <option value="ACTIVE">✅ Active / Accepted</option>
             <option value="REJECTED">❌ Rejected / Declined</option>
@@ -354,7 +367,20 @@ export default function Transactions({ onOpenAddTx }) {
                       </td>
 
                       <td className="px-5 py-4 max-w-xs">
-                        <div className="font-bold text-slate-900">{t.note}</div>
+                        <div className="font-bold text-slate-900 flex items-center gap-1.5 flex-wrap">
+                          <span>{t.note}</span>
+                          {t.splitGroupId && (
+                            <button
+                              type="button"
+                              onClick={() => setSelectedSplitGroupId(t.splitGroupId)}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 shadow-2xs transition-all active:scale-95 cursor-pointer"
+                              title="Click to view full group split breakdown & participants"
+                            >
+                              <Users className="w-3 h-3 text-indigo-600" />
+                              <span>Group Split</span>
+                            </button>
+                          )}
+                        </div>
                         {t.receiptNote && (
                           <div className="text-[10px] text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md mt-1 inline-flex items-center gap-1 font-mono border border-purple-200/60 max-w-full truncate">
                             <span>🧾</span>
@@ -454,6 +480,14 @@ export default function Transactions({ onOpenAddTx }) {
           </div>
         )}
       </div>
+
+      {/* Group Split Bill Breakdown Modal */}
+      <SplitGroupModal
+        isOpen={Boolean(selectedSplitGroupId)}
+        onClose={() => setSelectedSplitGroupId(null)}
+        splitGroupId={selectedSplitGroupId}
+        onSplitDeleted={() => fetchData(false)}
+      />
 
     </div>
   );

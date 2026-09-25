@@ -10,6 +10,7 @@ import SyncPermissionModal from '../components/SyncPermissionModal';
 import ColorfulLoader from '../components/ColorfulLoader';
 import useModalBackHandler from '../hooks/useModalBackHandler';
 import { printFriendStatement } from '../services/exportService';
+import SplitGroupModal from '../components/SplitGroupModal';
 import { 
   Users, 
   Search, 
@@ -36,6 +37,7 @@ import {
 
 export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, onCloseFriendModal, historyFriendId, onCloseHistory }) {
   const [friends, setFriends] = useState([]);
+  const [selectedSplitGroupId, setSelectedSplitGroupId] = useState(null);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('ALL'); // 'ALL' | 'OWES_YOU' | 'YOU_OWE' | 'SETTLED'
   const [loading, setLoading] = useState(true);
@@ -393,13 +395,23 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
           </p>
         </div>
 
-        <button
-          onClick={handleOpenCreateModal}
-          className="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold px-4 py-2.5 rounded-xl shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all self-start sm:self-auto"
-        >
-          <PlusCircle className="w-4 h-4" />
-          <span>Add New Friend</span>
-        </button>
+        <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+          <button
+            onClick={() => onOpenAddTx('', 'split')}
+            className="flex items-center gap-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-xs sm:text-sm font-bold px-4 py-2.5 rounded-xl shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all"
+            title="Split group bill among friends"
+          >
+            <Users className="w-4 h-4" />
+            <span>Split Bill</span>
+          </button>
+          <button
+            onClick={handleOpenCreateModal}
+            className="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white text-xs sm:text-sm font-bold px-4 py-2.5 rounded-xl shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all"
+          >
+            <PlusCircle className="w-4 h-4" />
+            <span>Add New Friend</span>
+          </button>
+        </div>
       </div>
 
       {/* Pending Connection Requests Banner */}
@@ -758,6 +770,17 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
                               <span className="text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 font-semibold border border-slate-200/60">
                                 {t.category}
                               </span>
+                              {t.splitGroupId && (
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedSplitGroupId(t.splitGroupId)}
+                                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] sm:text-[10px] font-black bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 shadow-2xs transition-all active:scale-95 cursor-pointer"
+                                  title="View Group Split Bill Details"
+                                >
+                                  <Users className="w-3 h-3 text-indigo-600" />
+                                  <span>Group Split</span>
+                                </button>
+                              )}
                             </div>
                             <div className="text-[10px] sm:text-[11px] text-slate-500 font-mono">
                               📅 {t.date} {t.time || ''} • via {t.paymentMethod || 'UPI'}
@@ -1046,6 +1069,17 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
         friend={syncModal.friend}
         onClose={() => setSyncModal({ open: false, friend: null })}
         onConfirm={handleConfirmPermissionChange}
+      />
+
+      {/* Split Group Breakdown Modal */}
+      <SplitGroupModal
+        isOpen={Boolean(selectedSplitGroupId)}
+        onClose={() => setSelectedSplitGroupId(null)}
+        splitGroupId={selectedSplitGroupId}
+        onSplitDeleted={() => {
+          fetchFriends(false);
+          if (activeLedger) loadFriendLedger(activeLedger.friend.id, false);
+        }}
       />
 
     </div>

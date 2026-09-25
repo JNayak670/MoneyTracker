@@ -216,11 +216,20 @@ export default function Dashboard({ onOpenAddTx, onOpenAddFriend, onViewFriendHi
           {/* Quick Action Buttons */}
           <div className="flex flex-wrap items-center gap-2 pt-1 md:pt-0">
             <button
-              onClick={() => onOpenAddTx('')}
+              onClick={() => onOpenAddTx('', 'single')}
               className="flex items-center justify-center gap-1.5 bg-[#0f766e] hover:bg-[#0d6d66] text-white font-black text-xs px-4 py-2.5 rounded-xl shadow-md transition-all active:scale-[0.98]"
             >
               <PlusCircle className="w-3.5 h-3.5" />
               <span>+ Record Entry</span>
+            </button>
+
+            <button
+              onClick={() => onOpenAddTx('', 'split')}
+              className="flex items-center justify-center gap-1.5 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-black text-xs px-4 py-2.5 rounded-xl shadow-md transition-all active:scale-[0.98]"
+              title="Split group bill with friends"
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span>👥 Split Bill</span>
             </button>
 
             <button

@@ -103,8 +103,11 @@ function MainApp() {
     };
   }, [user]);
 
-  const handleOpenAddTx = (friendId = '') => {
+  const [addTxInitialTab, setAddTxInitialTab] = useState('single');
+
+  const handleOpenAddTx = (friendId = '', tab = 'single') => {
     setPreselectedFriendId(friendId);
+    setAddTxInitialTab(tab);
     setAddTxModalOpen(true);
   };
 
@@ -226,6 +229,7 @@ function MainApp() {
           onSave={handleSaveTransaction}
           friends={friendsList}
           preselectedFriendId={preselectedFriendId}
+          initialTab={addTxInitialTab}
           onOpenAddFriend={() => {
             setAddTxModalOpen(false);
             handleOpenAddFriend(null);

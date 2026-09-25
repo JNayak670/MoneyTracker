@@ -7,13 +7,17 @@ const {
   deleteTransaction,
   settleUp,
   approveTransaction,
-  rejectTransaction
+  rejectTransaction,
+  getGroupSplitDetails,
+  deleteGroupSplit
 } = require('../controllers/transactionController');
 const { protect } = require('../middleware/authMiddleware');
 
 router.use(protect);
 
 router.post('/settle', settleUp);
+router.get('/group/:splitGroupId', getGroupSplitDetails);
+router.delete('/group/:splitGroupId', deleteGroupSplit);
 router.post('/:id/approve', approveTransaction);
 router.post('/:id/reject', rejectTransaction);
 

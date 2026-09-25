@@ -65,7 +65,27 @@ const transactionSchema = new mongoose.Schema({
     default: false
   },
   receiptNote: String,
-  splitGroupId: String
+  splitGroupId: String,
+  splitDetails: {
+    totalBillAmount: Number,
+    payerName: String,
+    payerFriendId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Friend',
+      default: null
+    },
+    payerIsUser: {
+      type: Boolean,
+      default: true
+    },
+    splitMode: {
+      type: String,
+      enum: ['EQUAL', 'EXACT', 'PERCENTAGE', 'SHARES'],
+      default: 'EQUAL'
+    },
+    userShare: Number,
+    participantCount: Number
+  }
 }, {
   timestamps: true,
   toJSON: {
@@ -83,5 +103,7 @@ transactionSchema.index({ userId: 1, date: -1, createdAt: -1 });
 transactionSchema.index({ userId: 1, approvalStatus: 1 });
 transactionSchema.index({ userId: 1, friendId: 1, approvalStatus: 1 });
 transactionSchema.index({ friendId: 1, userId: 1, date: 1 });
+transactionSchema.index({ splitGroupId: 1 });
+transactionSchema.index({ userId: 1, splitGroupId: 1 });
 
 module.exports = mongoose.model('Transaction', transactionSchema);
