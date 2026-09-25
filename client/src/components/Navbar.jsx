@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import api from '../services/api';
 import useModalBackHandler from '../hooks/useModalBackHandler';
+import { playNotificationSound } from '../services/soundService';
 
 export default function Navbar({ onOpenAddModal, onViewFriend, onDataChanged }) {
   const { user, logout } = useAuth();
@@ -41,7 +42,7 @@ export default function Navbar({ onOpenAddModal, onViewFriend, onDataChanged }) 
   const [searchModalOpen, setSearchModalOpen] = useState(false);
   const [notifDrawerOpen, setNotifDrawerOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
-
+  const prevUnreadRef = useRef(null);
 
   const profileRef = useRef(null);
 
@@ -50,7 +51,12 @@ export default function Navbar({ onOpenAddModal, onViewFriend, onDataChanged }) 
     try {
       const res = await api.get('/notifications');
       const count = res?.unreadCount ?? res?.data?.unreadCount ?? 0;
-      setUnreadCount(Number(count) || 0);
+      const num = Number(count) || 0;
+      if (prevUnreadRef.current !== null && num > prevUnreadRef.current) {
+        playNotificationSound();
+      }
+      prevUnreadRef.current = num;
+      setUnreadCount(num);
     } catch (err) {
       // ignore silent fetch failure
     }

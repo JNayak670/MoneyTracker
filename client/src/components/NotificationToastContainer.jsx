@@ -14,44 +14,7 @@ import {
   Volume2
 } from 'lucide-react';
 import api from '../services/api';
-
-// Gentle 2-tone pleasant audio chime using browser Web Audio API
-const playNotificationChime = () => {
-  try {
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContext) return;
-    const ctx = new AudioContext();
-    if (ctx.state === 'suspended') {
-      ctx.resume();
-    }
-    
-    // Primary chime tone (pleasant D5)
-    const osc1 = ctx.createOscillator();
-    const gain1 = ctx.createGain();
-    osc1.type = 'sine';
-    osc1.frequency.setValueAtTime(587.33, ctx.currentTime);
-    gain1.gain.setValueAtTime(0.08, ctx.currentTime);
-    gain1.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
-    osc1.connect(gain1);
-    gain1.connect(ctx.destination);
-    osc1.start(ctx.currentTime);
-    osc1.stop(ctx.currentTime + 0.35);
-
-    // Harmonic chime tone (A5)
-    const osc2 = ctx.createOscillator();
-    const gain2 = ctx.createGain();
-    osc2.type = 'sine';
-    osc2.frequency.setValueAtTime(880, ctx.currentTime + 0.09);
-    gain2.gain.setValueAtTime(0.09, ctx.currentTime + 0.09);
-    gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.55);
-    osc2.connect(gain2);
-    gain2.connect(ctx.destination);
-    osc2.start(ctx.currentTime + 0.09);
-    osc2.stop(ctx.currentTime + 0.55);
-  } catch (err) {
-    // Audio autoplay restrictions or unsupported
-  }
-};
+import { playNotificationSound } from '../services/soundService';
 
 // Helper to get configuration by notification type
 const getToastConfig = (type) => {
@@ -327,8 +290,8 @@ export default function NotificationToastContainer() {
         const unseenNotifications = list.filter(n => !n.isRead);
 
         if (unseenNotifications.length > 0) {
-          // Play gentle audio chime
-          playNotificationChime();
+          // Play notification sound & haptic vibration
+          playNotificationSound();
 
           // Show up to 3 most recent unread notifications as side pop-up toasts
           const initialToasts = unseenNotifications.slice(0, 3).map((n, idx) => ({
@@ -356,8 +319,8 @@ export default function NotificationToastContainer() {
       });
 
       if (incomingNew.length > 0) {
-        // Play gentle audio chime
-        playNotificationChime();
+        // Play notification sound & haptic vibration
+        playNotificationSound();
 
         // Add to toast stack (limit to max 3 concurrent visible toasts)
         setToasts(prev => {
@@ -401,7 +364,7 @@ export default function NotificationToastContainer() {
     const handleCustomToast = (e) => {
       const notifData = e.detail;
       if (notifData) {
-        playNotificationChime();
+        playNotificationSound();
         setToasts(prev => [
           {
             id: notifData.id || `custom-${Date.now()}`,
