@@ -5,22 +5,46 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+permissions:
+  contents: read
+  deployments: write
+
 jobs:
   deploy:
+    name: Deploy & Sync Status with Render
     runs-on: ubuntu-latest
     environment:
       name: Production
-      url: ${{ vars.RENDER_APP_URL || 'https://render.com' }}
+      url: ${{ vars.RENDER_APP_URL || 'https://dashboard.render.com' }}
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Trigger Render Deploy
+      # Mode 1: Full Live Tracking (shows in-progress, live success/fail, and live URL in GitHub Deployments)
+      - name: Deploy to Render & Track Real-Time Status
+        if: ${{ secrets.RENDER_API_KEY != '' && secrets.RENDER_SERVICE_ID != '' }}
+        uses: JorgeLNJunior/render-deploy@v1.5.0
+        with:
+          service_id: ${{ secrets.RENDER_SERVICE_ID }}
+          api_key: ${{ secrets.RENDER_API_KEY }}
+          wait_deploy: true
+          github_deployment: true
+          deployment_environment: 'Production'
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Mode 2: Fallback via Deploy Hook URL (if API Key is not configured yet)
+      - name: Trigger Deploy Hook (Fallback)
+        if: ${{ secrets.RENDER_API_KEY == '' && secrets.RENDER_DEPLOY_HOOK != '' }}
         run: |
-          if [ -n "${{ secrets.RENDER_DEPLOY_HOOK }}" ]; then
-            echo "Triggering Render Production Deployment via Deploy Hook..."
-            curl -f -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}"
-            echo "Deploy triggered successfully!"
+          echo "Triggering Render Production Deployment via Deploy Hook..."
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}")
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | head -n -1)
+          
+          if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+            echo "Render deploy triggered successfully (HTTP $HTTP_CODE): $BODY"
           else
-            echo "Render auto-deploy active via Render GitHub Integration."
+            echo "Error triggering Render deploy (HTTP $HTTP_CODE): $BODY"
+            exit 1
           fi
