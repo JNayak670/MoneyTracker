@@ -1,0 +1,26 @@
+name: Production Deployment (Render)
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: Production
+      url: ${{ vars.RENDER_APP_URL || 'https://render.com' }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Trigger Render Deploy
+        run: |
+          if [ -n "${{ secrets.RENDER_DEPLOY_HOOK }}" ]; then
+            echo "Triggering Render Production Deployment via Deploy Hook..."
+            curl -f -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}"
+            echo "Deploy triggered successfully!"
+          else
+            echo "Render auto-deploy active via Render GitHub Integration."
+          fi
