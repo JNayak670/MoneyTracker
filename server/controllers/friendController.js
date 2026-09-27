@@ -169,7 +169,7 @@ exports.getFriendLedger = async (req, res) => {
         friendId, 
         userId, 
         approvalStatus: { $ne: 'REJECTED' } 
-      }).sort({ date: 1, createdAt: 1 }).lean()
+      }).sort({ date: 1, createdAt: 1 }).populate('linkedTransactionId', 'approvalStatus').lean()
     ]);
 
     if (!friend) {
@@ -186,6 +186,15 @@ exports.getFriendLedger = async (req, res) => {
       if (t.impactOnUser > 0 && t.type !== 'SETTLED') totalGiven += t.amount;
       if (t.impactOnUser < 0 && t.type !== 'SETTLED') totalReceived += t.amount;
 
+      let effectiveApprovalStatus = t.approvalStatus;
+      if (t.linkedTransactionId && typeof t.linkedTransactionId === 'object' && t.linkedTransactionId.approvalStatus) {
+        if (t.linkedTransactionId.approvalStatus === 'PENDING_APPROVAL' || t.approvalStatus === 'PENDING_APPROVAL') {
+          effectiveApprovalStatus = 'PENDING_APPROVAL';
+        } else if (t.linkedTransactionId.approvalStatus === 'REJECTED' || t.approvalStatus === 'REJECTED') {
+          effectiveApprovalStatus = 'REJECTED';
+        }
+      }
+
       return {
         id: t._id ? t._id.toString() : t.id,
         userId: t.userId.toString(),
@@ -201,7 +210,8 @@ exports.getFriendLedger = async (req, res) => {
         receiptNote: t.receiptNote,
         splitGroupId: t.splitGroupId,
         isShared: t.isShared,
-        approvalStatus: t.approvalStatus,
+        isSettled: Boolean(t.isSettled) || t.type === 'SETTLED',
+        approvalStatus: effectiveApprovalStatus,
         createdAt: t.createdAt,
         runningBalance: Number(runningBalance.toFixed(2))
       };

@@ -302,12 +302,16 @@ export default function NotificationDrawer({ isOpen, onClose, onDataChanged }) {
                     <div className={`w-7 h-7 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5 text-xs ${
                       isAdminMsg ? 'bg-gradient-to-br from-purple-600 to-indigo-600 text-white shadow-xs' :
                       isMatch ? 'bg-purple-100 text-purple-700' :
+                      notif.type === 'SETTLEMENT_REQUEST' ? 'bg-teal-100 text-teal-800' :
                       isTxReq ? 'bg-amber-100 text-amber-700' :
-                      notif.type === 'FRIEND_CONNECTED' ? 'bg-emerald-100 text-emerald-700' :
+                      (notif.type === 'FRIEND_CONNECTED' || notif.type === 'SETTLEMENT_APPROVED') ? 'bg-emerald-100 text-emerald-700' :
+                      notif.type === 'SETTLEMENT_REJECTED' ? 'bg-rose-100 text-rose-700' :
                       'bg-slate-200 text-slate-700'
                     }`}>
                       {isAdminMsg ? <Megaphone className="w-3.5 h-3.5" /> :
                        isMatch ? <Sparkles className="w-3.5 h-3.5" /> :
+                       (notif.type === 'SETTLEMENT_REQUEST' || notif.type === 'SETTLEMENT_APPROVED') ? <CheckCircle2 className="w-3.5 h-3.5" /> :
+                       notif.type === 'SETTLEMENT_REJECTED' ? <XCircle className="w-3.5 h-3.5" /> :
                        isTxReq ? <Clock className="w-3.5 h-3.5" /> :
                        <ShieldCheck className="w-3.5 h-3.5" />}
                     </div>

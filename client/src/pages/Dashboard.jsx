@@ -56,7 +56,7 @@ export default function Dashboard({ onOpenAddTx, onOpenAddFriend, onViewFriendHi
   const [loading, setLoading] = useState(true);
 
   // Modal states
-  const [settleModal, setSettleModal] = useState({ open: false, friendId: '', friendName: '', amount: 0 });
+  const [settleModal, setSettleModal] = useState({ open: false, friendId: '', friendName: '', amount: 0, isShared: false });
   const [whatsappModal, setWhatsappModal] = useState({ open: false, friendName: '', amount: 0, phone: '', type: 'OWED' });
   const [shareModal, setShareModal] = useState({ open: false, friendId: '', friendName: '' });
   const [linkModal, setLinkModal] = useState({ open: false, friend: null });
@@ -102,12 +102,15 @@ export default function Dashboard({ onOpenAddTx, onOpenAddFriend, onViewFriendHi
 
   const handleSettleSubmit = async (payload) => {
     try {
-      await api.post('/transactions/settle', payload);
-      setSettleModal({ open: false, friendId: '', friendName: '', amount: 0 });
-      await fetchData();
+      const res = await api.post('/transactions/settle', payload);
+      setSettleModal({ open: false, friendId: '', friendName: '', amount: 0, isShared: false });
+      await fetchData(false);
       window.dispatchEvent(new Event('transaction-updated'));
+      if (res?.data?.message || res?.message) {
+        alert(res?.data?.message || res?.message);
+      }
     } catch (err) {
-      alert(`Settlement failed: ${err.message}`);
+      alert(`Settlement failed: ${err.response?.data?.error || err.message}`);
     }
   };
 
@@ -426,7 +429,7 @@ export default function Dashboard({ onOpenAddTx, onOpenAddFriend, onViewFriendHi
                 currency={currency}
                 onAddTx={(id) => onOpenAddTx(id)}
                 onViewHistory={(id) => onViewFriendHistory(id)}
-                onSettle={(id, amt, name) => setSettleModal({ open: true, friendId: id, friendName: name, amount: amt })}
+                onSettle={(id, amt, name, isConnected) => setSettleModal({ open: true, friendId: id, friendName: name, amount: amt, isShared: Boolean(isConnected) })}
                 onRemind={(id, amt, name, phone, type = 'OWED') => setWhatsappModal({ open: true, friendName: name, amount: amt, phone, type })}
                 onShareCode={(id, name) => setShareModal({ open: true, friendId: id, friendName: name })}
                 onEdit={(f) => onOpenAddFriend(f)}
@@ -561,11 +564,12 @@ export default function Dashboard({ onOpenAddTx, onOpenAddFriend, onViewFriendHi
       {/* Settle Modal */}
       <SettleModal
         isOpen={settleModal.open}
-        onClose={() => setSettleModal({ open: false, friendId: '', friendName: '', amount: 0 })}
+        onClose={() => setSettleModal({ open: false, friendId: '', friendName: '', amount: 0, isShared: false })}
         onSettle={handleSettleSubmit}
         friendId={settleModal.friendId}
         friendName={settleModal.friendName}
         initialAmount={settleModal.amount}
+        isShared={settleModal.isShared}
         currency={currency}
       />
 

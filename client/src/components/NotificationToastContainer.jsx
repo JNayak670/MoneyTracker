@@ -39,6 +39,36 @@ const getToastConfig = (type) => {
         progressBar: 'from-amber-500 to-orange-500',
         icon: Receipt
       };
+    case 'SETTLEMENT_REQUEST':
+      return {
+        badge: 'Settlement Request',
+        badgeClass: 'bg-teal-500/20 text-teal-300 border-teal-500/40',
+        iconBg: 'bg-gradient-to-tr from-teal-500 to-emerald-600 text-white',
+        borderClass: 'border-teal-500/40 hover:border-teal-500/60',
+        glowColor: 'rgba(20, 184, 166, 0.15)',
+        progressBar: 'from-teal-500 to-emerald-500',
+        icon: Receipt
+      };
+    case 'SETTLEMENT_APPROVED':
+      return {
+        badge: 'Settlement Approved',
+        badgeClass: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
+        iconBg: 'bg-gradient-to-tr from-emerald-600 to-green-600 text-white',
+        borderClass: 'border-emerald-500/40 hover:border-emerald-500/60',
+        glowColor: 'rgba(16, 185, 129, 0.15)',
+        progressBar: 'from-emerald-500 to-green-500',
+        icon: CheckCircle2
+      };
+    case 'SETTLEMENT_REJECTED':
+      return {
+        badge: 'Settlement Declined',
+        badgeClass: 'bg-rose-500/20 text-rose-300 border-rose-500/40',
+        iconBg: 'bg-gradient-to-tr from-rose-600 to-pink-600 text-white',
+        borderClass: 'border-rose-500/40 hover:border-rose-500/60',
+        glowColor: 'rgba(244, 63, 94, 0.15)',
+        progressBar: 'from-rose-500 to-pink-500',
+        icon: XCircle
+      };
     case 'TRANSACTION_LOGGED':
       return {
         badge: 'Instant Synced',

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import api from '../services/api';
 import ColorfulLoader from '../components/ColorfulLoader';
 import { exportToCSV } from '../services/exportService';
@@ -23,6 +23,7 @@ import {
   Lock
 } from 'lucide-react';
 import SplitGroupModal from '../components/SplitGroupModal';
+import SettleModal from '../components/SettleModal';
 
 export default function Transactions({ onOpenAddTx }) {
   const [transactions, setTransactions] = useState([]);
@@ -30,6 +31,7 @@ export default function Transactions({ onOpenAddTx }) {
   const [friends, setFriends] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(null);
+  const [settleModal, setSettleModal] = useState({ open: false, friendId: '', friendName: '', amount: 0, note: '', isShared: false });
 
   // Filters
   const [search, setSearch] = useState('');
@@ -39,6 +41,43 @@ export default function Transactions({ onOpenAddTx }) {
   const [category, setCategory] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+
+  // Map of active settlement records per friend to identify settled history
+  const friendSettlementMap = useMemo(() => {
+    const map = {};
+    for (const tx of transactions) {
+      if (tx.type === 'SETTLED' && tx.approvalStatus !== 'REJECTED' && tx.friendId) {
+        const fId = tx.friendId;
+        if (!map[fId]) map[fId] = [];
+        map[fId].push(tx);
+      }
+    }
+    return map;
+  }, [transactions]);
+
+  // Determine if a specific transaction has an active Settle button
+  const checkCanSettle = (t) => {
+    if (!t || !t.friend || t.type === 'SETTLED' || t.approvalStatus === 'REJECTED' || t.approvalStatus === 'PENDING_APPROVAL') {
+      return false;
+    }
+
+    const friendObj = friends.find(f => f.id === t.friendId || f._id === t.friendId || (t.friend && (f.id === t.friend.id || f._id === t.friend.id)));
+    const isFriendBalanceZero = friendObj && (friendObj.currentBalance === 0 || Math.abs(friendObj.currentBalance || 0) < 0.01 || friendObj.status === 'SETTLED');
+    if (isFriendBalanceZero) return false;
+
+    if (t.isSettled) return false;
+
+    const friendSettlements = friendSettlementMap[t.friendId] || [];
+    const wasCoveredBySettlement = friendSettlements.some(s => {
+      const sTime = s.createdAt ? new Date(s.createdAt).getTime() : 0;
+      const tTime = t.createdAt ? new Date(t.createdAt).getTime() : 0;
+      if (sTime && tTime && sTime >= tTime) return true;
+      if (s.date && t.date && s.date >= t.date) return true;
+      return false;
+    });
+
+    return !wasCoveredBySettlement;
+  };
 
   const fetchData = async (showLoading = true) => {
     try {
@@ -131,6 +170,36 @@ export default function Transactions({ onOpenAddTx }) {
     }
   };
 
+  const handleOpenSettle = (t) => {
+    const friendObj = t.friend || friends.find(f => f.id === t.friendId || f._id === t.friendId);
+    const friendName = friendObj?.name || 'Friend';
+    const friendId = friendObj?.id || friendObj?._id || t.friendId;
+    const isShared = Boolean(t.isShared || friendObj?.connectionStatus === 'CONNECTED');
+
+    setSettleModal({
+      open: true,
+      friendId,
+      friendName,
+      amount: t.amount,
+      note: `Settlement for "${t.note}"`,
+      isShared
+    });
+  };
+
+  const handleSettleSubmit = async (payload) => {
+    try {
+      const res = await api.post('/transactions/settle', payload);
+      setSettleModal({ open: false, friendId: '', friendName: '', amount: 0, note: '', isShared: false });
+      await fetchData(false);
+      window.dispatchEvent(new Event('transaction-updated'));
+      if (res?.data?.message || res?.message) {
+        alert(res?.data?.message || res?.message);
+      }
+    } catch (err) {
+      alert(`Settlement failed: ${err.response?.data?.error || err.message}`);
+    }
+  };
+
   const handleClearFilters = () => {
     setSearch('');
     setFriendId('');
@@ -142,12 +211,33 @@ export default function Transactions({ onOpenAddTx }) {
   };
 
   const filteredTransactions = transactions.filter(t => {
-    if (!statusFilter) return true;
-    if (statusFilter === 'SPLIT') return Boolean(t.splitGroupId);
-    if (statusFilter === 'PENDING') return t.approvalStatus === 'PENDING_APPROVAL';
-    if (statusFilter === 'REJECTED') return t.approvalStatus === 'REJECTED';
-    if (statusFilter === 'ACTIVE') return t.approvalStatus === 'ACTIVE' || !t.approvalStatus;
-    if (statusFilter === 'SHARED') return t.isShared;
+    // Filter for Not Settled (shows transactions with active Settle button)
+    if (statusFilter === 'NOT_SETTLED' || type === 'NOT_SETTLED') {
+      if (!checkCanSettle(t)) return false;
+    }
+
+    if (statusFilter) {
+      if (statusFilter === 'NOT_SETTLED') {
+        if (!checkCanSettle(t)) return false;
+      } else if (statusFilter === 'SETTLED') {
+        if (checkCanSettle(t)) return false;
+      } else if (statusFilter === 'SPLIT') {
+        if (!t.splitGroupId) return false;
+      } else if (statusFilter === 'PENDING') {
+        if (t.approvalStatus !== 'PENDING_APPROVAL') return false;
+      } else if (statusFilter === 'REJECTED') {
+        if (t.approvalStatus !== 'REJECTED') return false;
+      } else if (statusFilter === 'ACTIVE') {
+        if (t.approvalStatus !== 'ACTIVE' && t.approvalStatus) return false;
+      } else if (statusFilter === 'SHARED') {
+        if (!t.isShared) return false;
+      }
+    }
+
+    if (type && type !== 'NOT_SETTLED') {
+      if (t.type !== type) return false;
+    }
+
     return true;
   });
 
@@ -233,6 +323,7 @@ export default function Transactions({ onOpenAddTx }) {
             className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
           >
             <option value="">All Types</option>
+            <option value="NOT_SETTLED">⚡ Not Settled (Needs Settle)</option>
             <option value="GIVEN">Given / Lent ↗️</option>
             <option value="RECEIVED">Received / Borrowed ↙️</option>
             <option value="SPLIT">Split 👥</option>
@@ -245,6 +336,8 @@ export default function Transactions({ onOpenAddTx }) {
             className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 font-semibold"
           >
             <option value="">All Statuses</option>
+            <option value="NOT_SETTLED">⚡ Not Settled (Needs Settle)</option>
+            <option value="SETTLED">🤝 Settled</option>
             <option value="SPLIT">👥 Group Splits</option>
             <option value="PENDING">⏳ Pending Approval</option>
             <option value="ACTIVE">✅ Active / Accepted</option>
@@ -288,6 +381,8 @@ export default function Transactions({ onOpenAddTx }) {
             <p className="text-xs text-slate-500 max-w-sm mx-auto">
               {friends.length === 0 
                 ? 'Add a friend to your circle first so you can start recording shared expenses and settlements.' 
+                : (statusFilter === 'NOT_SETTLED' || type === 'NOT_SETTLED')
+                ? 'All friend balances and previous transactions are settled up! No unsettled transactions with a Settle button.'
                 : 'Try modifying your search or filters, or record a new entry.'}
             </p>
           </div>
@@ -315,6 +410,7 @@ export default function Transactions({ onOpenAddTx }) {
                     const isSettled = t.type === 'SETTLED';
                     const isPending = t.approvalStatus === 'PENDING_APPROVAL';
                     const isRejected = t.approvalStatus === 'REJECTED';
+                    const canSettle = checkCanSettle(t);
 
                     const categoryColors = {
                       'Food & Dining': 'bg-amber-50 text-amber-800 border-amber-200',
@@ -407,10 +503,17 @@ export default function Transactions({ onOpenAddTx }) {
                         <td className="px-3.5 py-3 whitespace-nowrap">
                           <div className="flex flex-col gap-0.5 items-start">
                             {isPending ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9.5px] font-black bg-amber-100 text-amber-900 border border-amber-300 animate-pulse">
-                                <Clock className="w-2.5 h-2.5 text-amber-700" />
-                                <span>Pending</span>
-                              </span>
+                              <>
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9.5px] font-black bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs animate-pulse">
+                                  <Clock className="w-2.5 h-2.5 text-amber-700" />
+                                  <span>Status: Pending</span>
+                                </span>
+                                <span className="text-[9px] text-amber-700 font-bold tracking-tight">
+                                  {t.isEntryOwner
+                                    ? (t.type === 'SETTLED' ? '⏳ Settlement Sent (Awaiting)' : '⏳ Awaiting Friend Approval')
+                                    : (t.type === 'SETTLED' ? '👉 Settlement Approval Needed' : '👉 Approval Needed')}
+                                </span>
+                              </>
                             ) : isRejected ? (
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9.5px] font-bold bg-rose-100 text-rose-800 border border-rose-300 line-through">
                                 <XCircle className="w-2.5 h-2.5 text-rose-600" />
@@ -451,30 +554,62 @@ export default function Transactions({ onOpenAddTx }) {
                           {isSettled ? '' : isGiven ? '+' : '-'}₹{t.amount.toLocaleString()}
                         </td>
 
-                        {/* Action buttons (Approve / Reject / Delete) */}
+                        {/* Action buttons (Settle / Approve / Reject / Delete) */}
                         <td className="px-3.5 py-3 text-right whitespace-nowrap">
-                          <div className="flex items-center justify-end gap-1">
+                          <div className="flex items-center justify-end gap-1.5">
+                            {/* Settle button for unsettled records with a friend */}
+                            {canSettle && (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenSettle(t)}
+                                className="inline-flex items-center gap-1 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white text-[10px] font-black px-2 py-1 rounded-lg shadow-2xs transition-all active:scale-95 cursor-pointer"
+                                title={t.isShared ? `Send settlement request to ${t.friend.name}` : `Settle balance with ${t.friend.name}`}
+                              >
+                                <CheckCircle2 className="w-3 h-3 text-white" />
+                                <span>Settle</span>
+                              </button>
+                            )}
+
                             {isPending ? (
-                              <>
-                                <button
-                                  onClick={() => handleApprove(t.id)}
-                                  disabled={actionLoading === t.id}
-                                  className="inline-flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black px-2 py-1 rounded shadow-2xs transition-all disabled:opacity-50"
-                                  title="Accept & Confirm this transaction"
-                                >
-                                  {actionLoading === t.id ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Check className="w-2.5 h-2.5" />}
-                                  <span>Accept</span>
-                                </button>
-                                <button
-                                  onClick={() => handleReject(t.id)}
-                                  disabled={actionLoading === t.id}
-                                  className="inline-flex items-center gap-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 text-[10px] font-bold px-1.5 py-1 rounded transition-all disabled:opacity-50"
-                                  title="Decline this transaction"
-                                >
-                                  <X className="w-2.5 h-2.5" />
-                                  <span>Reject</span>
-                                </button>
-                              </>
+                              t.isEntryOwner ? (
+                                <div className="inline-flex items-center gap-1">
+                                  <span 
+                                    className="inline-flex items-center gap-1 bg-amber-50 text-amber-800 border border-amber-200 text-[9.5px] font-bold px-2 py-0.5 rounded-md"
+                                    title="Waiting for friend to accept"
+                                  >
+                                    <Clock className="w-2.5 h-2.5 text-amber-600" />
+                                    <span>Awaiting Friend</span>
+                                  </span>
+                                  <button
+                                    onClick={() => handleDelete(t.id)}
+                                    className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                                    title="Cancel Request"
+                                  >
+                                    <X className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <>
+                                  <button
+                                    onClick={() => handleApprove(t.id)}
+                                    disabled={actionLoading === t.id}
+                                    className="inline-flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black px-2 py-1 rounded shadow-2xs transition-all disabled:opacity-50 cursor-pointer"
+                                    title="Accept & Confirm this transaction"
+                                  >
+                                    {actionLoading === t.id ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Check className="w-2.5 h-2.5" />}
+                                    <span>Accept</span>
+                                  </button>
+                                  <button
+                                    onClick={() => handleReject(t.id)}
+                                    disabled={actionLoading === t.id}
+                                    className="inline-flex items-center gap-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 text-[10px] font-bold px-1.5 py-1 rounded transition-all disabled:opacity-50 cursor-pointer"
+                                    title="Decline this transaction"
+                                  >
+                                    <X className="w-2.5 h-2.5" />
+                                    <span>Reject</span>
+                                  </button>
+                                </>
+                              )
                             ) : t.canDelete !== false ? (
                               <button
                                 onClick={() => handleDelete(t.id)}
@@ -507,6 +642,7 @@ export default function Transactions({ onOpenAddTx }) {
                 const isSettled = t.type === 'SETTLED';
                 const isPending = t.approvalStatus === 'PENDING_APPROVAL';
                 const isRejected = t.approvalStatus === 'REJECTED';
+                const canSettle = checkCanSettle(t);
 
                 const categoryColor = {
                   'Food & Dining': 'bg-amber-50 text-amber-800 border-amber-200',
@@ -591,6 +727,21 @@ export default function Transactions({ onOpenAddTx }) {
                       </div>
                     )}
 
+                    {/* Mobile Pending Status Notice Banner */}
+                    {isPending && (
+                      <div className="text-[10px] font-bold text-amber-800 bg-amber-50/90 px-2.5 py-1.5 rounded-lg border border-amber-200/80 flex items-center justify-between">
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3 h-3 text-amber-600" />
+                          <span>Status: Pending</span>
+                        </span>
+                        <span className="text-[9.5px] font-semibold text-amber-700">
+                          {t.isEntryOwner
+                            ? (t.type === 'SETTLED' ? 'Settlement awaiting approval' : 'Awaiting friend approval')
+                            : (t.type === 'SETTLED' ? 'Settlement needs approval' : 'Action required')}
+                        </span>
+                      </div>
+                    )}
+
                     {/* Footer Badges & Actions */}
                     <div className="flex items-center justify-between pt-1 border-t border-slate-100/80 gap-2">
                       <div className="flex items-center gap-1.5 flex-wrap">
@@ -603,10 +754,10 @@ export default function Transactions({ onOpenAddTx }) {
                         {isPending ? (
                           <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9.5px] font-black bg-amber-100 text-amber-900 border border-amber-300 animate-pulse">
                             <Clock className="w-2.5 h-2.5 text-amber-700" />
-                            <span>Pending</span>
+                            <span>Status: Pending</span>
                           </span>
                         ) : isRejected ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9.5px] font-bold bg-rose-100 text-rose-800 border border-rose-300">
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9.5px] font-bold bg-rose-100 text-rose-800 border border-rose-300">
                             <XCircle className="w-2.5 h-2.5 text-rose-600" />
                             <span>Declined</span>
                           </span>
@@ -619,23 +770,51 @@ export default function Transactions({ onOpenAddTx }) {
                       </div>
 
                       <div className="flex items-center gap-1">
+                        {/* Settle button for mobile card */}
+                        {canSettle && (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenSettle(t)}
+                            className="inline-flex items-center gap-1 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white text-[10px] font-black px-2 py-1 rounded shadow-xs active:scale-95 cursor-pointer"
+                            title={t.isShared ? `Send settlement request to ${t.friend.name}` : `Settle with ${t.friend.name}`}
+                          >
+                            <CheckCircle2 className="w-3 h-3 text-white" />
+                            <span>Settle</span>
+                          </button>
+                        )}
+
                         {isPending ? (
-                          <>
-                            <button
-                              onClick={() => handleApprove(t.id)}
-                              disabled={actionLoading === t.id}
-                              className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black px-2 py-1 rounded shadow-xs"
-                            >
-                              Accept
-                            </button>
-                            <button
-                              onClick={() => handleReject(t.id)}
-                              disabled={actionLoading === t.id}
-                              className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 text-[10px] font-bold px-2 py-1 rounded"
-                            >
-                              Reject
-                            </button>
-                          </>
+                          t.isEntryOwner ? (
+                            <div className="flex items-center gap-1">
+                              <span className="text-[9.5px] font-bold text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                                Awaiting Friend
+                              </span>
+                              <button
+                                onClick={() => handleDelete(t.id)}
+                                className="p-1 text-slate-400 hover:text-rose-600 rounded"
+                                title="Cancel Request"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => handleApprove(t.id)}
+                                disabled={actionLoading === t.id}
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black px-2 py-1 rounded shadow-xs"
+                              >
+                                Accept
+                              </button>
+                              <button
+                                onClick={() => handleReject(t.id)}
+                                disabled={actionLoading === t.id}
+                                className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 text-[10px] font-bold px-2 py-1 rounded"
+                              >
+                                Reject
+                              </button>
+                            </>
+                          )
                         ) : t.canDelete !== false ? (
                           <button
                             onClick={() => handleDelete(t.id)}
@@ -669,6 +848,18 @@ export default function Transactions({ onOpenAddTx }) {
         onClose={() => setSelectedSplitGroupId(null)}
         splitGroupId={selectedSplitGroupId}
         onSplitDeleted={() => fetchData(false)}
+      />
+
+      {/* Settle Up Balance / Request Modal */}
+      <SettleModal
+        isOpen={settleModal.open}
+        onClose={() => setSettleModal({ open: false, friendId: '', friendName: '', amount: 0, note: '', isShared: false })}
+        onSettle={handleSettleSubmit}
+        friendId={settleModal.friendId}
+        friendName={settleModal.friendName}
+        initialAmount={settleModal.amount}
+        initialNote={settleModal.note}
+        isShared={settleModal.isShared}
       />
 
     </div>

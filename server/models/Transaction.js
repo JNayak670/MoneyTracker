@@ -64,6 +64,14 @@ const transactionSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  isSettled: {
+    type: Boolean,
+    default: false
+  },
+  settledAt: {
+    type: Date,
+    default: null
+  },
   createdByUserId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',

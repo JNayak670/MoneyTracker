@@ -339,15 +339,16 @@ export default function FriendCard({
         {/* Primary Full-Width Settle Button */}
         <div className="flex gap-2">
           <button
-            onClick={() => onSettle(friend.id, Math.abs(bal), friend.name)}
-            className={`flex-1 flex items-center justify-center gap-2 text-white text-xs sm:text-sm font-black py-2.5 px-4 rounded-2xl shadow-xs transition-all ${
+            onClick={() => onSettle(friend.id, Math.abs(bal), friend.name, isConnected)}
+            title={isConnected ? `Send settlement request to ${friend.name}` : `Settle balance with ${friend.name}`}
+            className={`flex-1 flex items-center justify-center gap-2 text-white text-xs sm:text-sm font-black py-2.5 px-4 rounded-2xl shadow-xs transition-all cursor-pointer ${
               isSettled
                 ? 'bg-slate-400 hover:bg-slate-500 cursor-default'
                 : 'bg-[#0f766e] hover:bg-[#0d6d66] active:scale-[0.98]'
             }`}
           >
             <CheckCircle2 className="w-4 h-4" />
-            <span>Settle {bal !== 0 ? `${currency}${Math.abs(bal).toLocaleString()}` : ''}</span>
+            <span>{isConnected ? 'Request Settle' : 'Settle'} {bal !== 0 ? `${currency}${Math.abs(bal).toLocaleString()}` : ''}</span>
           </button>
 
           {onRemind && (

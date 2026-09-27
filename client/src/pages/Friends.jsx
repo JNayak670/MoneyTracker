@@ -68,7 +68,7 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
   const [userCheckResult, setUserCheckResult] = useState(null);
 
   // Action Modals
-  const [settleModal, setSettleModal] = useState({ open: false, friendId: '', friendName: '', amount: 0 });
+  const [settleModal, setSettleModal] = useState({ open: false, friendId: '', friendName: '', amount: 0, note: '', isShared: false });
   const [whatsappModal, setWhatsappModal] = useState({ open: false, friendName: '', amount: 0, phone: '', type: 'OWED' });
   const [shareModal, setShareModal] = useState({ open: false, friendId: '', friendName: '' });
   const [linkModal, setLinkModal] = useState({ open: false, friend: null });
@@ -349,15 +349,18 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
 
   const handleSettleSubmit = async (payload) => {
     try {
-      await api.post('/transactions/settle', payload);
-      setSettleModal({ open: false, friendId: '', friendName: '', amount: 0 });
+      const res = await api.post('/transactions/settle', payload);
+      setSettleModal({ open: false, friendId: '', friendName: '', amount: 0, note: '', isShared: false });
       await fetchFriends();
       if (activeLedger) {
         await loadFriendLedger(payload.friendId);
       }
       window.dispatchEvent(new Event('transaction-updated'));
+      if (res?.data?.message || res?.message) {
+        alert(res?.data?.message || res?.message);
+      }
     } catch (err) {
-      alert(`Settlement error: ${err.message}`);
+      alert(`Settlement error: ${err.response?.data?.error || err.message}`);
     }
   };
 
@@ -571,7 +574,7 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
               friend={friend}
               onAddTx={(id) => onOpenAddTx(id)}
               onViewHistory={(id) => loadFriendLedger(id)}
-              onSettle={(id, amt, name) => setSettleModal({ open: true, friendId: id, friendName: name, amount: amt })}
+              onSettle={(id, amt, name, isConnected) => setSettleModal({ open: true, friendId: id, friendName: name, amount: amt, note: '', isShared: Boolean(isConnected) })}
               onRemind={(id, amt, name, phone, type = 'OWED') => setWhatsappModal({ open: true, friendName: name, amount: amt, phone, type })}
               onShareCode={(id, name) => setShareModal({ open: true, friendId: id, friendName: name })}
               onEdit={(f) => handleOpenEditModal(f)}
@@ -726,11 +729,18 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
                 <div className="flex gap-2 w-full xs:w-auto">
                   {activeLedger.currentBalance !== 0 && (
                     <button
-                      onClick={() => setSettleModal({ open: true, friendId: activeLedger.friend.id, friendName: activeLedger.friend.name, amount: Math.abs(activeLedger.currentBalance) })}
-                      className="flex-1 xs:flex-initial bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl flex items-center justify-center gap-1.5 shadow-sm active:scale-[0.98] transition-all"
+                      onClick={() => setSettleModal({ 
+                        open: true, 
+                        friendId: activeLedger.friend.id, 
+                        friendName: activeLedger.friend.name, 
+                        amount: Math.abs(activeLedger.currentBalance), 
+                        note: '', 
+                        isShared: Boolean(activeLedger.friend.connectionStatus === 'CONNECTED') 
+                      })}
+                      className="flex-1 xs:flex-initial bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl flex items-center justify-center gap-1.5 shadow-sm active:scale-[0.98] transition-all cursor-pointer"
                     >
                       <CheckCircle2 className="w-4 h-4" />
-                      <span>Settle Up</span>
+                      <span>{activeLedger.friend.connectionStatus === 'CONNECTED' ? 'Request Settle' : 'Settle Up'}</span>
                     </button>
                   )}
                   <button
@@ -770,6 +780,12 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
                               <span className="text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 font-semibold border border-slate-200/60">
                                 {t.category}
                               </span>
+                              {t.approvalStatus === 'PENDING_APPROVAL' && (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] sm:text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300 animate-pulse">
+                                  <Clock className="w-2.5 h-2.5 text-amber-700" />
+                                  <span>Status: Pending</span>
+                                </span>
+                              )}
                               {t.splitGroupId && (
                                 <button
                                   type="button"
@@ -787,13 +803,49 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
                             </div>
                           </div>
 
-                          <div className="text-right flex-shrink-0">
+                          <div className="text-right flex-shrink-0 space-y-1">
                             <div className={`text-xs sm:text-sm font-extrabold ${isGiven ? 'text-emerald-700' : 'text-rose-700'}`}>
                               {isGiven ? '+' : '-'}₹{t.amount.toLocaleString()}
                             </div>
-                            <div className="text-[10px] sm:text-[11px] text-slate-500 font-semibold mt-0.5 font-mono">
+                            <div className="text-[10px] sm:text-[11px] text-slate-500 font-semibold font-mono">
                               Bal: ₹{t.runningBalance.toLocaleString()}
                             </div>
+                            {(() => {
+                              const isFriendSettled = Math.abs(activeLedger.currentBalance || 0) < 0.01;
+                              const settlements = (activeLedger.transactions || []).filter(tx => tx.type === 'SETTLED' && tx.approvalStatus !== 'REJECTED');
+                              const wasCovered = settlements.some(s => {
+                                const sTime = s.createdAt ? new Date(s.createdAt).getTime() : 0;
+                                const tTime = t.createdAt ? new Date(t.createdAt).getTime() : 0;
+                                if (sTime && tTime && sTime >= tTime) return true;
+                                if (s.date && t.date && s.date >= t.date) return true;
+                                return false;
+                              });
+                              const canSettleTimeline = t.type !== 'SETTLED' && 
+                                t.approvalStatus !== 'PENDING_APPROVAL' && 
+                                t.approvalStatus !== 'REJECTED' && 
+                                !t.isSettled && 
+                                !isFriendSettled && 
+                                !wasCovered;
+
+                              return canSettleTimeline ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setSettleModal({
+                                    open: true,
+                                    friendId: activeLedger.friend.id,
+                                    friendName: activeLedger.friend.name,
+                                    amount: t.amount,
+                                    note: `Settlement for "${t.note}"`,
+                                    isShared: Boolean(activeLedger.friend.connectionStatus === 'CONNECTED')
+                                  })}
+                                  className="inline-flex items-center gap-0.5 text-[9.5px] font-bold text-teal-700 hover:text-teal-900 bg-teal-50 hover:bg-teal-100 border border-teal-200 px-1.5 py-0.5 rounded transition-colors active:scale-95 cursor-pointer"
+                                  title="Settle this specific transaction"
+                                >
+                                  <CheckCircle2 className="w-2.5 h-2.5 text-teal-600" />
+                                  <span>Settle</span>
+                                </button>
+                              ) : null;
+                            })()}
                           </div>
                         </div>
                       );
@@ -1025,11 +1077,13 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
       {/* Settle Modal */}
       <SettleModal
         isOpen={settleModal.open}
-        onClose={() => setSettleModal({ open: false, friendId: '', friendName: '', amount: 0 })}
+        onClose={() => setSettleModal({ open: false, friendId: '', friendName: '', amount: 0, note: '', isShared: false })}
         onSettle={handleSettleSubmit}
         friendId={settleModal.friendId}
         friendName={settleModal.friendName}
         initialAmount={settleModal.amount}
+        initialNote={settleModal.note}
+        isShared={settleModal.isShared}
       />
 
       {/* WhatsApp Modal */}
