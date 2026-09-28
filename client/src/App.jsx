@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Navbar from './components/Navbar';
@@ -63,18 +63,19 @@ function MainApp() {
     }
   }, [user, addTxModalOpen]);
 
+  const lastHeartbeatRef = useRef(0);
+
   // Live user presence (heartbeat):
   // Keeps the user marked 'online' in the admin panel every 25 seconds when the tab is active.
   useEffect(() => {
     if (!user) return;
 
-    let lastHeartbeat = 0;
     const sendHeartbeat = () => {
       if (!document.hidden) {
         const now = Date.now();
-        // Prevent sending heartbeats faster than once every 10s
-        if (now - lastHeartbeat >= 10000) {
-          lastHeartbeat = now;
+        // Prevent sending heartbeats faster than once every 10s (protects against React StrictMode double mount)
+        if (now - lastHeartbeatRef.current >= 10000) {
+          lastHeartbeatRef.current = now;
           api.post('/auth/heartbeat').catch(() => {});
         }
       }

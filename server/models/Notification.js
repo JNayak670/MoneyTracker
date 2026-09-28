@@ -69,4 +69,43 @@ const notificationSchema = new mongoose.Schema({
 notificationSchema.index({ userId: 1, createdAt: -1 });
 notificationSchema.index({ userId: 1, isRead: 1 });
 
+const sseService = require('../services/sseService');
+
+function formatNotification(doc) {
+  if (!doc) return null;
+  const json = typeof doc.toJSON === 'function' ? doc.toJSON() : doc;
+  return {
+    ...json,
+    id: json.id || (doc._id ? doc._id.toString() : '')
+  };
+}
+
+// Automatically push newly created notification via SSE to recipient
+notificationSchema.post('save', function (doc) {
+  try {
+    if (doc && doc.userId) {
+      const formatted = formatNotification(doc);
+      sseService.sendToUser(doc.userId.toString(), 'NEW_NOTIFICATION', formatted);
+    }
+  } catch (err) {
+    console.error('Error dispatching SSE for notification:', err.message);
+  }
+});
+
+// Automatically push bulk notifications (e.g. admin broadcast) via SSE
+notificationSchema.post('insertMany', function (docs) {
+  try {
+    if (Array.isArray(docs)) {
+      docs.forEach(doc => {
+        if (doc && doc.userId) {
+          const formatted = formatNotification(doc);
+          sseService.sendToUser(doc.userId.toString(), 'NEW_NOTIFICATION', formatted);
+        }
+      });
+    }
+  } catch (err) {
+    console.error('Error dispatching SSE for insertMany notifications:', err.message);
+  }
+});
+
 module.exports = mongoose.model('Notification', notificationSchema);

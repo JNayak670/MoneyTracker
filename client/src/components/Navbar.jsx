@@ -64,7 +64,8 @@ export default function Navbar({ onOpenAddModal, onViewFriend, onDataChanged }) 
 
   useEffect(() => {
     fetchUnreadCount();
-    const interval = setInterval(fetchUnreadCount, 30000);
+    // Low-frequency fallback (SSE handles instant live updates via 'notifications-updated')
+    const interval = setInterval(fetchUnreadCount, 90000);
 
     const handleNotifUpdate = () => {
       fetchUnreadCount();

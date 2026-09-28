@@ -213,7 +213,9 @@ function ToastItem({ toast, onDismiss, onOpen }) {
           </div>
 
           <div className="flex items-center gap-1.5 flex-shrink-0">
-            <span className="text-[10px] text-slate-400 font-medium">Just now</span>
+            <span className="text-[10px] text-slate-400 font-medium font-mono">
+              {new Date(toast.createdAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </span>
             <button
               data-close="true"
               onClick={(e) => {
@@ -373,19 +375,84 @@ export default function NotificationToastContainer() {
   }, []);
 
   useEffect(() => {
-    // Initial fetch to prime known notification IDs
+    // Initial fetch to load unseen notifications and prime known IDs
     checkForNewNotifications();
 
-    // Check periodically every 15 seconds when tab is active
-    const interval = setInterval(() => {
-      if (!document.hidden) {
+    // Establish real-time Server-Sent Events (SSE) stream
+    const token = localStorage.getItem('money_tracker_token');
+    let eventSource = null;
+
+    if (token) {
+      const apiBase = import.meta.env.VITE_API_URL || '/api';
+      const cleanBase = apiBase.replace(/\/+$/, '');
+      const streamUrl = `${cleanBase}/notifications/stream?token=${encodeURIComponent(token)}`;
+
+      try {
+        eventSource = new EventSource(streamUrl);
+
+        eventSource.onmessage = (event) => {
+          try {
+            const payload = JSON.parse(event.data);
+
+            if (payload.type === 'NEW_NOTIFICATION' && payload.data) {
+              const notif = payload.data;
+              const notifId = notif.id || notif._id;
+
+              if (notifId && !knownNotificationIds.current.has(notifId)) {
+                knownNotificationIds.current.add(notifId);
+
+                if (!notif.isRead) {
+                  // Play chime sound & haptic vibration
+                  playNotificationSound();
+
+                  // Display instant floating toast
+                  setToasts(prev => [
+                    {
+                      id: notifId,
+                      notif,
+                      duration: 6500,
+                      createdAt: Date.now()
+                    },
+                    ...prev
+                  ].slice(0, 3));
+
+                  // Instantly update badge count in Navbar and refresh active transactions
+                  window.dispatchEvent(new Event('notifications-updated'));
+                  window.dispatchEvent(new Event('transaction-updated'));
+                }
+              }
+            } else if (
+              payload.type === 'NOTIFICATION_READ' ||
+              payload.type === 'NOTIFICATIONS_ALL_READ' ||
+              payload.type === 'NOTIFICATIONS_CLEARED' ||
+              payload.type === 'NOTIFICATION_DELETED'
+            ) {
+              // Sync multi-tab state instantly
+              window.dispatchEvent(new Event('notifications-updated'));
+            }
+          } catch (err) {
+            // Heartbeat / ping or non-JSON event (e.g. comment)
+          }
+        };
+
+        eventSource.onerror = () => {
+          // Native EventSource automatically handles reconnection backoff
+        };
+      } catch (err) {
+        console.warn('Failed to initialize SSE stream:', err);
+      }
+    }
+
+    // Occasional low-frequency safety check (every 60s) only as fallback
+    const fallbackInterval = setInterval(() => {
+      if (!document.hidden && Date.now() - lastCheckTimeRef.current > 45000) {
         checkForNewNotifications();
       }
-    }, 15000);
+    }, 60000);
 
-    // Also check on tab focus or visibility change (throttled to at least 6s apart)
+    // Sync on tab re-focus if inactive for a while
     const handleEvents = () => {
-      if (!document.hidden && Date.now() - lastCheckTimeRef.current > 6000) {
+      if (!document.hidden && Date.now() - lastCheckTimeRef.current > 30000) {
         checkForNewNotifications();
       }
     };
@@ -412,7 +479,10 @@ export default function NotificationToastContainer() {
     window.addEventListener('show-notification-toast', handleCustomToast);
 
     return () => {
-      clearInterval(interval);
+      if (eventSource) {
+        eventSource.close();
+      }
+      clearInterval(fallbackInterval);
       window.removeEventListener('focus', handleEvents);
       document.removeEventListener('visibilitychange', handleEvents);
       window.removeEventListener('show-notification-toast', handleCustomToast);

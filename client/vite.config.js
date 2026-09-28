@@ -13,8 +13,8 @@ const terminalEventLogger = () => ({
         const cleanIp = firstIp.replace(/^.*:/, '');
         const isLocal = cleanIp === '1' || cleanIp === '127.0.0.1' || cleanIp === 'unknown';
         const deviceTag = isLocal ? '💻 Localhost' : `📱 ${cleanIp}`;
-        
-        console.log(`🌐 ${req.method} ${req.url} • ${deviceTag}`);
+        const timestamp = new Date().toLocaleTimeString('en-US', { hour12: true });
+        console.log(`[${timestamp}] 🌐 ${req.method} ${req.url} • ${deviceTag}`);
       }
       next();
     });

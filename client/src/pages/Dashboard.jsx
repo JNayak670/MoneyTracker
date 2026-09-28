@@ -599,6 +599,7 @@ export default function Dashboard({ onOpenAddTx, onOpenAddFriend, onViewFriendHi
         onClose={() => setLinkModal({ open: false, friend: null })}
         friend={linkModal.friend}
         onSave={handleLinkSave}
+        onUpdated={fetchData}
       />
 
 

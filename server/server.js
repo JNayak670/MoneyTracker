@@ -47,9 +47,34 @@ app.use((req, res, next) => {
     const duration = Date.now() - start;
     const status = res.statusCode;
     const statusEmoji = status < 300 ? '🟢' : status < 400 ? '🔵' : status < 500 ? '🟡' : '🔴';
+    // Render dashboard logs already include automatic timestamps; only show in localhost
+    const timePrefix = process.env.RENDER ? '' : `[${new Date().toLocaleTimeString('en-US', { hour12: true })}] `;
     
+    // User info (if authenticated or during auth flow)
+    const user = req.user;
+    let userTag = '';
+    if (user) {
+      const uname = user.username ? `@${user.username}` : (user.name || 'User');
+      userTag = ` • 👤 ${uname}`;
+    } else if (req.body && (req.body.username || req.body.email) && req.originalUrl.includes('/auth/')) {
+      const authTarget = req.body.username ? `@${req.body.username}` : req.body.email;
+      userTag = ` • 👤 ${authTarget}`;
+    }
+
+    // Detail tag for operations targeting another user or username (e.g. link-username, search)
+    let detailTag = '';
+    if (req.body && typeof req.body.username === 'string') {
+      if (req.body.username.trim()) {
+        detailTag = ` ➔ @${req.body.username.trim().replace(/^@/, '')}`;
+      } else if (req.originalUrl.includes('link-username')) {
+        detailTag = ` ➔ (unlinked)`;
+      }
+    } else if (req.query && req.query.query && req.originalUrl.includes('search')) {
+      detailTag = ` ➔ "${req.query.query}"`;
+    }
+
     console.log(
-      `${statusEmoji} ${status} ${req.method.padEnd(6)} ${req.originalUrl} (${duration}ms) • ${deviceTag}`
+      `${timePrefix}${statusEmoji} ${status} ${req.method.padEnd(6)} ${req.originalUrl} (${duration}ms) • ${deviceTag}${userTag}${detailTag}`
     );
   });
 

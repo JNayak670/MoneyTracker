@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const {
   getNotifications,
+  streamNotifications,
   markAsRead,
   markAllAsRead,
   deleteNotification,
@@ -10,6 +11,9 @@ const {
 const { protect } = require('../middleware/authMiddleware');
 
 router.use(protect);
+
+// Realtime Server-Sent Events (SSE) Stream
+router.get('/stream', streamNotifications);
 
 router.get('/', getNotifications);
 

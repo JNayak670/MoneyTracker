@@ -491,77 +491,75 @@ exports.linkUsernameToFriend = async (req, res) => {
       orConditions.push({ _id: rawInput });
     }
 
-    const foundUser = await User.findOne({ $or: orConditions });
-
-    if (foundUser) {
-      friend.pendingUsername = foundUser.username;
-      friend.connectedUserId = foundUser._id;
-      friend.connectionStatus = 'REQUEST_SENT';
-      await friend.save();
-
-      // Ensure reciprocal friend entry exists in foundUser circle & notify them
-      let reciprocalFriend = await Friend.findOne({ userId: foundUser._id, connectedUserId: userId });
-      if (!reciprocalFriend && req.user.username) {
-        reciprocalFriend = await Friend.findOne({ userId: foundUser._id, pendingUsername: req.user.username.toLowerCase() });
-      }
-
-      if (!reciprocalFriend) {
-        reciprocalFriend = await Friend.create({
-          userId: foundUser._id,
-          name: req.user.name,
-          connectedUserId: userId,
-          pendingUsername: req.user.username || null,
-          connectionStatus: 'REQUEST_RECEIVED',
-          permission: 'NORMAL',
-          avatarColor: '#10b981',
-          avatarEmoji: '🤝',
-          relationshipTag: 'Friend'
-        });
-      } else {
-        reciprocalFriend.connectedUserId = userId;
-        reciprocalFriend.connectionStatus = 'REQUEST_RECEIVED';
-        await reciprocalFriend.save();
-      }
-
-      // Send friend request notification to foundUser
-      await Notification.create({
-        userId: foundUser._id,
-        type: 'FRIEND_REQUEST',
-        title: '👋 Friend Connection Request',
-        message: `${req.user.name} (@${req.user.username || 'user'}) sent you a friend connection request. Accept to see each other in your friend lists.`,
-        data: {
-          friendId: reciprocalFriend._id,
-          connectedUserId: userId,
-          username: req.user.username,
-          friendName: req.user.name
-        }
-      });
-
-      return res.json({
-        success: true,
-        status: 'MATCH_FOUND',
-        message: `Connection request sent to @${foundUser.username}! Once accepted, you will see each other in your friend lists.`,
-        data: friend,
-        matchedUser: {
-          id: foundUser.id || foundUser._id.toString(),
-          name: foundUser.name,
-          username: foundUser.username,
-          email: foundUser.email
-        }
-      });
-    } else {
-      friend.pendingUsername = cleanUsername;
-      friend.connectedUserId = null;
-      friend.connectionStatus = 'OFFLINE';
-      await friend.save();
-
-      return res.json({
-        success: true,
-        status: 'SAVED_PENDING',
-        message: `@${cleanUsername} is not registered yet. Saved as pending username. Friend continues working as a normal offline friend.`,
-        data: friend
+    if (!foundUser) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found. Please enter a valid username.'
       });
     }
+
+    if (foundUser._id.toString() === userId.toString()) {
+      return res.status(400).json({
+        success: false,
+        error: 'You cannot link your own username to a friend.'
+      });
+    }
+
+    friend.pendingUsername = foundUser.username;
+    friend.connectedUserId = foundUser._id;
+    friend.connectionStatus = 'REQUEST_SENT';
+    await friend.save();
+
+    // Ensure reciprocal friend entry exists in foundUser circle & notify them
+    let reciprocalFriend = await Friend.findOne({ userId: foundUser._id, connectedUserId: userId });
+    if (!reciprocalFriend && req.user.username) {
+      reciprocalFriend = await Friend.findOne({ userId: foundUser._id, pendingUsername: req.user.username.toLowerCase() });
+    }
+
+    if (!reciprocalFriend) {
+      reciprocalFriend = await Friend.create({
+        userId: foundUser._id,
+        name: req.user.name,
+        connectedUserId: userId,
+        pendingUsername: req.user.username || null,
+        connectionStatus: 'REQUEST_RECEIVED',
+        permission: 'NORMAL',
+        avatarColor: '#10b981',
+        avatarEmoji: '🤝',
+        relationshipTag: 'Friend'
+      });
+    } else {
+      reciprocalFriend.connectedUserId = userId;
+      reciprocalFriend.connectionStatus = 'REQUEST_RECEIVED';
+      await reciprocalFriend.save();
+    }
+
+    // Send friend request notification to foundUser
+    await Notification.create({
+      userId: foundUser._id,
+      type: 'FRIEND_REQUEST',
+      title: '👋 Friend Connection Request',
+      message: `${req.user.name} (@${req.user.username || 'user'}) sent you a friend connection request. Accept to see each other in your friend lists.`,
+      data: {
+        friendId: reciprocalFriend._id,
+        connectedUserId: userId,
+        username: req.user.username,
+        friendName: req.user.name
+      }
+    });
+
+    return res.json({
+      success: true,
+      status: 'MATCH_FOUND',
+      message: `Connection request sent to @${foundUser.username}! Once accepted, you will see each other in your friend lists.`,
+      data: friend,
+      matchedUser: {
+        id: foundUser.id || foundUser._id.toString(),
+        name: foundUser.name,
+        username: foundUser.username,
+        email: foundUser.email
+      }
+    });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

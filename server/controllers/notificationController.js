@@ -1,4 +1,17 @@
 const { Notification } = require('../db');
+const sseService = require('../services/sseService');
+
+// @route   GET /api/notifications/stream
+// @desc    Real-time Server-Sent Events (SSE) stream for logged-in user
+exports.streamNotifications = async (req, res) => {
+  try {
+    const userId = req.user.id || req.user._id;
+    sseService.addClient(userId, req, res);
+  } catch (err) {
+    console.error('SSE connection error:', err);
+    res.status(500).end();
+  }
+};
 
 // @route   GET /api/notifications
 // @desc    Get all notifications for logged-in user with unread count
@@ -52,6 +65,9 @@ exports.markAsRead = async (req, res) => {
 
     const unreadCount = await Notification.countDocuments({ userId, isRead: false });
 
+    // Sync other active tabs/devices in real-time
+    sseService.sendToUser(userId, 'NOTIFICATION_READ', { id, unreadCount });
+
     res.json({
       success: true,
       data: notif,
@@ -69,6 +85,9 @@ exports.markAllAsRead = async (req, res) => {
     const userId = req.user.id;
 
     await Notification.updateMany({ userId, isRead: false }, { isRead: true });
+
+    // Sync other active tabs/devices in real-time
+    sseService.sendToUser(userId, 'NOTIFICATIONS_ALL_READ', { unreadCount: 0 });
 
     res.json({
       success: true,
@@ -90,6 +109,9 @@ exports.clearAllNotifications = async (req, res) => {
     const userId = req.user.id;
 
     await Notification.deleteMany({ userId });
+
+    // Sync other active tabs/devices in real-time
+    sseService.sendToUser(userId, 'NOTIFICATIONS_CLEARED', { unreadCount: 0 });
 
     res.json({
       success: true,
@@ -115,6 +137,9 @@ exports.deleteNotification = async (req, res) => {
     await Notification.deleteOne({ _id: id, userId });
 
     const unreadCount = await Notification.countDocuments({ userId, isRead: false });
+
+    // Sync other active tabs/devices in real-time
+    sseService.sendToUser(userId, 'NOTIFICATION_DELETED', { id, unreadCount });
 
     res.json({
       success: true,

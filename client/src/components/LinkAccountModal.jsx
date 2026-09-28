@@ -17,9 +17,12 @@ import {
 import api from '../services/api';
 import useModalBackHandler from '../hooks/useModalBackHandler';
 
-export default function LinkAccountModal({ isOpen, onClose, friend, onUpdated }) {
+import { useAuth } from '../context/AuthContext';
+
+export default function LinkAccountModal({ isOpen, onClose, friend, onUpdated, onSave }) {
   useModalBackHandler(isOpen && Boolean(friend), onClose);
 
+  const { user: currentUser } = useAuth();
   const [usernameInput, setUsernameInput] = useState('');
   const [searching, setSearching] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -48,40 +51,74 @@ export default function LinkAccountModal({ isOpen, onClose, friend, onUpdated })
       return;
     }
 
+    if (currentUser?.username && clean === currentUser.username.toLowerCase()) {
+      setError('You cannot link your own username to a friend.');
+      setSearchResult(null);
+      return;
+    }
+
     setSearching(true);
     try {
-      const res = await api.get(`/friends/search-user?username=${clean}`);
+      const res = await api.get(`/friends/search-user?username=${encodeURIComponent(clean)}`);
       const data = res?.exists !== undefined ? res : (res?.data || res);
-      setSearchResult(data);
+      if (!data?.exists) {
+        setError('User not found. Please enter a valid username.');
+        setSearchResult({ exists: false, username: clean });
+      } else {
+        setSearchResult(data);
+        setError('');
+      }
     } catch (err) {
-      setError(err.message || 'Failed to search for user');
-      setSearchResult(null);
+      const msg = err.response?.data?.error || err.message || 'User not found. Please enter a valid username.';
+      setError(msg);
+      setSearchResult({ exists: false, username: clean });
     } finally {
       setSearching(false);
     }
   };
 
   const handleSaveOrLink = async () => {
-    setSaving(true);
     setError('');
+    setSuccessMsg('');
+    const clean = usernameInput.replace(/^@/, '').trim().toLowerCase();
+    
+    if (!clean) {
+      setError('Please enter a valid username.');
+      return;
+    }
+
+    if (currentUser?.username && clean === currentUser.username.toLowerCase()) {
+      setError('You cannot link your own username to a friend.');
+      return;
+    }
+
+    if (searchResult && !searchResult.exists) {
+      setError('User not found. Please enter a valid username.');
+      return;
+    }
+
+    setSaving(true);
     try {
-      const clean = usernameInput.replace(/^@/, '').trim().toLowerCase();
       const res = await api.post(`/friends/${friend.id}/link-username`, { username: clean });
       const data = res?.status !== undefined ? res : (res?.data || res);
       
       if (data.status === 'MATCH_FOUND') {
-        setSuccessMsg(`Connection request sent to @${clean}! They will appear as a connected friend once accepted.`);
+        setSuccessMsg(`Connection request sent to @${data.matchedUser?.username || clean}! They will appear as a connected friend once accepted.`);
         window.dispatchEvent(new Event('transaction-updated'));
         if (onUpdated) onUpdated();
+        if (onSave) onSave(friend.id, { username: clean });
         setTimeout(() => onClose(), 1500);
       } else {
-        setSuccessMsg(data.message || 'Username saved as pending.');
+        setSuccessMsg(data.message || 'Account linked successfully.');
         window.dispatchEvent(new Event('transaction-updated'));
         if (onUpdated) onUpdated();
+        if (onSave) onSave(friend.id, { username: clean });
         setTimeout(() => onClose(), 1400);
       }
     } catch (err) {
-      setError(err.message || 'Failed to link account');
+      const errorMsg = err.response?.data?.error || err.message || 'User not found. Please enter a valid username.';
+      setError(errorMsg);
+      setSearchResult({ exists: false, username: clean });
     } finally {
       setSaving(false);
     }
@@ -97,9 +134,10 @@ export default function LinkAccountModal({ isOpen, onClose, friend, onUpdated })
       setSuccessMsg('Account unlinked successfully.');
       window.dispatchEvent(new Event('transaction-updated'));
       if (onUpdated) onUpdated();
+      if (onSave) onSave(friend.id, { username: '' });
       setTimeout(() => onClose(), 1000);
     } catch (err) {
-      setError(err.message || 'Failed to unlink account');
+      setError(err.response?.data?.error || err.message || 'Failed to unlink account');
     } finally {
       setSaving(false);
     }
@@ -171,7 +209,7 @@ export default function LinkAccountModal({ isOpen, onClose, friend, onUpdated })
               <div>
                 <p className="font-bold">Two-Way Account Linking</p>
                 <p className="text-purple-700 text-[11px] mt-0.5">
-                  Enter their MoneyTracker @username. If they haven't registered yet, we'll save it as pending and notify you the moment they join!
+                  Enter their registered MoneyTracker @username to connect accounts and enable shared ledger sync.
                 </p>
               </div>
             </div>
@@ -248,13 +286,13 @@ export default function LinkAccountModal({ isOpen, onClose, friend, onUpdated })
                   </div>
                 </div>
               ) : (
-                <div className="p-4 rounded-2xl bg-amber-50/90 border border-amber-200 space-y-1.5">
-                  <div className="flex items-center gap-2 text-amber-800 font-black text-xs">
-                    <AlertCircle className="w-4 h-4 text-amber-600" />
-                    <span>No account found yet for @{searchResult.username}</span>
+                <div className="p-4 rounded-2xl bg-rose-50/90 border border-rose-200 space-y-1.5">
+                  <div className="flex items-center gap-2 text-rose-800 font-black text-xs">
+                    <AlertCircle className="w-4 h-4 text-rose-600" />
+                    <span>No user found for @{searchResult.username}</span>
                   </div>
-                  <p className="text-amber-900/80 text-[11px] leading-relaxed">
-                    This friend will continue working normally as an offline friend. If they register later using this username, you will be notified automatically to connect!
+                  <p className="text-rose-700 text-[11px] leading-relaxed font-semibold">
+                    Enter a valid username of an active MoneyTracker member.
                   </p>
                 </div>
               )}
@@ -288,12 +326,12 @@ export default function LinkAccountModal({ isOpen, onClose, friend, onUpdated })
                 <button
                   type="button"
                   onClick={handleSaveOrLink}
-                  disabled={saving || !usernameInput.trim()}
+                  disabled={saving || !usernameInput.trim() || (searchResult && !searchResult.exists)}
                   className="px-5 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-xs font-black shadow-md shadow-purple-500/20 transition-all disabled:opacity-50 flex items-center gap-1.5"
                 >
                   {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <UserCheck className="w-3.5 h-3.5" />}
                   <span>
-                    {searchResult?.exists ? 'Connect & Link' : 'Save Username'}
+                    {searchResult?.exists ? 'Connect & Link' : 'Link Account'}
                   </span>
                 </button>
               )}

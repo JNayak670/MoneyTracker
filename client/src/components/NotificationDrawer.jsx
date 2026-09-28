@@ -48,6 +48,15 @@ export default function NotificationDrawer({ isOpen, onClose, onDataChanged }) {
   useEffect(() => {
     if (isOpen) {
       fetchNotifications();
+
+      const handleLiveUpdate = () => {
+        fetchNotifications();
+      };
+
+      window.addEventListener('notifications-updated', handleLiveUpdate);
+      return () => {
+        window.removeEventListener('notifications-updated', handleLiveUpdate);
+      };
     }
   }, [isOpen]);
 
