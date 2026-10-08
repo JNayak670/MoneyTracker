@@ -125,4 +125,16 @@ transactionSchema.index({ friendId: 1, userId: 1, date: 1 });
 transactionSchema.index({ splitGroupId: 1 });
 transactionSchema.index({ userId: 1, splitGroupId: 1 });
 
+const sseService = require('../services/sseService');
+
+// Notify admin console on any transaction mutation (create, edit, delete, settle, approve, reject)
+transactionSchema.post('save', () => sseService.notifyAdmin('TRANSACTION_SAVED'));
+transactionSchema.post('insertMany', () => sseService.notifyAdmin('TRANSACTION_SAVED'));
+transactionSchema.post('findOneAndUpdate', () => sseService.notifyAdmin('TRANSACTION_UPDATED'));
+transactionSchema.post('updateOne', () => sseService.notifyAdmin('TRANSACTION_UPDATED'));
+transactionSchema.post('updateMany', () => sseService.notifyAdmin('TRANSACTION_UPDATED'));
+transactionSchema.post('findOneAndDelete', () => sseService.notifyAdmin('TRANSACTION_DELETED'));
+transactionSchema.post('deleteOne', () => sseService.notifyAdmin('TRANSACTION_DELETED'));
+transactionSchema.post('deleteMany', () => sseService.notifyAdmin('TRANSACTION_DELETED'));
+
 module.exports = mongoose.model('Transaction', transactionSchema);

@@ -69,6 +69,7 @@ export default function Admin() {
   const [txStatusFilter, setTxStatusFilter] = useState('ALL');
   const [userFilterStatus, setUserFilterStatus] = useState('ALL');
   const [loading, setLoading] = useState(false);
+  const [isRealtimeActive, setIsRealtimeActive] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [deletingId, setDeletingId] = useState(null);
   const [actionLoadingId, setActionLoadingId] = useState(null);
@@ -160,10 +161,10 @@ export default function Admin() {
     setConnections([]);
   };
 
-  const fetchAllData = async () => {
+  const fetchAllData = async (silent = false) => {
     if (!adminToken) return;
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const [statsRes, usersRes, txRes, sharesRes, connRes, profileRes] = await Promise.all([
         adminApi.get('/admin/stats'),
         adminApi.get('/admin/users'),
@@ -188,20 +189,76 @@ export default function Admin() {
         setLoginError('Admin session expired. Please authenticate again.');
       }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (adminToken) {
-      fetchAllData();
-      const interval = setInterval(() => {
-        if (!document.hidden) {
-          fetchAllData();
+    if (!adminToken) return;
+
+    // Initial fetch with loader
+    fetchAllData(false);
+
+    // Establish Real-time Server-Sent Events (SSE) Stream
+    let eventSource = null;
+    const cleanBase = API_URL.replace(/\/+$/, '');
+    const streamUrl = `${cleanBase}/admin/stream?token=${encodeURIComponent(adminToken)}`;
+
+    try {
+      eventSource = new EventSource(streamUrl);
+
+      eventSource.onopen = () => {
+        setIsRealtimeActive(true);
+        // Refresh immediately upon connecting/reconnecting
+        fetchAllData(true);
+      };
+
+      eventSource.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data);
+          if (payload.type === 'ADMIN_DATA_UPDATED' || payload.type === 'ADMIN_CONNECTED') {
+            // Auto-update admin console instantly when any change occurs in the platform
+            fetchAllData(true);
+          }
+        } catch (e) {
+          // ignore keepalive ping
         }
-      }, 8000);
-      return () => clearInterval(interval);
+      };
+
+      eventSource.onerror = () => {
+        setIsRealtimeActive(false);
+        // Fall back to silent fetch while reconnecting
+        fetchAllData(true);
+      };
+    } catch (err) {
+      console.warn('Failed to establish admin SSE stream:', err);
     }
+
+    // Safety fallback polling (every 6 seconds) in case of network drops
+    const interval = setInterval(() => {
+      if (!document.hidden) {
+        fetchAllData(true);
+      }
+    }, 6000);
+
+    // Immediate sync on tab focus or visibility change
+    const handleEvents = () => {
+      if (!document.hidden) {
+        fetchAllData(true);
+      }
+    };
+
+    window.addEventListener('focus', handleEvents);
+    document.addEventListener('visibilitychange', handleEvents);
+
+    return () => {
+      if (eventSource) {
+        eventSource.close();
+      }
+      clearInterval(interval);
+      window.removeEventListener('focus', handleEvents);
+      document.removeEventListener('visibilitychange', handleEvents);
+    };
   }, [adminToken]);
 
   const handleChangePassword = async (e) => {
@@ -697,10 +754,18 @@ export default function Admin() {
                 <span>{adminEmail || 'admin@gmail.com'}</span>
               </button>
 
+              <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl border bg-slate-800/80 border-slate-700/80 text-[11px] font-bold">
+                <span className={`w-2 h-2 rounded-full ${isRealtimeActive ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+                <span className={isRealtimeActive ? 'text-emerald-300' : 'text-amber-300'}>
+                  {isRealtimeActive ? 'Live Auto-Update' : 'Polling Sync'}
+                </span>
+              </div>
+
               <button
-                onClick={fetchAllData}
+                onClick={() => fetchAllData(false)}
                 disabled={loading}
                 className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-bold px-3.5 py-2 rounded-xl transition-all"
+                title="Force Refresh Data"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
                 <span className="hidden sm:inline">Refresh</span>

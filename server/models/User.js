@@ -56,4 +56,15 @@ const userSchema = new mongoose.Schema({
   }
 });
 
+const sseService = require('../services/sseService');
+
+// Notify admin console on user mutations (create, update, lock, pin, delete)
+userSchema.post('save', () => sseService.notifyAdmin('USER_SAVED'));
+userSchema.post('findOneAndUpdate', () => sseService.notifyAdmin('USER_UPDATED'));
+userSchema.post('updateOne', () => sseService.notifyAdmin('USER_UPDATED'));
+userSchema.post('updateMany', () => sseService.notifyAdmin('USER_UPDATED'));
+userSchema.post('findOneAndDelete', () => sseService.notifyAdmin('USER_DELETED'));
+userSchema.post('deleteOne', () => sseService.notifyAdmin('USER_DELETED'));
+userSchema.post('deleteMany', () => sseService.notifyAdmin('USER_DELETED'));
+
 module.exports = mongoose.model('User', userSchema);

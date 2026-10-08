@@ -69,4 +69,16 @@ friendSchema.index({ userId: 1, connectionStatus: 1 });
 friendSchema.index({ userId: 1, connectedUserId: 1 });
 friendSchema.index({ connectedUserId: 1, userId: 1 });
 
+const sseService = require('../services/sseService');
+
+// Notify admin console on any friend/connection mutation (add, edit, link, permission, delete)
+friendSchema.post('save', () => sseService.notifyAdmin('FRIEND_SAVED'));
+friendSchema.post('insertMany', () => sseService.notifyAdmin('FRIEND_SAVED'));
+friendSchema.post('findOneAndUpdate', () => sseService.notifyAdmin('FRIEND_UPDATED'));
+friendSchema.post('updateOne', () => sseService.notifyAdmin('FRIEND_UPDATED'));
+friendSchema.post('updateMany', () => sseService.notifyAdmin('FRIEND_UPDATED'));
+friendSchema.post('findOneAndDelete', () => sseService.notifyAdmin('FRIEND_DELETED'));
+friendSchema.post('deleteOne', () => sseService.notifyAdmin('FRIEND_DELETED'));
+friendSchema.post('deleteMany', () => sseService.notifyAdmin('FRIEND_DELETED'));
+
 module.exports = mongoose.model('Friend', friendSchema);

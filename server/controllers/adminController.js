@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { User, Friend, Transaction, ShareCode, AdminSetting, Notification } = require('../db');
+const sseService = require('../services/sseService');
 
 const getAdminCredentials = async () => {
   const defaultEmail = (process.env.ADMIN_EMAIL || 'admin@gmail.com').toLowerCase().trim();
@@ -171,6 +172,9 @@ exports.requireAdminAuth = (req, res, next) => {
   let token;
   if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
     token = req.headers.authorization.split(' ')[1];
+  } else if (req.query && req.query.token) {
+    // Support EventSource query param authentication: ?token=...
+    token = req.query.token;
   }
 
   if (!token) {
@@ -186,6 +190,17 @@ exports.requireAdminAuth = (req, res, next) => {
     next();
   } catch (err) {
     return res.status(401).json({ success: false, error: 'Invalid or expired admin token.' });
+  }
+};
+
+// @route   GET /api/admin/stream
+// @desc    Real-time Server-Sent Events (SSE) stream for admin console
+exports.streamAdmin = async (req, res) => {
+  try {
+    sseService.addAdminClient(req, res);
+  } catch (err) {
+    console.error('Admin SSE connection error:', err);
+    res.status(500).end();
   }
 };
 

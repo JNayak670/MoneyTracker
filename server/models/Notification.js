@@ -87,6 +87,7 @@ notificationSchema.post('save', function (doc) {
     if (doc && doc.userId) {
       const formatted = formatNotification(doc);
       sseService.sendToUser(doc.userId.toString(), 'NEW_NOTIFICATION', formatted);
+      sseService.notifyAdmin('NOTIFICATION_SAVED');
     }
   } catch (err) {
     console.error('Error dispatching SSE for notification:', err.message);
@@ -103,10 +104,13 @@ notificationSchema.post('insertMany', function (docs) {
           sseService.sendToUser(doc.userId.toString(), 'NEW_NOTIFICATION', formatted);
         }
       });
+      sseService.notifyAdmin('NOTIFICATION_SAVED');
     }
   } catch (err) {
     console.error('Error dispatching SSE for insertMany notifications:', err.message);
   }
 });
+
+notificationSchema.post('deleteMany', () => sseService.notifyAdmin('NOTIFICATION_DELETED'));
 
 module.exports = mongoose.model('Notification', notificationSchema);

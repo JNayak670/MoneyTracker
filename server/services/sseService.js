@@ -154,6 +154,113 @@ function broadcast(type, data) {
   }
 }
 
+// Set of active Express Response objects for Admin console
+const adminClients = new Set();
+let adminDebounceTimer = null;
+
+/**
+ * Register a new Admin SSE client connection
+ * @param {import('express').Request} req - Express request
+ * @param {import('express').Response} res - Express response
+ */
+function addAdminClient(req, res) {
+  // Set mandatory SSE headers
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache, no-transform',
+    'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no', // Disables proxy buffering
+  });
+
+  if (typeof res.flushHeaders === 'function') {
+    res.flushHeaders();
+  }
+
+  // Initial connection handshake
+  res.write(`data: ${JSON.stringify({
+    type: 'ADMIN_CONNECTED',
+    message: 'Admin SSE stream connected successfully',
+    timestamp: new Date().toISOString()
+  })}\n\n`);
+  if (typeof res.flush === 'function') {
+    res.flush();
+  }
+
+  adminClients.add(res);
+  console.log(`${getLogTime()}🛡️ Admin SSE Stream connected • Active Admins: ${adminClients.size}`);
+
+  const heartbeatTimer = setInterval(() => {
+    try {
+      res.write(': ping\n\n');
+      if (typeof res.flush === 'function') {
+        res.flush();
+      }
+    } catch (err) {
+      clearInterval(heartbeatTimer);
+    }
+  }, 25000);
+
+  req.on('close', () => {
+    clearInterval(heartbeatTimer);
+    adminClients.delete(res);
+    console.log(`${getLogTime()}🔌 Admin SSE Stream disconnected • Active Admins: ${adminClients.size}`);
+  });
+
+  req.on('error', () => {
+    clearInterval(heartbeatTimer);
+    adminClients.delete(res);
+  });
+}
+
+/**
+ * Broadcast an event directly to all connected Admin dashboards
+ * @param {string} type - Event type
+ * @param {any} data - Event payload
+ */
+function broadcastToAdmin(type, data) {
+  if (adminClients.size === 0) return;
+
+  const payload = `data: ${JSON.stringify({
+    type,
+    data,
+    timestamp: new Date().toISOString()
+  })}\n\n`;
+
+  for (const res of adminClients) {
+    try {
+      res.write(payload);
+      if (typeof res.flush === 'function') {
+        res.flush();
+      }
+    } catch (err) {
+      // client write error
+    }
+  }
+}
+
+/**
+ * Debounced notification helper: signals all connected Admin pages to auto-refresh
+ * Consolidates multiple rapid database mutations into a single immediate refresh signal.
+ * @param {string} reason - The model or business action that triggered the update
+ * @param {object} meta - Optional additional metadata
+ */
+function notifyAdmin(reason = 'DATA_UPDATED', meta = {}) {
+  if (adminClients.size === 0) return;
+
+  if (adminDebounceTimer) {
+    clearTimeout(adminDebounceTimer);
+  }
+
+  adminDebounceTimer = setTimeout(() => {
+    broadcastToAdmin('ADMIN_DATA_UPDATED', {
+      reason,
+      ...meta,
+      timestamp: Date.now()
+    });
+    adminDebounceTimer = null;
+  }, 100);
+}
+
 /**
  * Get active connection counts for debugging / monitoring
  */
@@ -164,7 +271,8 @@ function getStats() {
   }
   return {
     connectedUsers: clients.size,
-    totalConnections
+    connectedAdmins: adminClients.size,
+    totalConnections: totalConnections + adminClients.size
   };
 }
 
@@ -172,5 +280,8 @@ module.exports = {
   addClient,
   sendToUser,
   broadcast,
+  addAdminClient,
+  broadcastToAdmin,
+  notifyAdmin,
   getStats
 };
