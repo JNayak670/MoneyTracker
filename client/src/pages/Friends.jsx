@@ -12,6 +12,7 @@ import { useOperationLoader } from '../context/OperationLoaderContext';
 import useModalBackHandler from '../hooks/useModalBackHandler';
 import { printFriendStatement } from '../services/exportService';
 import SplitGroupModal from '../components/SplitGroupModal';
+import { useAuth } from '../context/AuthContext';
 import { 
   Users, 
   Search, 
@@ -37,6 +38,7 @@ import {
 } from 'lucide-react';
 
 export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, onCloseFriendModal, historyFriendId, onCloseHistory }) {
+  const { user: currentUser } = useAuth();
   const { executeWithLoader } = useOperationLoader();
   const [friends, setFriends] = useState([]);
   const [selectedSplitGroupId, setSelectedSplitGroupId] = useState(null);
@@ -208,22 +210,49 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
       setUserCheckResult({ isEmpty: true });
       return;
     }
+
+    const cleanInput = input.replace(/^@/, '').toLowerCase().trim();
+
+    // Check if self
+    if (currentUser?.username && cleanInput === currentUser.username.toLowerCase()) {
+      setUserCheckResult({ exists: false, error: 'You cannot link your own username to a friend.' });
+      return;
+    }
+
+    // Check if already linked to another friend in circle
+    const editId = currentEditingFriend?.id || currentEditingFriend?._id || editingFriend?.id || editingFriend?._id;
+    const duplicate = friends.find(f => {
+      const fId = f.id || f._id;
+      if (editId && fId === editId) return false;
+      const fHandle = (f.connectedUser?.username || f.pendingUsername || '').toLowerCase();
+      return fHandle && fHandle === cleanInput;
+    });
+
+    if (duplicate) {
+      setUserCheckResult({ exists: false, error: `You already have "${duplicate.name}" linked to @${cleanInput}.` });
+      return;
+    }
+
     setUsernameChecking(true);
     try {
-      const res = await api.get(`/friends/search-user?username=${encodeURIComponent(input)}`);
+      const res = await api.get(`/friends/search-user?username=${encodeURIComponent(cleanInput)}`);
       const data = res?.exists !== undefined ? res : (res?.data || res);
-      setUserCheckResult(data);
-      if (data?.exists && data?.user?.name) {
-        // Automatically populate Full Name field with user's original name!
-        setFormData(prev => ({ 
-          ...prev, 
-          name: data.user.name,
-          username: data.user.username || input.replace(/^@/, '')
-        }));
+      if (!data?.exists) {
+        setUserCheckResult({ exists: false, error: `No registered MoneyTracker account found for "${input}".` });
+      } else {
+        setUserCheckResult(data);
+        if (data?.exists && data?.user?.name) {
+          // Automatically populate Full Name field if empty
+          setFormData(prev => ({ 
+            ...prev, 
+            name: prev.name.trim() ? prev.name : data.user.name,
+            username: data.user.username || cleanInput
+          }));
+        }
       }
     } catch (err) {
       const errorMsg = err.response?.data?.error || err.message || 'No registered MoneyTracker user found with this username.';
-      setUserCheckResult({ exists: false, message: errorMsg, error: errorMsg });
+      setUserCheckResult({ exists: false, error: errorMsg });
     } finally {
       setUsernameChecking(false);
     }
@@ -310,41 +339,70 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
     
     // Check if a username is entered
     const rawUsername = (formData.username || '').trim();
+    let verifiedUsername = null;
+
     if (rawUsername) {
-      const cleanInput = rawUsername.replace(/^@/, '').toLowerCase();
-      // Check if already verified as existing
+      const cleanInput = rawUsername.replace(/^@/, '').toLowerCase().trim();
+
+      // 1. Self check
+      if (currentUser?.username && cleanInput === currentUser.username.toLowerCase()) {
+        alert('⚠️ You cannot link your own username to a friend.');
+        return;
+      }
+
+      // 2. Duplicate check
+      const editId = currentEditingFriend?.id || currentEditingFriend?._id || editingFriend?.id || editingFriend?._id;
+      const duplicate = friends.find(f => {
+        const fId = f.id || f._id;
+        if (editId && fId === editId) return false;
+        const fHandle = (f.connectedUser?.username || f.pendingUsername || '').toLowerCase();
+        return fHandle && fHandle === cleanInput;
+      });
+
+      if (duplicate) {
+        alert(`⚠️ You already have "${duplicate.name}" linked to @${cleanInput}.`);
+        return;
+      }
+
+      // 3. User existence check before saving
       const isAlreadyVerified = userCheckResult?.exists && 
-        (userCheckResult?.user?.username?.toLowerCase() === cleanInput || userCheckResult?.user?.email?.toLowerCase() === rawUsername.toLowerCase() || userCheckResult?.user?.id === rawUsername);
+        (userCheckResult?.user?.username?.toLowerCase() === cleanInput || userCheckResult?.user?.id === cleanInput);
 
       if (!isAlreadyVerified) {
-        // Run verification check before saving
         setUsernameChecking(true);
         try {
-          const res = await api.get(`/friends/search-user?username=${encodeURIComponent(rawUsername)}`);
+          const res = await api.get(`/friends/search-user?username=${encodeURIComponent(cleanInput)}`);
           const data = res?.exists !== undefined ? res : (res?.data || res);
           setUserCheckResult(data);
 
           if (!data?.exists || !data?.user) {
-            alert(`⚠️ No MoneyTracker user found for "${rawUsername}".\n\nPlease enter a valid username/email, or clear the username field to save as an offline friend.`);
+            alert(`⚠️ No registered MoneyTracker user found for "@${cleanInput}".\n\nPlease enter a valid username, or clear the username field to save as an offline friend.`);
             setUsernameChecking(false);
             return;
           }
 
-          // Update name if empty
+          verifiedUsername = data.user.username || cleanInput;
           if (data.user.name && !formData.name.trim()) {
             formData.name = data.user.name;
           }
         } catch (err) {
-          const errorMsg = err.response?.data?.error || err.message || `No user found for "${rawUsername}"`;
-          setUserCheckResult({ exists: false, message: errorMsg, error: errorMsg });
-          alert(`⚠️ ${errorMsg}\n\nPlease enter a valid username/email, or clear the username field to save as an offline friend.`);
+          const errorMsg = err.response?.data?.error || err.message || `No user found for "${cleanInput}"`;
+          setUserCheckResult({ exists: false, error: errorMsg });
+          alert(`⚠️ ${errorMsg}\n\nPlease enter a valid username, or clear the username field to save as an offline friend.`);
           setUsernameChecking(false);
           return;
         } finally {
           setUsernameChecking(false);
         }
+      } else {
+        verifiedUsername = userCheckResult.user.username || cleanInput;
       }
     }
+
+    const payload = {
+      ...formData,
+      username: verifiedUsername !== null ? verifiedUsername : ''
+    };
 
     const editId = currentEditingFriend?.id || currentEditingFriend?._id || editingFriend?.id || editingFriend?._id;
     handleCloseFriendModal();
@@ -352,11 +410,19 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
       let matchedMsg = null;
       await executeWithLoader(async () => {
         if (editId) {
-          await api.put(`/friends/${editId}`, formData);
-        } else {
-          const res = await api.post('/friends', formData);
+          const res = await api.put(`/friends/${editId}`, payload);
           const data = res?.data !== undefined ? res.data : res;
-          if (data?.matchedUser) {
+          if (data?.connectionStatus === 'CONNECTED') {
+            matchedMsg = `🎉 Friend updated and connected with @${data.pendingUsername || payload.username}! Shared ledger sync is active.`;
+          } else if (data?.connectionStatus === 'REQUEST_SENT') {
+            matchedMsg = `✉️ Connection request sent to @${data.pendingUsername || payload.username}!`;
+          }
+        } else {
+          const res = await api.post('/friends', payload);
+          const data = res?.data !== undefined ? res.data : res;
+          if (data?.status === 'CONNECTED') {
+            matchedMsg = `🎉 Friend added and instantly connected with @${data?.matchedUser?.username || payload.username}! Shared ledger sync is active.`;
+          } else if (data?.matchedUser) {
             matchedMsg = `🎉 Friend added! Account @${data.matchedUser.username} was found and a connection request has been sent to them.`;
           }
         }
@@ -944,6 +1010,29 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
             </div>
 
             <form onSubmit={handleSaveFriend} className="p-4 sm:p-6 space-y-3.5 sm:space-y-4 overflow-y-auto">
+              {/* Existing Connection Status Banner when editing */}
+              {currentEditingFriend?.connectionStatus === 'CONNECTED' && (
+                <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-start gap-2.5 text-xs animate-fadeIn">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-bold text-emerald-950">Connected MoneyTracker Account</p>
+                    <p className="text-emerald-700 text-[11px] mt-0.5">
+                      Linked to <strong className="font-mono">@{currentEditingFriend.connectedUser?.username || currentEditingFriend.pendingUsername}</strong>. Transactions and balance are actively synchronized.
+                    </p>
+                  </div>
+                </div>
+              )}
+              {currentEditingFriend?.connectionStatus === 'REQUEST_SENT' && (
+                <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 flex items-start gap-2.5 text-xs animate-fadeIn">
+                  <Clock className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-bold text-amber-950">Connection Request Sent</p>
+                    <p className="text-amber-800 text-[11px] mt-0.5">
+                      Request waiting for <strong className="font-mono">@{currentEditingFriend.connectedUser?.username || currentEditingFriend.pendingUsername}</strong> to accept.
+                    </p>
+                  </div>
+                </div>
+              )}
               <div>
                 <label className="block text-[11px] sm:text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
                   Full Name *
@@ -1125,9 +1214,10 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 xs:flex-initial bg-brand-600 hover:bg-brand-700 text-white text-xs sm:text-sm font-bold px-5 py-2.5 sm:py-3 rounded-xl shadow-sm hover:shadow-md active:scale-[0.98] transition-all text-center"
+                  disabled={usernameChecking || (userCheckResult && !userCheckResult.exists)}
+                  className="flex-1 xs:flex-initial bg-brand-600 hover:bg-brand-700 text-white text-xs sm:text-sm font-bold px-5 py-2.5 sm:py-3 rounded-xl shadow-sm hover:shadow-md active:scale-[0.98] transition-all text-center disabled:opacity-50 cursor-pointer"
                 >
-                  Save Friend
+                  {usernameChecking ? 'Verifying...' : 'Save Friend'}
                 </button>
               </div>
             </form>

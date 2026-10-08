@@ -166,24 +166,6 @@ export default function Dashboard({ onOpenAddTx, onOpenAddFriend, onViewFriendHi
     }
   };
 
-  const handleLinkSave = async (friendId, data) => {
-    setLinkModal({ open: false, friend: null });
-    try {
-      await executeWithLoader(async () => {
-        await api.post(`/friends/${friendId}/link-username`, data);
-        await fetchData(false);
-        window.dispatchEvent(new Event('transaction-updated'));
-      }, {
-        message: 'Linking Account in Database...',
-        submessage: 'Connecting user handle and synchronizing statement...',
-        tag: 'PEER MATRIX',
-        statusText: 'Synchronizing Accounts'
-      });
-    } catch (err) {
-      alert(err.response?.data?.error || err.message);
-    }
-  };
-
   if (loading) {
     return <ColorfulLoader fullScreen={false} minHeight="min-h-[260px] sm:min-h-[400px]" message="Loading Financial Dashboard..." submessage="Fetching real-time debt balances, circle stats & activity..." />;
   }
@@ -630,7 +612,6 @@ export default function Dashboard({ onOpenAddTx, onOpenAddFriend, onViewFriendHi
         isOpen={linkModal.open}
         onClose={() => setLinkModal({ open: false, friend: null })}
         friend={linkModal.friend}
-        onSave={handleLinkSave}
         onUpdated={fetchData}
       />
 

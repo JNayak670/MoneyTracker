@@ -267,10 +267,10 @@ exports.getFriendLedger = async (req, res) => {
 };
 
 // @route   POST /api/friends
-// @desc    Create a new friend (supports offline with optional pending username)
+// @desc    Create a new friend (supports offline with optional verified username)
 exports.createFriend = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.id || req.user._id?.toString();
     const { name, phone, email, avatarColor, avatarEmoji, relationshipTag, notes, username } = req.body;
 
     if (!name || !name.trim()) {
@@ -284,9 +284,15 @@ exports.createFriend = async (req, res) => {
     if (username && username.trim()) {
       const rawInput = username.trim();
       cleanUsername = rawInput.replace(/^@/, '').toLowerCase().trim();
+
+      if (req.user.username && cleanUsername === req.user.username.toLowerCase()) {
+        return res.status(400).json({ success: false, error: 'You cannot link your own username to a friend.' });
+      }
       
+      const escapedUsername = cleanUsername.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const orConditions = [
         { username: cleanUsername },
+        { username: { $regex: new RegExp(`^${escapedUsername}$`, 'i') } },
         { email: rawInput.toLowerCase() }
       ];
       if (rawInput.match(/^[0-9a-fA-F]{24}$/)) {
@@ -294,13 +300,27 @@ exports.createFriend = async (req, res) => {
       }
 
       foundUser = await User.findOne({ $or: orConditions });
-      if (foundUser) {
-        if (foundUser.id === userId || foundUser._id.toString() === userId) {
-          return res.status(400).json({ success: false, error: 'You cannot add yourself as a friend.' });
-        }
-        initialStatus = 'REQUEST_SENT';
-        cleanUsername = foundUser.username;
+      if (!foundUser) {
+        return res.status(404).json({
+          success: false,
+          error: `No registered MoneyTracker user found for "${rawInput}". Please enter a valid username, or leave it blank to save as an offline friend.`
+        });
       }
+
+      if (foundUser._id.toString() === userId.toString()) {
+        return res.status(400).json({ success: false, error: 'You cannot link your own username to a friend.' });
+      }
+
+      const existingFriend = await Friend.findOne({ userId, connectedUserId: foundUser._id });
+      if (existingFriend) {
+        return res.status(400).json({
+          success: false,
+          error: `You already have "${existingFriend.name}" linked to @${foundUser.username}.`
+        });
+      }
+
+      cleanUsername = foundUser.username;
+      initialStatus = 'REQUEST_SENT';
     }
 
     const friend = await Friend.create({
@@ -318,7 +338,7 @@ exports.createFriend = async (req, res) => {
       permission: 'NORMAL'
     });
 
-    // If a registered MoneyTracker user was matched, send a connection request notification to them!
+    // If a registered MoneyTracker user was matched, handle reciprocal connection
     if (foundUser) {
       let reciprocalFriend = await Friend.findOne({ userId: foundUser._id, connectedUserId: userId });
       if (!reciprocalFriend && req.user.username) {
@@ -337,11 +357,53 @@ exports.createFriend = async (req, res) => {
           avatarEmoji: '🤝',
           relationshipTag: 'Friend'
         });
+      } else if (reciprocalFriend.connectionStatus === 'REQUEST_SENT' || reciprocalFriend.connectionStatus === 'CONNECTED') {
+        friend.connectionStatus = 'CONNECTED';
+        friend.linkedAt = new Date();
+        await friend.save();
+
+        reciprocalFriend.connectedUserId = userId;
+        reciprocalFriend.connectionStatus = 'CONNECTED';
+        reciprocalFriend.linkedAt = reciprocalFriend.linkedAt || new Date();
+        await reciprocalFriend.save();
+
+        await Notification.create({
+          userId: foundUser._id,
+          type: 'FRIEND_CONNECTED',
+          title: '🤝 Connection Established!',
+          message: `${req.user.name} (@${req.user.username || 'user'}) added and linked your account. You are now connected friends!`,
+          data: {
+            friendId: reciprocalFriend._id,
+            connectedUserId: userId,
+            username: req.user.username,
+            friendName: req.user.name
+          }
+        });
+
+        return res.status(201).json({
+          success: true,
+          status: 'CONNECTED',
+          message: `Friend added and instantly connected with @${foundUser.username}! Shared ledger sync is now active.`,
+          data: friend,
+          matchedUser: {
+            id: foundUser.id || foundUser._id.toString(),
+            name: foundUser.name,
+            username: foundUser.username,
+            email: foundUser.email
+          }
+        });
       } else {
         reciprocalFriend.connectedUserId = userId;
         reciprocalFriend.connectionStatus = 'REQUEST_RECEIVED';
         await reciprocalFriend.save();
       }
+
+      await Notification.deleteMany({
+        userId: foundUser._id,
+        type: 'FRIEND_REQUEST',
+        'data.connectedUserId': userId,
+        isActioned: false
+      });
 
       // Send friend request notification to foundUser
       await Notification.create({
@@ -360,10 +422,9 @@ exports.createFriend = async (req, res) => {
 
     res.status(201).json({
       success: true,
+      status: foundUser ? 'MATCH_FOUND' : 'OFFLINE',
       message: foundUser 
         ? `Friend added! Account @${cleanUsername} found on MoneyTracker and connection request sent.` 
-        : cleanUsername 
-        ? `Friend added! @${cleanUsername} saved as pending username.` 
         : 'Friend added to circle',
       data: friend,
       matchedUser: foundUser ? {
@@ -388,8 +449,10 @@ exports.searchUserByUsername = async (req, res) => {
     }
 
     const cleanUsername = rawInput.replace(/^@/, '').toLowerCase().trim();
+    const escapedUsername = cleanUsername.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const orConditions = [
       { username: cleanUsername },
+      { username: { $regex: new RegExp(`^${escapedUsername}$`, 'i') } },
       { email: rawInput.toLowerCase() }
     ];
     if (rawInput.match(/^[0-9a-fA-F]{24}$/)) {
@@ -406,7 +469,8 @@ exports.searchUserByUsername = async (req, res) => {
       });
     }
 
-    if (user.id === req.user.id || user._id.toString() === req.user.id) {
+    const currentUserId = req.user.id || req.user._id?.toString();
+    if (user.id === currentUserId || user._id.toString() === currentUserId) {
       return res.status(400).json({
         success: false,
         error: 'This is your own account!'
@@ -432,7 +496,7 @@ exports.searchUserByUsername = async (req, res) => {
 // @desc    Link or save username for an offline friend
 exports.linkUsernameToFriend = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.id || req.user._id?.toString();
     const friendId = req.params.id;
     const { username } = req.body;
 
@@ -479,17 +543,21 @@ exports.linkUsernameToFriend = async (req, res) => {
 
     const rawInput = username.trim();
     const cleanUsername = rawInput.replace(/^@/, '').toLowerCase().trim();
-    if (cleanUsername === req.user.username) {
+    if (req.user.username && cleanUsername === req.user.username.toLowerCase()) {
       return res.status(400).json({ success: false, error: 'You cannot link your own username to a friend.' });
     }
 
+    const escapedUsername = cleanUsername.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const orConditions = [
       { username: cleanUsername },
+      { username: { $regex: new RegExp(`^${escapedUsername}$`, 'i') } },
       { email: rawInput.toLowerCase() }
     ];
     if (rawInput.match(/^[0-9a-fA-F]{24}$/)) {
       orConditions.push({ _id: rawInput });
     }
+
+    const foundUser = await User.findOne({ $or: orConditions });
 
     if (!foundUser) {
       return res.status(404).json({
@@ -505,10 +573,20 @@ exports.linkUsernameToFriend = async (req, res) => {
       });
     }
 
+    const existingFriendWithUser = await Friend.findOne({
+      userId,
+      connectedUserId: foundUser._id,
+      _id: { $ne: friendId }
+    });
+    if (existingFriendWithUser) {
+      return res.status(400).json({
+        success: false,
+        error: `You already have "${existingFriendWithUser.name}" linked to @${foundUser.username}.`
+      });
+    }
+
     friend.pendingUsername = foundUser.username;
     friend.connectedUserId = foundUser._id;
-    friend.connectionStatus = 'REQUEST_SENT';
-    await friend.save();
 
     // Ensure reciprocal friend entry exists in foundUser circle & notify them
     let reciprocalFriend = await Friend.findOne({ userId: foundUser._id, connectedUserId: userId });
@@ -528,11 +606,67 @@ exports.linkUsernameToFriend = async (req, res) => {
         avatarEmoji: '🤝',
         relationshipTag: 'Friend'
       });
+      friend.connectionStatus = 'REQUEST_SENT';
+      await friend.save();
+    } else if (reciprocalFriend.connectionStatus === 'REQUEST_SENT' || reciprocalFriend.connectionStatus === 'CONNECTED') {
+      // Mutual connection detected! Both friends are now connected
+      friend.connectionStatus = 'CONNECTED';
+      friend.linkedAt = new Date();
+      await friend.save();
+
+      reciprocalFriend.connectedUserId = userId;
+      reciprocalFriend.connectionStatus = 'CONNECTED';
+      reciprocalFriend.linkedAt = reciprocalFriend.linkedAt || new Date();
+      await reciprocalFriend.save();
+
+      // Clean up any un-actioned request notifications
+      await Notification.updateMany(
+        { userId, 'data.friendId': friend._id },
+        { isActioned: true, actionTaken: 'CONNECTED', isRead: true }
+      );
+
+      // Notify other user that mutual connection has completed
+      await Notification.create({
+        userId: foundUser._id,
+        type: 'FRIEND_CONNECTED',
+        title: '🤝 Connection Established!',
+        message: `${req.user.name} (@${req.user.username || 'user'}) linked your account back. You are now connected friends!`,
+        data: {
+          friendId: reciprocalFriend._id,
+          connectedUserId: userId,
+          username: req.user.username,
+          friendName: req.user.name
+        }
+      });
+
+      return res.json({
+        success: true,
+        status: 'CONNECTED',
+        message: `Successfully connected with @${foundUser.username}! Shared ledger is now active.`,
+        data: friend,
+        matchedUser: {
+          id: foundUser.id || foundUser._id.toString(),
+          name: foundUser.name,
+          username: foundUser.username,
+          email: foundUser.email
+        }
+      });
     } else {
       reciprocalFriend.connectedUserId = userId;
       reciprocalFriend.connectionStatus = 'REQUEST_RECEIVED';
       await reciprocalFriend.save();
+
+      friend.connectionStatus = 'REQUEST_SENT';
+      await friend.save();
     }
+
+    // Clean up any prior un-actioned friend request notifications to avoid duplicates
+    await Notification.deleteMany({
+      userId: foundUser._id,
+      type: 'FRIEND_REQUEST',
+      'data.connectedUserId': userId,
+      isActioned: false
+    });
 
     // Send friend request notification to foundUser
     await Notification.create({
@@ -829,6 +963,7 @@ exports.cancelConnectionRequest = async (req, res) => {
     }
 
     // Revert friend back to standard offline mode in sender's circle
+    friend.pendingUsername = null;
     friend.connectionStatus = 'OFFLINE';
     friend.connectedUserId = null;
     await friend.save();
@@ -1005,12 +1140,12 @@ exports.updateFriendPermission = async (req, res) => {
 };
 
 // @route   PUT /api/friends/:id
-// @desc    Update friend details
+// @desc    Update friend details (supports linking/unlinking @username with full validation)
 exports.updateFriend = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.id || req.user._id?.toString();
     const friendId = req.params.id;
-    const { name, phone, email, avatarColor, avatarEmoji, relationshipTag, notes, pendingUsername } = req.body;
+    const { name, phone, email, avatarColor, avatarEmoji, relationshipTag, notes, pendingUsername, username } = req.body;
 
     const existing = await Friend.findOne({ _id: friendId, userId });
     if (!existing) {
@@ -1018,19 +1153,167 @@ exports.updateFriend = async (req, res) => {
     }
 
     if (name) existing.name = name.trim();
-    if (phone !== undefined) existing.phone = phone;
-    if (email !== undefined) existing.email = email;
+    if (phone !== undefined) existing.phone = phone ? phone.trim() : null;
+    if (email !== undefined) existing.email = email ? email.trim() : null;
     if (avatarColor) existing.avatarColor = avatarColor;
     if (avatarEmoji) existing.avatarEmoji = avatarEmoji;
     if (relationshipTag) existing.relationshipTag = relationshipTag;
-    if (notes !== undefined) existing.notes = notes;
-    if (pendingUsername !== undefined) existing.pendingUsername = pendingUsername ? pendingUsername.replace(/^@/, '').toLowerCase().trim() : null;
+    if (notes !== undefined) existing.notes = notes ? notes.trim() : null;
+
+    const incomingUsername = username !== undefined ? username : pendingUsername;
+    if (incomingUsername !== undefined) {
+      const rawInput = (incomingUsername || '').trim();
+
+      // If user cleared the username -> Unlink
+      if (!rawInput) {
+        const oldConnectedId = existing.connectedUserId;
+        if (oldConnectedId) {
+          const reciprocal = await Friend.findOne({ userId: oldConnectedId, connectedUserId: userId });
+          if (reciprocal) {
+            const otherTx = await Transaction.countDocuments({ userId: oldConnectedId, friendId: reciprocal._id });
+            if (otherTx === 0 && (reciprocal.connectionStatus === 'REQUEST_RECEIVED' || reciprocal.connectionStatus === 'PENDING_MATCH')) {
+              await Friend.deleteOne({ _id: reciprocal._id });
+            } else {
+              reciprocal.connectionStatus = 'OFFLINE';
+              reciprocal.connectedUserId = null;
+              await reciprocal.save();
+            }
+          }
+          await Notification.deleteMany({
+            userId: oldConnectedId,
+            type: 'FRIEND_REQUEST',
+            $or: [
+              { 'data.connectedUserId': userId },
+              { 'data.friendId': reciprocal?._id }
+            ]
+          });
+        }
+        existing.pendingUsername = null;
+        existing.connectedUserId = null;
+        existing.connectionStatus = 'OFFLINE';
+      } else {
+        const cleanUsername = rawInput.replace(/^@/, '').toLowerCase().trim();
+
+        if (req.user.username && cleanUsername === req.user.username.toLowerCase()) {
+          return res.status(400).json({ success: false, error: 'You cannot link your own username to a friend.' });
+        }
+
+        const escapedUsername = cleanUsername.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const orConditions = [
+          { username: cleanUsername },
+          { username: { $regex: new RegExp(`^${escapedUsername}$`, 'i') } },
+          { email: rawInput.toLowerCase() }
+        ];
+        if (rawInput.match(/^[0-9a-fA-F]{24}$/)) {
+          orConditions.push({ _id: rawInput });
+        }
+
+        const foundUser = await User.findOne({ $or: orConditions });
+        if (!foundUser) {
+          return res.status(404).json({
+            success: false,
+            error: `No registered MoneyTracker user found for "${rawInput}". Please enter a valid username, or leave it blank to save as an offline friend.`
+          });
+        }
+
+        if (foundUser._id.toString() === userId.toString()) {
+          return res.status(400).json({ success: false, error: 'You cannot link your own username to a friend.' });
+        }
+
+        const duplicateFriend = await Friend.findOne({
+          userId,
+          connectedUserId: foundUser._id,
+          _id: { $ne: friendId }
+        });
+        if (duplicateFriend) {
+          return res.status(400).json({
+            success: false,
+            error: `You already have "${duplicateFriend.name}" linked to @${foundUser.username}.`
+          });
+        }
+
+        const isUserChanged = !existing.connectedUserId || existing.connectedUserId.toString() !== foundUser._id.toString();
+
+        if (isUserChanged || existing.connectionStatus === 'OFFLINE') {
+          existing.pendingUsername = foundUser.username;
+          existing.connectedUserId = foundUser._id;
+
+          let reciprocalFriend = await Friend.findOne({ userId: foundUser._id, connectedUserId: userId });
+          if (!reciprocalFriend && req.user.username) {
+            reciprocalFriend = await Friend.findOne({ userId: foundUser._id, pendingUsername: req.user.username.toLowerCase() });
+          }
+
+          if (!reciprocalFriend) {
+            reciprocalFriend = await Friend.create({
+              userId: foundUser._id,
+              name: req.user.name,
+              connectedUserId: userId,
+              pendingUsername: req.user.username || null,
+              connectionStatus: 'REQUEST_RECEIVED',
+              permission: 'NORMAL',
+              avatarColor: '#10b981',
+              avatarEmoji: '🤝',
+              relationshipTag: 'Friend'
+            });
+            existing.connectionStatus = 'REQUEST_SENT';
+          } else if (reciprocalFriend.connectionStatus === 'REQUEST_SENT' || reciprocalFriend.connectionStatus === 'CONNECTED') {
+            existing.connectionStatus = 'CONNECTED';
+            existing.linkedAt = new Date();
+
+            reciprocalFriend.connectedUserId = userId;
+            reciprocalFriend.connectionStatus = 'CONNECTED';
+            reciprocalFriend.linkedAt = reciprocalFriend.linkedAt || new Date();
+            await reciprocalFriend.save();
+
+            await Notification.create({
+              userId: foundUser._id,
+              type: 'FRIEND_CONNECTED',
+              title: '🤝 Connection Established!',
+              message: `${req.user.name} (@${req.user.username || 'user'}) linked your account. You are now connected friends!`,
+              data: {
+                friendId: reciprocalFriend._id,
+                connectedUserId: userId,
+                username: req.user.username,
+                friendName: req.user.name
+              }
+            });
+          } else {
+            reciprocalFriend.connectedUserId = userId;
+            reciprocalFriend.connectionStatus = 'REQUEST_RECEIVED';
+            await reciprocalFriend.save();
+            existing.connectionStatus = 'REQUEST_SENT';
+          }
+
+          if (existing.connectionStatus === 'REQUEST_SENT') {
+            await Notification.deleteMany({
+              userId: foundUser._id,
+              type: 'FRIEND_REQUEST',
+              'data.connectedUserId': userId,
+              isActioned: false
+            });
+
+            await Notification.create({
+              userId: foundUser._id,
+              type: 'FRIEND_REQUEST',
+              title: '👋 Friend Connection Request',
+              message: `${req.user.name} (@${req.user.username || 'user'}) sent you a friend connection request. Accept to see each other in your friend lists.`,
+              data: {
+                friendId: reciprocalFriend._id,
+                connectedUserId: userId,
+                username: req.user.username,
+                friendName: req.user.name
+              }
+            });
+          }
+        }
+      }
+    }
 
     await existing.save();
 
     res.json({
       success: true,
-      message: 'Friend updated',
+      message: 'Friend updated successfully.',
       data: existing
     });
   } catch (err) {

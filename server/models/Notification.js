@@ -12,6 +12,7 @@ const notificationSchema = new mongoose.Schema({
     enum: [
       'USERNAME_MATCH',        // Offline friend registered with saved @username
       'FRIEND_REQUEST',        // Direct request from registered user
+      'FRIEND_REQUEST_DECLINED', // Request was declined
       'FRIEND_CONNECTED',      // Accounts successfully connected
       'TRANSACTION_REQUEST',   // Transaction requires approval (NORMAL permission)
       'TRANSACTION_LOGGED',    // Transaction auto-synced (AUTHORIZED permission)

@@ -99,18 +99,26 @@ export default function LinkAccountModal({ isOpen, onClose, friend, onUpdated, o
       return;
     }
 
+    const targetFriendId = friend.id || friend._id;
+    if (!targetFriendId) {
+      setError('Friend identifier is missing.');
+      return;
+    }
+
     setSaving(true);
     try {
       let isMatch = false;
+      let isConnectedDirectly = false;
       let matchedHandle = '';
       await executeWithLoader(async () => {
-        const res = await api.post(`/friends/${friend.id}/link-username`, { username: clean });
+        const res = await api.post(`/friends/${targetFriendId}/link-username`, { username: clean });
         const data = res?.status !== undefined ? res : (res?.data || res);
         isMatch = data.status === 'MATCH_FOUND';
+        isConnectedDirectly = data.status === 'CONNECTED';
         matchedHandle = data.matchedUser?.username || clean;
         window.dispatchEvent(new Event('transaction-updated'));
         if (onUpdated) onUpdated();
-        if (onSave) onSave(friend.id, { username: clean });
+        if (onSave) onSave(targetFriendId, { username: clean });
       }, {
         message: 'Linking Account in Database...',
         submessage: `Verifying @${clean} and connecting peer statements...`,
@@ -118,7 +126,9 @@ export default function LinkAccountModal({ isOpen, onClose, friend, onUpdated, o
         statusText: 'Synchronizing Accounts'
       });
 
-      if (isMatch) {
+      if (isConnectedDirectly) {
+        setSuccessMsg(`Successfully connected with @${matchedHandle}! Shared ledger sync is now active.`);
+      } else if (isMatch) {
         setSuccessMsg(`Connection request sent to @${matchedHandle}! They will appear as a connected friend once accepted.`);
       } else {
         setSuccessMsg('Account linked successfully.');
@@ -134,23 +144,30 @@ export default function LinkAccountModal({ isOpen, onClose, friend, onUpdated, o
   };
 
   const handleUnlink = async () => {
-    if (!window.confirm(`Unlink @${friend.pendingUsername || friend.connectedUser?.username} from ${friend.name}? This friend will return to standard offline mode.`)) {
+    const targetFriendId = friend.id || friend._id;
+    if (!targetFriendId) return;
+
+    const currentHandle = friend.pendingUsername || friend.connectedUser?.username || 'this user';
+    const isPending = friend.connectionStatus === 'REQUEST_SENT';
+    const actionLabel = isPending ? 'Cancel connection request to' : 'Unlink';
+
+    if (!window.confirm(`${actionLabel} @${currentHandle} for ${friend.name}? This friend will return to standard offline mode.`)) {
       return;
     }
     setSaving(true);
     try {
       await executeWithLoader(async () => {
-        await api.post(`/friends/${friend.id}/link-username`, { username: '' });
+        await api.post(`/friends/${targetFriendId}/link-username`, { username: '' });
         window.dispatchEvent(new Event('transaction-updated'));
         if (onUpdated) onUpdated();
-        if (onSave) onSave(friend.id, { username: '' });
+        if (onSave) onSave(targetFriendId, { username: '' });
       }, {
-        message: 'Unlinking Account in Database...',
+        message: isPending ? 'Canceling Request...' : 'Unlinking Account in Database...',
         submessage: 'Reverting friend back to standard offline ledger mode...',
         tag: 'PEER MATRIX',
         statusText: 'Updating Peer Status'
       });
-      setSuccessMsg('Account unlinked successfully.');
+      setSuccessMsg(isPending ? 'Connection request cancelled.' : 'Account unlinked successfully.');
       setTimeout(() => onClose(), 1000);
     } catch (err) {
       setError(err.response?.data?.error || err.message || 'Failed to unlink account');
@@ -317,15 +334,15 @@ export default function LinkAccountModal({ isOpen, onClose, friend, onUpdated, o
 
           {/* Action Buttons */}
           <div className="pt-2 flex items-center justify-between gap-3 border-t border-slate-100">
-            {isConnected || friend.pendingUsername ? (
+            {isConnected || friend.pendingUsername || friend.connectedUserId || friend.connectionStatus === 'REQUEST_SENT' ? (
               <button
                 type="button"
                 onClick={handleUnlink}
                 disabled={saving}
-                className="px-3.5 py-2 rounded-xl text-rose-600 hover:bg-rose-50 text-xs font-bold flex items-center gap-1.5 transition-colors border border-rose-200"
+                className="px-3.5 py-2 rounded-xl text-rose-600 hover:bg-rose-50 text-xs font-bold flex items-center gap-1.5 transition-colors border border-rose-200 cursor-pointer"
               >
                 <Unlink className="w-3.5 h-3.5" />
-                <span>Unlink</span>
+                <span>{friend.connectionStatus === 'REQUEST_SENT' ? 'Cancel Request' : 'Unlink'}</span>
               </button>
             ) : <div />}
 
