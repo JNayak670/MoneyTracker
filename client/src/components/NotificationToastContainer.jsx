@@ -435,24 +435,30 @@ export default function NotificationToastContainer() {
           }
         };
 
+        eventSource.onopen = () => {
+          // Immediately catch up on any notifications that arrived while disconnected
+          checkForNewNotifications();
+        };
+
         eventSource.onerror = () => {
-          // Native EventSource automatically handles reconnection backoff
+          // Fall back to REST check while native EventSource reconnects in background
+          checkForNewNotifications();
         };
       } catch (err) {
         console.warn('Failed to initialize SSE stream:', err);
       }
     }
 
-    // Occasional low-frequency safety check (every 60s) only as fallback
+    // High-responsiveness safety poll (every 12s) as backup if SSE disconnects or sleeps
     const fallbackInterval = setInterval(() => {
-      if (!document.hidden && Date.now() - lastCheckTimeRef.current > 45000) {
+      if (!document.hidden && Date.now() - lastCheckTimeRef.current > 10000) {
         checkForNewNotifications();
       }
-    }, 60000);
+    }, 12000);
 
-    // Sync on tab re-focus if inactive for a while
+    // Sync immediately on tab re-focus or app resume (2s debounce)
     const handleEvents = () => {
-      if (!document.hidden && Date.now() - lastCheckTimeRef.current > 30000) {
+      if (!document.hidden && Date.now() - lastCheckTimeRef.current > 2000) {
         checkForNewNotifications();
       }
     };

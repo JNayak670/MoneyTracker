@@ -57,6 +57,9 @@ function addClient(userId, req, res) {
   const heartbeatTimer = setInterval(() => {
     try {
       res.write(': ping\n\n');
+      if (typeof res.flush === 'function') {
+        res.flush();
+      }
     } catch (err) {
       clearInterval(heartbeatTimer);
     }
@@ -112,6 +115,9 @@ function sendToUser(userId, type, data) {
   for (const res of userClients) {
     try {
       res.write(payload);
+      if (typeof res.flush === 'function') {
+        res.flush();
+      }
     } catch (err) {
       console.warn(`Failed to push SSE event to user ${userIdStr}:`, err.message);
     }
@@ -138,6 +144,9 @@ function broadcast(type, data) {
     for (const res of userClients) {
       try {
         res.write(payload);
+        if (typeof res.flush === 'function') {
+          res.flush();
+        }
       } catch (err) {
         // ignore individual failed writes
       }
