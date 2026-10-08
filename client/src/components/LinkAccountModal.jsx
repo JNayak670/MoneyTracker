@@ -18,9 +18,11 @@ import api from '../services/api';
 import useModalBackHandler from '../hooks/useModalBackHandler';
 
 import { useAuth } from '../context/AuthContext';
+import { useOperationLoader } from '../context/OperationLoaderContext';
 
 export default function LinkAccountModal({ isOpen, onClose, friend, onUpdated, onSave }) {
   useModalBackHandler(isOpen && Boolean(friend), onClose);
+  const { executeWithLoader } = useOperationLoader();
 
   const { user: currentUser } = useAuth();
   const [usernameInput, setUsernameInput] = useState('');
@@ -99,22 +101,29 @@ export default function LinkAccountModal({ isOpen, onClose, friend, onUpdated, o
 
     setSaving(true);
     try {
-      const res = await api.post(`/friends/${friend.id}/link-username`, { username: clean });
-      const data = res?.status !== undefined ? res : (res?.data || res);
-      
-      if (data.status === 'MATCH_FOUND') {
-        setSuccessMsg(`Connection request sent to @${data.matchedUser?.username || clean}! They will appear as a connected friend once accepted.`);
+      let isMatch = false;
+      let matchedHandle = '';
+      await executeWithLoader(async () => {
+        const res = await api.post(`/friends/${friend.id}/link-username`, { username: clean });
+        const data = res?.status !== undefined ? res : (res?.data || res);
+        isMatch = data.status === 'MATCH_FOUND';
+        matchedHandle = data.matchedUser?.username || clean;
         window.dispatchEvent(new Event('transaction-updated'));
         if (onUpdated) onUpdated();
         if (onSave) onSave(friend.id, { username: clean });
-        setTimeout(() => onClose(), 1500);
+      }, {
+        message: 'Linking Account in Database...',
+        submessage: `Verifying @${clean} and connecting peer statements...`,
+        tag: 'PEER MATRIX',
+        statusText: 'Synchronizing Accounts'
+      });
+
+      if (isMatch) {
+        setSuccessMsg(`Connection request sent to @${matchedHandle}! They will appear as a connected friend once accepted.`);
       } else {
-        setSuccessMsg(data.message || 'Account linked successfully.');
-        window.dispatchEvent(new Event('transaction-updated'));
-        if (onUpdated) onUpdated();
-        if (onSave) onSave(friend.id, { username: clean });
-        setTimeout(() => onClose(), 1400);
+        setSuccessMsg('Account linked successfully.');
       }
+      setTimeout(() => onClose(), 1200);
     } catch (err) {
       const errorMsg = err.response?.data?.error || err.message || 'User not found. Please enter a valid username.';
       setError(errorMsg);
@@ -130,11 +139,18 @@ export default function LinkAccountModal({ isOpen, onClose, friend, onUpdated, o
     }
     setSaving(true);
     try {
-      await api.post(`/friends/${friend.id}/link-username`, { username: '' });
+      await executeWithLoader(async () => {
+        await api.post(`/friends/${friend.id}/link-username`, { username: '' });
+        window.dispatchEvent(new Event('transaction-updated'));
+        if (onUpdated) onUpdated();
+        if (onSave) onSave(friend.id, { username: '' });
+      }, {
+        message: 'Unlinking Account in Database...',
+        submessage: 'Reverting friend back to standard offline ledger mode...',
+        tag: 'PEER MATRIX',
+        statusText: 'Updating Peer Status'
+      });
       setSuccessMsg('Account unlinked successfully.');
-      window.dispatchEvent(new Event('transaction-updated'));
-      if (onUpdated) onUpdated();
-      if (onSave) onSave(friend.id, { username: '' });
       setTimeout(() => onClose(), 1000);
     } catch (err) {
       setError(err.response?.data?.error || err.message || 'Failed to unlink account');

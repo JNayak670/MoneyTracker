@@ -15,6 +15,7 @@ import SharedLedger from './pages/SharedLedger';
 import TransactionForm from './components/TransactionForm';
 import NotificationToastContainer from './components/NotificationToastContainer';
 import ColorfulLoader from './components/ColorfulLoader';
+import { OperationLoaderProvider, useOperationLoader } from './context/OperationLoaderContext';
 import api from './services/api';
 
 function AppLayout({ children, onOpenAddTx, onViewFriendHistory }) {
@@ -37,6 +38,7 @@ function AppLayout({ children, onOpenAddTx, onViewFriendHistory }) {
 
 function MainApp() {
   const { user, loading } = useAuth();
+  const { executeWithLoader } = useOperationLoader();
   const [addTxModalOpen, setAddTxModalOpen] = useState(false);
   const [preselectedFriendId, setPreselectedFriendId] = useState('');
   const [friendsList, setFriendsList] = useState([]);
@@ -113,11 +115,21 @@ function MainApp() {
   };
 
   const handleSaveTransaction = async (payload) => {
+    setAddTxModalOpen(false);
     try {
-      await api.post('/transactions', payload);
-      setAddTxModalOpen(false);
-      await fetchFriends();
-      window.dispatchEvent(new Event('transaction-updated'));
+      await executeWithLoader(async () => {
+        await api.post('/transactions', payload);
+        await fetchFriends();
+        window.dispatchEvent(new Event('transaction-updated'));
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }, {
+        message: payload.isSplit ? 'Saving Group Split to Database...' : 'Saving Transaction to Database...',
+        submessage: payload.isSplit 
+          ? 'Calculating participant shares, splitting dues & updating circle ledgers...'
+          : 'Recording ledger entry and recalculating net running balances...',
+        tag: payload.isSplit ? 'SPLIT ENGINE' : 'LEDGER UPDATE',
+        statusText: 'Updating Ledger Records'
+      });
     } catch (err) {
       alert(`Save error: ${err.message}`);
     }
@@ -248,7 +260,9 @@ export default function App() {
   return (
     <AuthProvider>
       <Router>
-        <MainApp />
+        <OperationLoaderProvider>
+          <MainApp />
+        </OperationLoaderProvider>
       </Router>
     </AuthProvider>
   );

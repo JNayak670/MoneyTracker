@@ -9,6 +9,7 @@ import ShareCodeModal from '../components/ShareCodeModal';
 import LinkAccountModal from '../components/LinkAccountModal';
 import SyncPermissionModal from '../components/SyncPermissionModal';
 import ColorfulLoader from '../components/ColorfulLoader';
+import { useOperationLoader } from '../context/OperationLoaderContext';
 import { exportToCSV } from '../services/exportService';
 import { 
   Users, 
@@ -51,6 +52,7 @@ const CATEGORY_EMOJIS = {
 };
 
 export default function Dashboard({ onOpenAddTx, onOpenAddFriend, onViewFriendHistory }) {
+  const { executeWithLoader } = useOperationLoader();
   const [summary, setSummary] = useState(null);
   const [friends, setFriends] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -101,13 +103,22 @@ export default function Dashboard({ onOpenAddTx, onOpenAddFriend, onViewFriendHi
   }, []);
 
   const handleSettleSubmit = async (payload) => {
+    setSettleModal({ open: false, friendId: '', friendName: '', amount: 0, isShared: false });
     try {
-      const res = await api.post('/transactions/settle', payload);
-      setSettleModal({ open: false, friendId: '', friendName: '', amount: 0, isShared: false });
-      await fetchData(false);
-      window.dispatchEvent(new Event('transaction-updated'));
-      if (res?.data?.message || res?.message) {
-        alert(res?.data?.message || res?.message);
+      let resMessage = '';
+      await executeWithLoader(async () => {
+        const res = await api.post('/transactions/settle', payload);
+        resMessage = res?.data?.message || res?.message || '';
+        await fetchData(false);
+        window.dispatchEvent(new Event('transaction-updated'));
+      }, {
+        message: 'Recording Settlement in Database...',
+        submessage: 'Clearing balance dues and updating dashboard financials...',
+        tag: 'SETTLE ENGINE',
+        statusText: 'Finalizing Debt Settlement'
+      });
+      if (resMessage) {
+        setTimeout(() => alert(resMessage), 200);
       }
     } catch (err) {
       alert(`Settlement failed: ${err.response?.data?.error || err.message}`);
@@ -117,9 +128,16 @@ export default function Dashboard({ onOpenAddTx, onOpenAddFriend, onViewFriendHi
   const handleDeleteFriend = async (id) => {
     if (!confirm('Are you sure you want to delete this friend? All their transactions will be deleted.')) return;
     try {
-      await api.delete(`/friends/${id}`);
-      await fetchData();
-      window.dispatchEvent(new Event('transaction-updated'));
+      await executeWithLoader(async () => {
+        await api.delete(`/friends/${id}`);
+        await fetchData(false);
+        window.dispatchEvent(new Event('transaction-updated'));
+      }, {
+        message: 'Removing Friend from Database...',
+        submessage: 'Deleting transactions and updating financial summary...',
+        tag: 'DATABASE PURGE',
+        statusText: 'Recalculating Circle Balance'
+      });
     } catch (err) {
       alert(`Delete failed: ${err.message}`);
     }
@@ -131,10 +149,17 @@ export default function Dashboard({ onOpenAddTx, onOpenAddFriend, onViewFriendHi
 
   const handleConfirmPermissionChange = async (friend, targetPerm) => {
     try {
-      const fId = friend.id || friend._id;
-      await api.patch(`/friends/${fId}/permission`, { permission: targetPerm });
-      await fetchData();
-      window.dispatchEvent(new Event('transaction-updated'));
+      await executeWithLoader(async () => {
+        const fId = friend.id || friend._id;
+        await api.patch(`/friends/${fId}/permission`, { permission: targetPerm });
+        await fetchData(false);
+        window.dispatchEvent(new Event('transaction-updated'));
+      }, {
+        message: 'Updating Sync Permission...',
+        submessage: 'Applying new permission preferences in database...',
+        tag: 'SECURE VAULT',
+        statusText: 'Updating Peer Rules'
+      });
     } catch (err) {
       alert(err.response?.data?.error || err.message || 'Failed to update permission');
       throw err;
@@ -142,11 +167,18 @@ export default function Dashboard({ onOpenAddTx, onOpenAddFriend, onViewFriendHi
   };
 
   const handleLinkSave = async (friendId, data) => {
+    setLinkModal({ open: false, friend: null });
     try {
-      await api.post(`/friends/${friendId}/link-username`, data);
-      setLinkModal({ open: false, friend: null });
-      await fetchData();
-      window.dispatchEvent(new Event('transaction-updated'));
+      await executeWithLoader(async () => {
+        await api.post(`/friends/${friendId}/link-username`, data);
+        await fetchData(false);
+        window.dispatchEvent(new Event('transaction-updated'));
+      }, {
+        message: 'Linking Account in Database...',
+        submessage: 'Connecting user handle and synchronizing statement...',
+        tag: 'PEER MATRIX',
+        statusText: 'Synchronizing Accounts'
+      });
     } catch (err) {
       alert(err.response?.data?.error || err.message);
     }

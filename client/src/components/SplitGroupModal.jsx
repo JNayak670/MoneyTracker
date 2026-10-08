@@ -21,9 +21,11 @@ import {
 } from 'lucide-react';
 import api from '../services/api';
 import useModalBackHandler from '../hooks/useModalBackHandler';
+import { useOperationLoader } from '../context/OperationLoaderContext';
 
 export default function SplitGroupModal({ isOpen, onClose, splitGroupId, onSplitDeleted }) {
   useModalBackHandler(isOpen, onClose);
+  const { executeWithLoader } = useOperationLoader();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [groupData, setGroupData] = useState(null);
@@ -130,10 +132,17 @@ export default function SplitGroupModal({ isOpen, onClose, splitGroupId, onSplit
   const handleDeleteSplitGroup = async () => {
     try {
       setDeleting(true);
-      await api.delete(`/transactions/group/${splitGroupId}`);
-      if (onSplitDeleted) onSplitDeleted(splitGroupId);
-      window.dispatchEvent(new Event('transaction-updated'));
-      onClose();
+      await executeWithLoader(async () => {
+        await api.delete(`/transactions/group/${splitGroupId}`);
+        if (onSplitDeleted) onSplitDeleted(splitGroupId);
+        window.dispatchEvent(new Event('transaction-updated'));
+        onClose();
+      }, {
+        message: 'Deleting Group Split from Database...',
+        submessage: 'Reverting all participants\' shares and recalculating running balances...',
+        tag: 'DATABASE PURGE',
+        statusText: 'Restoring Pre-Split Ledger'
+      });
     } catch (err) {
       alert(`Error deleting group split: ${err.response?.data?.error || err.message}`);
     } finally {

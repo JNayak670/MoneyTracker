@@ -8,6 +8,7 @@ import ShareCodeModal from '../components/ShareCodeModal';
 import LinkAccountModal from '../components/LinkAccountModal';
 import SyncPermissionModal from '../components/SyncPermissionModal';
 import ColorfulLoader from '../components/ColorfulLoader';
+import { useOperationLoader } from '../context/OperationLoaderContext';
 import useModalBackHandler from '../hooks/useModalBackHandler';
 import { printFriendStatement } from '../services/exportService';
 import SplitGroupModal from '../components/SplitGroupModal';
@@ -36,6 +37,7 @@ import {
 } from 'lucide-react';
 
 export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, onCloseFriendModal, historyFriendId, onCloseHistory }) {
+  const { executeWithLoader } = useOperationLoader();
   const [friends, setFriends] = useState([]);
   const [selectedSplitGroupId, setSelectedSplitGroupId] = useState(null);
   const [search, setSearch] = useState('');
@@ -97,9 +99,16 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
   const handleAcceptRequest = async (friendId) => {
     setPendingActionLoading(friendId);
     try {
-      await api.post(`/friends/${friendId}/confirm-connect`);
-      await fetchFriends(false);
-      window.dispatchEvent(new Event('transaction-updated'));
+      await executeWithLoader(async () => {
+        await api.post(`/friends/${friendId}/confirm-connect`);
+        await fetchFriends(false);
+        window.dispatchEvent(new Event('transaction-updated'));
+      }, {
+        message: 'Connecting Friend in Database...',
+        submessage: 'Establishing mutual verified ledger sync...',
+        tag: 'PEER MATRIX',
+        statusText: 'Linking Peer Nodes'
+      });
     } catch (err) {
       alert(`Failed to accept connection: ${err.message}`);
     } finally {
@@ -110,9 +119,16 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
   const handleIgnoreRequest = async (friendId) => {
     setPendingActionLoading(friendId);
     try {
-      await api.post(`/friends/${friendId}/ignore-connect`);
-      await fetchFriends(false);
-      window.dispatchEvent(new Event('transaction-updated'));
+      await executeWithLoader(async () => {
+        await api.post(`/friends/${friendId}/ignore-connect`);
+        await fetchFriends(false);
+        window.dispatchEvent(new Event('transaction-updated'));
+      }, {
+        message: 'Updating Request in Database...',
+        submessage: 'Declining peer connection and updating contact records...',
+        tag: 'PEER MATRIX',
+        statusText: 'Updating Peer Status'
+      });
     } catch (err) {
       alert(`Failed to decline request: ${err.message}`);
     } finally {
@@ -123,9 +139,16 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
   const handleCancelRequest = async (friendId) => {
     setPendingActionLoading(friendId);
     try {
-      await api.post(`/friends/${friendId}/cancel-connect`);
-      await fetchFriends(false);
-      window.dispatchEvent(new Event('transaction-updated'));
+      await executeWithLoader(async () => {
+        await api.post(`/friends/${friendId}/cancel-connect`);
+        await fetchFriends(false);
+        window.dispatchEvent(new Event('transaction-updated'));
+      }, {
+        message: 'Canceling Request in Database...',
+        submessage: 'Removing connection invite and resetting friend status...',
+        tag: 'PEER MATRIX',
+        statusText: 'Resetting Connection'
+      });
     } catch (err) {
       alert(`Failed to cancel request: ${err.message}`);
     } finally {
@@ -246,12 +269,19 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
 
   const handleConfirmPermissionChange = async (friend, targetPerm) => {
     try {
-      await api.put(`/friends/${friend.id}/permission`, { permission: targetPerm });
-      await fetchFriends(false);
-      if (activeLedger?.friend?.id === friend.id) {
-        await loadFriendLedger(friend.id, false);
-      }
-      window.dispatchEvent(new Event('transaction-updated'));
+      await executeWithLoader(async () => {
+        await api.put(`/friends/${friend.id}/permission`, { permission: targetPerm });
+        await fetchFriends(false);
+        if (activeLedger?.friend?.id === friend.id) {
+          await loadFriendLedger(friend.id, false);
+        }
+        window.dispatchEvent(new Event('transaction-updated'));
+      }, {
+        message: 'Updating Sync Permission...',
+        submessage: 'Configuring peer approval mode in database...',
+        tag: 'SECURE VAULT',
+        statusText: 'Securing Peer Connection'
+      });
     } catch (err) {
       alert(err.response?.data?.error || err.message || 'Failed to update permission');
       throw err;
@@ -316,20 +346,36 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
       }
     }
 
+    const editId = currentEditingFriend?.id || currentEditingFriend?._id || editingFriend?.id || editingFriend?._id;
+    handleCloseFriendModal();
     try {
-      const editId = currentEditingFriend?.id || currentEditingFriend?._id || editingFriend?.id || editingFriend?._id;
-      if (editId) {
-        await api.put(`/friends/${editId}`, formData);
-      } else {
-        const res = await api.post('/friends', formData);
-        const data = res?.data !== undefined ? res.data : res;
-        if (data?.matchedUser) {
-          alert(`🎉 Friend added! Account @${data.matchedUser.username} was found and a connection request has been sent to them.`);
+      let matchedMsg = null;
+      await executeWithLoader(async () => {
+        if (editId) {
+          await api.put(`/friends/${editId}`, formData);
+        } else {
+          const res = await api.post('/friends', formData);
+          const data = res?.data !== undefined ? res.data : res;
+          if (data?.matchedUser) {
+            matchedMsg = `🎉 Friend added! Account @${data.matchedUser.username} was found and a connection request has been sent to them.`;
+          }
         }
+        await fetchFriends(false);
+        if (activeLedger?.friend?.id) {
+          await loadFriendLedger(activeLedger.friend.id, false);
+        }
+        window.dispatchEvent(new Event('transaction-updated'));
+      }, {
+        message: editId ? 'Updating Friend in Database...' : 'Adding Friend to Database...',
+        submessage: editId 
+          ? 'Saving contact details and updating circle ledger in database...'
+          : 'Creating contact record and linking mutual ledger in database...',
+        tag: 'PEER MATRIX',
+        statusText: 'Updating Peer Accounts'
+      });
+      if (matchedMsg) {
+        setTimeout(() => alert(matchedMsg), 200);
       }
-      handleCloseFriendModal();
-      await fetchFriends();
-      window.dispatchEvent(new Event('transaction-updated'));
     } catch (err) {
       alert(`Save friend error: ${err.message}`);
     }
@@ -338,26 +384,42 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
   const handleDeleteFriend = async (id) => {
     if (!confirm('Are you sure you want to delete this friend? All transaction logs will be removed.')) return;
     try {
-      await api.delete(`/friends/${id}`);
-      if (activeLedger?.friend?.id === id) setActiveLedger(null);
-      await fetchFriends();
-      window.dispatchEvent(new Event('transaction-updated'));
+      await executeWithLoader(async () => {
+        await api.delete(`/friends/${id}`);
+        if (activeLedger?.friend?.id === id) setActiveLedger(null);
+        await fetchFriends(false);
+        window.dispatchEvent(new Event('transaction-updated'));
+      }, {
+        message: 'Removing Friend from Database...',
+        submessage: 'Deleting friend record and updating circle balances...',
+        tag: 'DATABASE PURGE',
+        statusText: 'Reconciling Circle Ledger'
+      });
     } catch (err) {
       alert(`Delete error: ${err.message}`);
     }
   };
 
   const handleSettleSubmit = async (payload) => {
+    setSettleModal({ open: false, friendId: '', friendName: '', amount: 0, note: '', isShared: false });
     try {
-      const res = await api.post('/transactions/settle', payload);
-      setSettleModal({ open: false, friendId: '', friendName: '', amount: 0, note: '', isShared: false });
-      await fetchFriends();
-      if (activeLedger) {
-        await loadFriendLedger(payload.friendId);
-      }
-      window.dispatchEvent(new Event('transaction-updated'));
-      if (res?.data?.message || res?.message) {
-        alert(res?.data?.message || res?.message);
+      let resMessage = '';
+      await executeWithLoader(async () => {
+        const res = await api.post('/transactions/settle', payload);
+        resMessage = res?.data?.message || res?.message || '';
+        await fetchFriends(false);
+        if (activeLedger) {
+          await loadFriendLedger(payload.friendId, false);
+        }
+        window.dispatchEvent(new Event('transaction-updated'));
+      }, {
+        message: 'Processing Settlement in Database...',
+        submessage: 'Recording payment receipt and zeroing out debt balances in database...',
+        tag: 'SETTLE ENGINE',
+        statusText: 'Finalizing Debt Settlement'
+      });
+      if (resMessage) {
+        setTimeout(() => alert(resMessage), 200);
       }
     } catch (err) {
       alert(`Settlement error: ${err.response?.data?.error || err.message}`);

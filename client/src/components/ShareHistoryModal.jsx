@@ -14,9 +14,11 @@ import {
 } from 'lucide-react';
 import api from '../services/api';
 import useModalBackHandler from '../hooks/useModalBackHandler';
+import { useOperationLoader } from '../context/OperationLoaderContext';
 
 export default function ShareHistoryModal({ isOpen, onClose, friend, transactions = [], onComplete }) {
   useModalBackHandler(isOpen && Boolean(friend), onClose);
+  const { executeWithLoader } = useOperationLoader();
 
   const [selectedIds, setSelectedIds] = useState([]);
   const [saving, setSaving] = useState(false);
@@ -53,9 +55,19 @@ export default function ShareHistoryModal({ isOpen, onClose, friend, transaction
     setError('');
     try {
       const payload = shareAll ? { shareAll: true } : { transactionIds: selectedIds };
-      const res = await api.post(`/friends/${friend.id}/share-history`, payload);
-      setSuccess(res.data.message || 'Transactions shared successfully!');
-      if (onComplete) onComplete();
+      let resMsg = '';
+      await executeWithLoader(async () => {
+        const res = await api.post(`/friends/${friend.id}/share-history`, payload);
+        resMsg = res.data?.message || 'Transactions shared successfully!';
+        if (onComplete) onComplete();
+        window.dispatchEvent(new Event('transaction-updated'));
+      }, {
+        message: 'Syncing Shared History in Database...',
+        submessage: `Sharing ledger transactions with ${friend?.name || 'friend'}...`,
+        tag: 'PEER MATRIX',
+        statusText: 'Sharing Ledger Records'
+      });
+      setSuccess(resMsg);
       setTimeout(() => onClose(), 1200);
     } catch (err) {
       setError(err.message || 'Failed to share transactions');

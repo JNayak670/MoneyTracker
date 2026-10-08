@@ -21,9 +21,11 @@ import {
 import api from '../services/api';
 import useModalBackHandler from '../hooks/useModalBackHandler';
 import { isSoundEnabled, toggleSound, testNotificationSound } from '../services/soundService';
+import { useOperationLoader } from '../context/OperationLoaderContext';
 
 export default function NotificationDrawer({ isOpen, onClose, onDataChanged }) {
   useModalBackHandler(isOpen, onClose);
+  const { executeWithLoader } = useOperationLoader();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
   const [soundActive, setSoundActive] = useState(isSoundEnabled());
@@ -104,10 +106,17 @@ export default function NotificationDrawer({ isOpen, onClose, onDataChanged }) {
 
     setActionLoading(notif.id);
     try {
-      await api.post(`/friends/${friendId}/confirm-connect`);
-      setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, isActioned: true, actionTaken: 'CONNECTED', isRead: true } : n));
-      window.dispatchEvent(new Event('transaction-updated'));
-      if (onDataChanged) onDataChanged();
+      await executeWithLoader(async () => {
+        await api.post(`/friends/${friendId}/confirm-connect`);
+        setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, isActioned: true, actionTaken: 'CONNECTED', isRead: true } : n));
+        window.dispatchEvent(new Event('transaction-updated'));
+        if (onDataChanged) onDataChanged();
+      }, {
+        message: 'Connecting Friend in Database...',
+        submessage: 'Establishing mutual verified ledger sync...',
+        tag: 'PEER MATRIX',
+        statusText: 'Linking Peer Nodes'
+      });
     } catch (err) {
       alert(err.message || 'Failed to connect friend');
     } finally {
@@ -121,10 +130,17 @@ export default function NotificationDrawer({ isOpen, onClose, onDataChanged }) {
 
     setActionLoading(notif.id);
     try {
-      await api.post(`/friends/${friendId}/ignore-connect`);
-      setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, isActioned: true, actionTaken: 'IGNORED', isRead: true } : n));
-      window.dispatchEvent(new Event('transaction-updated'));
-      if (onDataChanged) onDataChanged();
+      await executeWithLoader(async () => {
+        await api.post(`/friends/${friendId}/ignore-connect`);
+        setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, isActioned: true, actionTaken: 'IGNORED', isRead: true } : n));
+        window.dispatchEvent(new Event('transaction-updated'));
+        if (onDataChanged) onDataChanged();
+      }, {
+        message: 'Updating Request in Database...',
+        submessage: 'Declining peer connection and updating contact records...',
+        tag: 'PEER MATRIX',
+        statusText: 'Updating Peer Status'
+      });
     } catch (err) {
       alert(err.message || 'Failed to ignore match');
     } finally {
@@ -138,10 +154,17 @@ export default function NotificationDrawer({ isOpen, onClose, onDataChanged }) {
 
     setActionLoading(notif.id);
     try {
-      await api.post(`/transactions/${txId}/approve`);
-      setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, isActioned: true, actionTaken: 'APPROVED', isRead: true } : n));
-      window.dispatchEvent(new Event('transaction-updated'));
-      if (onDataChanged) onDataChanged();
+      await executeWithLoader(async () => {
+        await api.post(`/transactions/${txId}/approve`);
+        setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, isActioned: true, actionTaken: 'APPROVED', isRead: true } : n));
+        window.dispatchEvent(new Event('transaction-updated'));
+        if (onDataChanged) onDataChanged();
+      }, {
+        message: 'Approving Transaction in Database...',
+        submessage: 'Updating ledger entry and syncing balance in database...',
+        tag: 'APPROVAL SYNC',
+        statusText: 'Synchronizing Approved Entry'
+      });
     } catch (err) {
       alert(err.message || 'Failed to approve transaction');
     } finally {
@@ -155,10 +178,17 @@ export default function NotificationDrawer({ isOpen, onClose, onDataChanged }) {
 
     setActionLoading(notif.id);
     try {
-      await api.post(`/transactions/${txId}/reject`);
-      setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, isActioned: true, actionTaken: 'REJECTED', isRead: true } : n));
-      window.dispatchEvent(new Event('transaction-updated'));
-      if (onDataChanged) onDataChanged();
+      await executeWithLoader(async () => {
+        await api.post(`/transactions/${txId}/reject`);
+        setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, isActioned: true, actionTaken: 'REJECTED', isRead: true } : n));
+        window.dispatchEvent(new Event('transaction-updated'));
+        if (onDataChanged) onDataChanged();
+      }, {
+        message: 'Declining Transaction in Database...',
+        submessage: 'Reversing pending ledger entry & adjusting balances...',
+        tag: 'DATABASE UPDATE',
+        statusText: 'Reconciling Ledger Balances'
+      });
     } catch (err) {
       alert(err.message || 'Failed to reject transaction');
     } finally {

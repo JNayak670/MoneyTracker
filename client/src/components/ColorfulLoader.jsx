@@ -57,6 +57,8 @@ const SMART_INSIGHTS = [
 export default function ColorfulLoader({
   message,
   submessage,
+  tag,
+  statusText,
   fullScreen = true,
   minHeight = 'min-h-[220px]'
 }) {
@@ -167,7 +169,7 @@ export default function ColorfulLoader({
               <span className={`animate-beaconRing absolute inline-flex h-full w-full rounded-full opacity-75 ${current.dotColor}`} />
               <span className={`relative inline-flex rounded-full h-2 w-2 ${current.dotColor}`} />
             </span>
-            <span>{current.tag}</span>
+            <span>{tag || current.tag}</span>
             {/* 4-bar mini data equalizer */}
             <div className="flex items-center gap-0.5 ml-1 opacity-85">
               <span className="w-0.5 h-2 rounded-full bg-current animate-pulseBar" style={{ animationDelay: '0ms' }} />
@@ -178,7 +180,7 @@ export default function ColorfulLoader({
           </div>
 
           {/* Dynamic Headline & Subtext */}
-          <div className={`transition-all duration-300 min-h-[52px] flex flex-col justify-center px-2 ${fade ? 'opacity-100 transform translate-y-0 scale-100' : 'opacity-0 transform translate-y-1 scale-95'}`}>
+          <div className={`transition-all duration-300 min-h-[52px] flex flex-col justify-center px-2 ${fade || message ? 'opacity-100 transform translate-y-0 scale-100' : 'opacity-0 transform translate-y-1 scale-95'}`}>
             <h3 className="text-base sm:text-lg font-black text-slate-800 tracking-tight leading-snug">
               {message || current.title}
             </h3>
@@ -211,7 +213,7 @@ export default function ColorfulLoader({
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
                 </span>
                 <span className="font-bold text-slate-700 tracking-tight text-[11px]">
-                  {current.statusText}
+                  {statusText || current.statusText}
                 </span>
               </div>
 

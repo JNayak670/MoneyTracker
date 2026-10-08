@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Lock, KeyRound, Check, AlertCircle, Sparkles, ShieldAlert } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useOperationLoader } from '../context/OperationLoaderContext';
 import api from '../services/api';
 import useModalBackHandler from '../hooks/useModalBackHandler';
 
 export default function ChangePinModal({ isOpen, onClose }) {
   useModalBackHandler(isOpen, onClose);
+  const { executeWithLoader } = useOperationLoader();
 
   const { user } = useAuth();
   const isDemo = user?.email === 'demo@moneytracker.com';
@@ -53,14 +55,23 @@ export default function ChangePinModal({ isOpen, onClose }) {
 
     try {
       setLoading(true);
-      const res = await api.put('/auth/change-pin', {
-        currentPin,
-        newPin
+      let resMsg = '';
+      await executeWithLoader(async () => {
+        const res = await api.put('/auth/change-pin', {
+          currentPin,
+          newPin
+        });
+        resMsg = res?.data?.message || res?.message || 'Security PIN updated successfully!';
+      }, {
+        message: 'Updating Security PIN in Database...',
+        submessage: 'Securing account vault credentials with encrypted PIN...',
+        tag: 'SECURE VAULT',
+        statusText: 'Encrypting Vault Key'
       });
-      setSuccess(res.data.message || 'Security PIN updated successfully!');
+      setSuccess(resMsg);
       setTimeout(() => {
         handleClose();
-      }, 1800);
+      }, 1200);
     } catch (err) {
       setError(err.message || 'Failed to update PIN.');
     } finally {

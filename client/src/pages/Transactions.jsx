@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import api from '../services/api';
 import ColorfulLoader from '../components/ColorfulLoader';
+import { useOperationLoader } from '../context/OperationLoaderContext';
 import { exportToCSV } from '../services/exportService';
 import { 
   Receipt, 
@@ -26,6 +27,7 @@ import SplitGroupModal from '../components/SplitGroupModal';
 import SettleModal from '../components/SettleModal';
 
 export default function Transactions({ onOpenAddTx }) {
+  const { executeWithLoader } = useOperationLoader();
   const [transactions, setTransactions] = useState([]);
   const [selectedSplitGroupId, setSelectedSplitGroupId] = useState(null);
   const [friends, setFriends] = useState([]);
@@ -130,9 +132,16 @@ export default function Transactions({ onOpenAddTx }) {
   const handleApprove = async (id) => {
     setActionLoading(id);
     try {
-      await api.post(`/transactions/${id}/approve`);
-      await fetchData(false);
-      window.dispatchEvent(new Event('transaction-updated'));
+      await executeWithLoader(async () => {
+        await api.post(`/transactions/${id}/approve`);
+        await fetchData(false);
+        window.dispatchEvent(new Event('transaction-updated'));
+      }, {
+        message: 'Approving Transaction in Database...',
+        submessage: 'Updating ledger state and recalculating net balances in database...',
+        tag: 'APPROVAL SYNC',
+        statusText: 'Synchronizing Approved Entry'
+      });
     } catch (err) {
       alert(`Approval error: ${err.message}`);
     } finally {
@@ -144,9 +153,16 @@ export default function Transactions({ onOpenAddTx }) {
     if (!confirm('Are you sure you want to reject/decline this transaction?')) return;
     setActionLoading(id);
     try {
-      await api.post(`/transactions/${id}/reject`);
-      await fetchData(false);
-      window.dispatchEvent(new Event('transaction-updated'));
+      await executeWithLoader(async () => {
+        await api.post(`/transactions/${id}/reject`);
+        await fetchData(false);
+        window.dispatchEvent(new Event('transaction-updated'));
+      }, {
+        message: 'Declining Transaction in Database...',
+        submessage: 'Reversing pending ledger entry & adjusting balances...',
+        tag: 'DATABASE UPDATE',
+        statusText: 'Reconciling Ledger Balances'
+      });
     } catch (err) {
       alert(`Reject error: ${err.message}`);
     } finally {
@@ -162,9 +178,16 @@ export default function Transactions({ onOpenAddTx }) {
     }
     if (!confirm('Are you sure you want to delete this transaction? Balance will be adjusted.')) return;
     try {
-      await api.delete(`/transactions/${id}`);
-      await fetchData(false);
-      window.dispatchEvent(new Event('transaction-updated'));
+      await executeWithLoader(async () => {
+        await api.delete(`/transactions/${id}`);
+        await fetchData(false);
+        window.dispatchEvent(new Event('transaction-updated'));
+      }, {
+        message: 'Deleting Transaction from Database...',
+        submessage: 'Removing ledger log and recalculating net running balances...',
+        tag: 'DATABASE PURGE',
+        statusText: 'Updating Ledger Records'
+      });
     } catch (err) {
       alert(`Delete error: ${err.response?.data?.error || err.message}`);
     }
@@ -187,13 +210,22 @@ export default function Transactions({ onOpenAddTx }) {
   };
 
   const handleSettleSubmit = async (payload) => {
+    setSettleModal({ open: false, friendId: '', friendName: '', amount: 0, note: '', isShared: false });
     try {
-      const res = await api.post('/transactions/settle', payload);
-      setSettleModal({ open: false, friendId: '', friendName: '', amount: 0, note: '', isShared: false });
-      await fetchData(false);
-      window.dispatchEvent(new Event('transaction-updated'));
-      if (res?.data?.message || res?.message) {
-        alert(res?.data?.message || res?.message);
+      let resMessage = '';
+      await executeWithLoader(async () => {
+        const res = await api.post('/transactions/settle', payload);
+        resMessage = res?.data?.message || res?.message || '';
+        await fetchData(false);
+        window.dispatchEvent(new Event('transaction-updated'));
+      }, {
+        message: 'Recording Settlement in Database...',
+        submessage: 'Clearing mutual debts and recording official settlement log...',
+        tag: 'SETTLE ENGINE',
+        statusText: 'Finalizing Debt Settlement'
+      });
+      if (resMessage) {
+        setTimeout(() => alert(resMessage), 200);
       }
     } catch (err) {
       alert(`Settlement failed: ${err.response?.data?.error || err.message}`);

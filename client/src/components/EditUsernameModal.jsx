@@ -10,11 +10,13 @@ import {
   Sparkles 
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useOperationLoader } from '../context/OperationLoaderContext';
 import api from '../services/api';
 import useModalBackHandler from '../hooks/useModalBackHandler';
 
 export default function EditUsernameModal({ isOpen, onClose }) {
   useModalBackHandler(isOpen, onClose);
+  const { executeWithLoader } = useOperationLoader();
 
   const { user, updateSettings } = useAuth();
   
@@ -119,11 +121,19 @@ export default function EditUsernameModal({ isOpen, onClose }) {
 
     try {
       setSaving(true);
-      await updateSettings({ username: clean });
+      await executeWithLoader(async () => {
+        await updateSettings({ username: clean });
+        window.dispatchEvent(new Event('transaction-updated'));
+      }, {
+        message: 'Updating Username in Database...',
+        submessage: `Securing @${clean} and updating profile records in database...`,
+        tag: 'PEER MATRIX',
+        statusText: 'Synchronizing Profile'
+      });
       setSuccess(`Your username has been updated to @${clean}!`);
       setTimeout(() => {
         onClose();
-      }, 1500);
+      }, 1200);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to update username. Please try again.');
     } finally {
