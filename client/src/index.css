@@ -394,3 +394,16 @@
   50% { background-position: 100% 50%; }
   100% { background-position: 0% 50%; }
 }
+
+@keyframes indeterminateBeam {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(250%);
+  }
+}
+
+.animate-indeterminate-beam {
+  animation: indeterminateBeam 1.3s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}

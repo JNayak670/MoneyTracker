@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import ColorfulLoader from '../components/ColorfulLoader';
+import NormalLoader from '../components/NormalLoader';
 
 const OperationLoaderContext = createContext(null);
 
@@ -62,7 +62,7 @@ export function OperationLoaderProvider({ children }) {
       submessage = 'Writing changes to database and fetching updated records...',
       tag = 'DATABASE SYNC',
       statusText = 'Updating Records',
-      minDuration = 180
+      minDuration = 0
     } = options;
 
     showLoader({ message, submessage, tag, statusText });
@@ -126,18 +126,12 @@ export function OperationLoaderProvider({ children }) {
     <OperationLoaderContext.Provider value={{ showLoader, updateLoader, hideLoader, executeWithLoader, isLoading: loadingState.isOpen }}>
       {children}
       {loadingState.isOpen && createPortal(
-        <div 
-          id="global-operation-loader"
-          className="fixed inset-0 z-[999999] overflow-hidden bg-slate-50 flex flex-col justify-between animate-fadeIn select-none"
-        >
-          <ColorfulLoader 
-            fullScreen={true}
-            message={loadingState.message}
-            submessage={loadingState.submessage}
-            tag={loadingState.tag}
-            statusText={loadingState.statusText}
-          />
-        </div>,
+        <NormalLoader 
+          message={loadingState.message}
+          submessage={loadingState.submessage}
+          tag={loadingState.tag}
+          statusText={loadingState.statusText}
+        />,
         document.body
       )}
     </OperationLoaderContext.Provider>
