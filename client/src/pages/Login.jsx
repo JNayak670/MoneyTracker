@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useOperationLoader } from '../context/OperationLoaderContext';
+import { pingServer } from '../services/serverWakeupService';
 import AppLogo from '../components/AppLogo';
 import { 
   Lock, 
@@ -26,7 +28,13 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
 
   const { login } = useAuth();
+  const { executeWithLoader } = useOperationLoader();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    // Proactively ping server on login page visit
+    pingServer();
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -34,8 +42,19 @@ export default function Login() {
     setLoading(true);
 
     try {
-      await login(email, pin);
-      navigate('/');
+      await executeWithLoader(
+        async () => {
+          await login(email, pin);
+          navigate('/');
+        },
+        {
+          tag: 'AUTHENTICATION',
+          message: 'Signing In to Dashboard...',
+          submessage: 'Verifying PIN credentials and initializing peer ledger...',
+          statusText: 'Validating Security PIN',
+          minDuration: 800
+        }
+      );
     } catch (err) {
       setError(err.message || 'Invalid email or PIN. Please check and try again.');
     } finally {

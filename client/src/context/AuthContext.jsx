@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import api from '../services/api';
+import { executeWithServerWakeup, pingServer } from '../services/serverWakeupService';
 
 const AuthContext = createContext(null);
 
@@ -7,6 +8,11 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(localStorage.getItem('money_tracker_token') || null);
   const [loading, setLoading] = useState(true);
+
+  // Proactive background ping on app startup to wake sleeping Render instance early
+  useEffect(() => {
+    pingServer();
+  }, []);
 
   useEffect(() => {
     const fetchMe = async () => {
@@ -18,7 +24,7 @@ export const AuthProvider = ({ children }) => {
       const isFirstInit = !sessionStorage.getItem('session_initialized');
       try {
         const [res] = await Promise.all([
-          api.get('/auth/me'),
+          executeWithServerWakeup(() => api.get('/auth/me')),
           isFirstInit ? new Promise(resolve => setTimeout(resolve, 800)) : Promise.resolve()
         ]);
         sessionStorage.setItem('session_initialized', 'true');
@@ -26,10 +32,13 @@ export const AuthProvider = ({ children }) => {
         setUser(userData);
       } catch (err) {
         console.error('Failed to load user profile:', err);
-        setToken(null);
-        setUser(null);
-        localStorage.removeItem('money_tracker_token');
-        localStorage.removeItem('demo_login_time');
+        // Only clear stored token if the backend explicitly rejected credentials with 401 Unauthorized
+        if (err.response?.status === 401) {
+          setToken(null);
+          setUser(null);
+          localStorage.removeItem('money_tracker_token');
+          localStorage.removeItem('demo_login_time');
+        }
       } finally {
         setLoading(false);
       }
@@ -69,7 +78,10 @@ export const AuthProvider = ({ children }) => {
   }, [user]);
 
   const login = async (email, pin) => {
-    const res = await api.post('/auth/login', { email, pin });
+    const res = await executeWithServerWakeup(
+      () => api.post('/auth/login', { email, pin }),
+      { autoShowLoader: true }
+    );
     const payload = res?.data !== undefined ? res.data : res;
     const userData = payload.user || payload.data || payload;
     const newToken = payload.token || res.token;
@@ -86,7 +98,10 @@ export const AuthProvider = ({ children }) => {
   };
 
   const register = async (name, username, email, pin, currency = '₹') => {
-    const res = await api.post('/auth/register', { name, username, email, pin, currency });
+    const res = await executeWithServerWakeup(
+      () => api.post('/auth/register', { name, username, email, pin, currency }),
+      { autoShowLoader: true }
+    );
     const payload = res?.data !== undefined ? res.data : res;
     const userData = payload.user || payload.data || payload;
     const newToken = payload.token || res.token;

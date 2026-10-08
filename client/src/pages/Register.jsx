@@ -1,12 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useOperationLoader } from '../context/OperationLoaderContext';
+import { pingServer } from '../services/serverWakeupService';
 import AppLogo from '../components/AppLogo';
 import { 
   Lock, 
   Mail, 
   User, 
-  AtSign,
+  AtSign, 
   ArrowRight, 
   Share2, 
   Eye, 
@@ -29,7 +31,13 @@ export default function Register() {
   const [loading, setLoading] = useState(false);
 
   const { register } = useAuth();
+  const { executeWithLoader } = useOperationLoader();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    // Proactively ping server when registration page opens
+    pingServer();
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -43,8 +51,19 @@ export default function Register() {
     setLoading(true);
 
     try {
-      await register(name, username, email, pin, '₹');
-      navigate('/');
+      await executeWithLoader(
+        async () => {
+          await register(name, username, email, pin, '₹');
+          navigate('/');
+        },
+        {
+          tag: 'ACCOUNT CREATION',
+          message: 'Creating Free Account...',
+          submessage: 'Configuring encrypted peer ledger and personal settings...',
+          statusText: 'Provisioning New Ledger',
+          minDuration: 800
+        }
+      );
     } catch (err) {
       setError(err.message || 'Registration failed. Please check your details and try again.');
     } finally {

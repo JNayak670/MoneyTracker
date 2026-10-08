@@ -2,6 +2,7 @@ import axios from 'axios';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '/api',
+  timeout: 65000, // 65 seconds to accommodate Render free-tier wake-up latency
   headers: {
     'Content-Type': 'application/json',
   },
@@ -16,16 +17,21 @@ api.interceptors.request.use((config) => {
   return config;
 }, (error) => Promise.reject(error));
 
-// Handle 401 Unauthorized responses
+// Handle 401 Unauthorized responses & cold-start error tagging
 api.interceptors.response.use(
   (response) => response.data,
   (error) => {
     if (error.response && error.response.status === 401) {
-      // Clear token if expired/invalid
+      // Clear token only when genuinely rejected as 401 Unauthorized by server
       localStorage.removeItem('money_tracker_token');
     }
     const message = error.response?.data?.error || error.message || 'Something went wrong';
-    return Promise.reject(new Error(message));
+    const err = new Error(message);
+    err.response = error.response;
+    err.status = error.response?.status;
+    err.code = error.code;
+    err.isSleepingServer = !error.response || [502, 503, 504].includes(error.response?.status) || error.message === 'Network Error' || error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK';
+    return Promise.reject(err);
   }
 );
 

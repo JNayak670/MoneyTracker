@@ -31,6 +31,24 @@ export function OperationLoaderProvider({ children }) {
     });
   }, []);
 
+  const updateLoader = useCallback(({
+    message,
+    submessage,
+    tag,
+    statusText
+  } = {}) => {
+    setLoadingState(prev => {
+      if (!prev.isOpen) return prev;
+      return {
+        ...prev,
+        ...(message !== undefined ? { message } : {}),
+        ...(submessage !== undefined ? { submessage } : {}),
+        ...(tag !== undefined ? { tag } : {}),
+        ...(statusText !== undefined ? { statusText } : {})
+      };
+    });
+  }, []);
+
   const hideLoader = useCallback(() => {
     activeCountRef.current = Math.max(0, activeCountRef.current - 1);
     if (activeCountRef.current === 0) {
@@ -51,7 +69,7 @@ export function OperationLoaderProvider({ children }) {
     const startTime = Date.now();
 
     try {
-      const result = await asyncFn();
+      const result = await asyncFn({ updateLoader });
       const elapsed = Date.now() - startTime;
       if (elapsed < minDuration) {
         await new Promise(resolve => setTimeout(resolve, minDuration - elapsed));
@@ -63,7 +81,7 @@ export function OperationLoaderProvider({ children }) {
     } finally {
       hideLoader();
     }
-  }, [showLoader, hideLoader]);
+  }, [showLoader, hideLoader, updateLoader]);
 
   // Lock body scroll while loader page is active
   useEffect(() => {
@@ -83,22 +101,29 @@ export function OperationLoaderProvider({ children }) {
       showLoader(detail);
     };
 
+    const handleUpdateEvent = (e) => {
+      const detail = e.detail || {};
+      updateLoader(detail);
+    };
+
     const handleHideEvent = () => {
       activeCountRef.current = 1;
       hideLoader();
     };
 
     window.addEventListener('show-operation-loader', handleShowEvent);
+    window.addEventListener('update-operation-loader', handleUpdateEvent);
     window.addEventListener('hide-operation-loader', handleHideEvent);
 
     return () => {
       window.removeEventListener('show-operation-loader', handleShowEvent);
+      window.removeEventListener('update-operation-loader', handleUpdateEvent);
       window.removeEventListener('hide-operation-loader', handleHideEvent);
     };
-  }, [showLoader, hideLoader]);
+  }, [showLoader, updateLoader, hideLoader]);
 
   return (
-    <OperationLoaderContext.Provider value={{ showLoader, hideLoader, executeWithLoader, isLoading: loadingState.isOpen }}>
+    <OperationLoaderContext.Provider value={{ showLoader, updateLoader, hideLoader, executeWithLoader, isLoading: loadingState.isOpen }}>
       {children}
       {loadingState.isOpen && createPortal(
         <div 
@@ -124,10 +149,23 @@ export function useOperationLoader() {
   if (!context) {
     return {
       showLoader: () => {},
+      updateLoader: () => {},
       hideLoader: () => {},
-      executeWithLoader: async (fn) => fn(),
+      executeWithLoader: async (fn) => fn({ updateLoader: () => {} }),
       isLoading: false
     };
   }
   return context;
+}
+
+export function triggerOperationLoader(options) {
+  window.dispatchEvent(new CustomEvent('show-operation-loader', { detail: options }));
+}
+
+export function updateOperationLoader(options) {
+  window.dispatchEvent(new CustomEvent('update-operation-loader', { detail: options }));
+}
+
+export function dismissOperationLoader() {
+  window.dispatchEvent(new CustomEvent('hide-operation-loader'));
 }

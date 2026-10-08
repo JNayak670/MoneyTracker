@@ -91,8 +91,8 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/notifications', notificationRoutes);
 
 
-// Health check
-app.get('/api/health', (req, res) => {
+// Health check (supports both /api/health and root /health for Render)
+app.get(['/api/health', '/health'], (req, res) => {
   res.json({
     status: 'online',
     timestamp: new Date().toISOString(),

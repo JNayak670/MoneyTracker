@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useOperationLoader } from '../context/OperationLoaderContext';
+import { pingServer, subscribeServerStatus } from '../services/serverWakeupService';
 import AppLogo from '../components/AppLogo';
 import { 
   ArrowRight, 
@@ -13,7 +15,9 @@ import {
   X,
   Monitor,
   Share2,
-  User
+  User,
+  CloudLightning,
+  CheckCircle2
 } from 'lucide-react';
 
 // Authentic WhatsApp icon matching the mockup
@@ -39,16 +43,38 @@ function StatementTileIcon({ className = "w-6 h-6" }) {
 
 export default function Landing() {
   const { login } = useAuth();
+  const { executeWithLoader } = useOperationLoader();
   const navigate = useNavigate();
   const [shareCode, setShareCode] = useState('');
   const [demoLoading, setDemoLoading] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [serverStatus, setServerStatus] = useState('unknown');
+
+  useEffect(() => {
+    // Proactively ping cloud server on mount to wake Render instance immediately
+    pingServer();
+    const unsubscribe = subscribeServerStatus((status) => {
+      setServerStatus(status);
+    });
+    return () => unsubscribe();
+  }, []);
 
   const handleDemoLogin = async () => {
     try {
       setDemoLoading(true);
-      await login('demo@moneytracker.com', '1234');
-      navigate('/');
+      await executeWithLoader(
+        async () => {
+          await login('demo@moneytracker.com', '1234');
+          navigate('/');
+        },
+        {
+          tag: 'DEMO ENVIRONMENT',
+          message: 'Launching Interactive Demo...',
+          submessage: 'Connecting to Cloud API and preparing sample balances...',
+          statusText: 'Authenticating Demo User',
+          minDuration: 1000
+        }
+      );
     } catch (err) {
       alert(`Demo login error: ${err.message}`);
     } finally {
@@ -71,8 +97,28 @@ export default function Landing() {
       <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-slate-200/90 shadow-sm shadow-slate-900/5">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-3.5 flex items-center justify-between gap-3">
           
-          {/* Logo Branding */}
-          <AppLogo to="/" size="md" />
+          {/* Logo Branding + Server Status Pill */}
+          <div className="flex items-center gap-3">
+            <AppLogo to="/" size="md" />
+            {serverStatus === 'waking' && (
+              <div 
+                className="hidden sm:inline-flex items-center gap-1.5 text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200/90 px-2.5 py-1 rounded-full shadow-2xs animate-pulse"
+                title="Render free tier container is booting up. All operations will wait automatically."
+              >
+                <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
+                <span>Cloud Server Waking Up...</span>
+              </div>
+            )}
+            {serverStatus === 'online' && (
+              <div 
+                className="hidden sm:inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/90 px-2.5 py-1 rounded-full shadow-2xs"
+                title="Render cloud API is online and ready."
+              >
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                <span>Server Online</span>
+              </div>
+            )}
+          </div>
 
           {/* Desktop Right Nav Buttons (hidden on phone, visible on laptop/desktop) */}
           <div className="hidden md:flex items-center gap-2.5">

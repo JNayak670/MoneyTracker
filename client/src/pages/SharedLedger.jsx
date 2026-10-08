@@ -21,6 +21,7 @@ import {
 import { exportToCSV } from '../services/exportService';
 import ColorfulLoader from '../components/ColorfulLoader';
 import AppLogo from '../components/AppLogo';
+import { executeWithServerWakeup, pingServer } from '../services/serverWakeupService';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
@@ -41,6 +42,12 @@ export default function SharedLedger() {
   const [error, setError] = useState('');
   const [isExpired, setIsExpired] = useState(false);
   const [timeLeft, setTimeLeft] = useState('');
+  const [wakeUpMessage, setWakeUpMessage] = useState('');
+
+  // Proactive ping on page visit
+  useEffect(() => {
+    pingServer();
+  }, []);
 
   const fetchLedger = async (codeToFetch) => {
     const cleanCode = (codeToFetch || '').trim().toUpperCase();
@@ -49,7 +56,15 @@ export default function SharedLedger() {
       setLoading(true);
       setError('');
       setIsExpired(false);
-      const res = await axios.get(`${API_BASE}/share/${cleanCode}`);
+      setWakeUpMessage('');
+      const res = await executeWithServerWakeup(
+        () => axios.get(`${API_BASE}/share/${cleanCode}`),
+        {
+          onWakeupProgress: ({ elapsedSec }) => {
+            setWakeUpMessage(`Cloud backend is waking up (${elapsedSec}s elapsed)...`);
+          }
+        }
+      );
       if (res.data.success) {
         setLedgerData(res.data.data);
       }
@@ -63,6 +78,7 @@ export default function SharedLedger() {
       setLedgerData(null);
     } finally {
       setLoading(false);
+      setWakeUpMessage('');
     }
   };
 
@@ -234,7 +250,14 @@ export default function SharedLedger() {
 
         {/* Loading State */}
         {loading && (
-          <ColorfulLoader fullScreen={false} minHeight="min-h-[300px]" message="Decrypting Shared Ledger..." submessage="Validating 6-digit access code and fetching verified peer records..." />
+          <ColorfulLoader 
+            fullScreen={false} 
+            minHeight="min-h-[300px]" 
+            message={wakeUpMessage || "Decrypting Shared Ledger..."} 
+            submessage={wakeUpMessage ? "Render free tier instance spins down when idle. Waiting for cloud server to boot..." : "Validating 6-digit access code and fetching verified peer records..."} 
+            tag={wakeUpMessage ? "CLOUD BACKEND WAKE UP" : "DATABASE SYNC"}
+            statusText={wakeUpMessage ? "Connecting to Cloud API" : "Verifying Statement Code"}
+          />
         )}
 
         {/* Loaded Ledger Content */}
