@@ -72,7 +72,7 @@ export default function Landing() {
           message: 'Launching Interactive Demo...',
           submessage: 'Connecting to Cloud API and preparing sample balances...',
           statusText: 'Authenticating Demo User',
-          minDuration: 1000
+          minDuration: 200
         }
       );
     } catch (err) {

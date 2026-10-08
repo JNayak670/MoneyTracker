@@ -61,7 +61,7 @@ export default function Register() {
           message: 'Creating Free Account...',
           submessage: 'Configuring encrypted peer ledger and personal settings...',
           statusText: 'Provisioning New Ledger',
-          minDuration: 800
+          minDuration: 200
         }
       );
     } catch (err) {

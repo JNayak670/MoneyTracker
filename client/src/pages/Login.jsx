@@ -52,7 +52,7 @@ export default function Login() {
           message: 'Signing In to Dashboard...',
           submessage: 'Verifying PIN credentials and initializing peer ledger...',
           statusText: 'Validating Security PIN',
-          minDuration: 800
+          minDuration: 200
         }
       );
     } catch (err) {

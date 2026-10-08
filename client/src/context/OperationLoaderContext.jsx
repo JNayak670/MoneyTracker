@@ -62,7 +62,7 @@ export function OperationLoaderProvider({ children }) {
       submessage = 'Writing changes to database and fetching updated records...',
       tag = 'DATABASE SYNC',
       statusText = 'Updating Records',
-      minDuration = 800
+      minDuration = 180
     } = options;
 
     showLoader({ message, submessage, tag, statusText });

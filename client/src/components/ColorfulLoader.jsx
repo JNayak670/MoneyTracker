@@ -64,7 +64,7 @@ export default function ColorfulLoader({
 }) {
   const [index, setIndex] = useState(0);
   const [fade, setFade] = useState(true);
-  const [progress, setProgress] = useState(28);
+  const [progress, setProgress] = useState(42);
 
   // Cycling smart insights
   useEffect(() => {
@@ -73,8 +73,8 @@ export default function ColorfulLoader({
       setTimeout(() => {
         setIndex((prev) => (prev + 1) % SMART_INSIGHTS.length);
         setFade(true);
-      }, 200);
-    }, 2200);
+      }, 150);
+    }, 1800);
 
     return () => clearInterval(timer);
   }, []);
@@ -84,10 +84,10 @@ export default function ColorfulLoader({
     const pTimer = setInterval(() => {
       setProgress((prev) => {
         if (prev >= 98) return prev;
-        const jump = Math.floor(Math.random() * 10) + 4;
+        const jump = Math.floor(Math.random() * 14) + 8;
         return Math.min(prev + jump, 98);
       });
-    }, 210);
+    }, 70);
 
     return () => clearInterval(pTimer);
   }, []);

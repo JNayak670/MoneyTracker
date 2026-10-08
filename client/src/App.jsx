@@ -121,7 +121,6 @@ function MainApp() {
         await api.post('/transactions', payload);
         await fetchFriends();
         window.dispatchEvent(new Event('transaction-updated'));
-        await new Promise(resolve => setTimeout(resolve, 300));
       }, {
         message: payload.isSplit ? 'Saving Group Split to Database...' : 'Saving Transaction to Database...',
         submessage: payload.isSplit 
