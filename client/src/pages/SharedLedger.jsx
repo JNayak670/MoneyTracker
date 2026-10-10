@@ -16,11 +16,13 @@ import {
   ExternalLink,
   Wallet,
   ArrowLeft,
-  Home
+  Home,
+  Users
 } from 'lucide-react';
 import { exportToCSV } from '../services/exportService';
 import ColorfulLoader from '../components/ColorfulLoader';
 import AppLogo from '../components/AppLogo';
+import SplitGroupModal from '../components/SplitGroupModal';
 import { executeWithServerWakeup, pingServer } from '../services/serverWakeupService';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
@@ -43,6 +45,7 @@ export default function SharedLedger() {
   const [isExpired, setIsExpired] = useState(false);
   const [timeLeft, setTimeLeft] = useState('');
   const [wakeUpMessage, setWakeUpMessage] = useState('');
+  const [selectedSplitGroupId, setSelectedSplitGroupId] = useState(null);
 
   // Proactive ping on page visit
   useEffect(() => {
@@ -429,6 +432,8 @@ export default function SharedLedger() {
                       className={`p-3.5 sm:p-4 space-y-2.5 rounded-2xl transition-all border ${
                         isSettledTx
                           ? 'border-2 border-emerald-400 border-l-[8px] border-l-emerald-600 bg-gradient-to-br from-emerald-100/95 via-teal-50/90 to-white shadow-lg ring-2 ring-emerald-500/25 overflow-hidden'
+                          : t.splitGroupId
+                          ? 'border-2 border-indigo-300 border-l-[8px] border-l-indigo-600 bg-gradient-to-br from-indigo-50/95 via-purple-50/40 to-white shadow-md ring-2 ring-indigo-400/20 hover:border-indigo-400'
                           : 'bg-white hover:bg-slate-50/80 border-slate-200'
                       }`}
                     >
@@ -446,9 +451,21 @@ export default function SharedLedger() {
                       )}
 
                       <div className="flex items-start justify-between gap-2">
-                        <div className="space-y-0.5">
-                          <div className={`text-xs font-black flex items-center gap-1.5 ${isSettledTx ? 'text-emerald-950 text-sm' : 'text-slate-900'}`}>
-                            <span>{t.note}</span>
+                        <div className="space-y-0.5 min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className={`text-xs font-black ${isSettledTx ? 'text-emerald-950 text-sm' : t.splitGroupId ? 'text-indigo-950 font-black' : 'text-slate-900'}`}>{t.note}</span>
+                            {t.splitGroupId && (
+                              <button
+                                type="button"
+                                onClick={() => setSelectedSplitGroupId(t.splitGroupId)}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[10px] sm:text-[11px] font-black bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-md shadow-indigo-600/25 ring-2 ring-indigo-300 active:scale-95 cursor-pointer flex-shrink-0"
+                                title="Click to view Group Split summary modal"
+                              >
+                                <Users className="w-3.5 h-3.5 text-white" />
+                                <span>👥 SPLIT BILL</span>
+                                <span className="bg-white/20 text-white px-1.5 py-0.2 rounded font-extrabold text-[8.5px] sm:text-[9px]">Summary ↗</span>
+                              </button>
+                            )}
                           </div>
                           {t.receiptNote && (
                             <div className="text-[10px] text-slate-500 font-mono">Ref: {t.receiptNote}</div>
@@ -549,6 +566,8 @@ export default function SharedLedger() {
                           className={`transition-all ${
                             isSettledTx
                               ? 'bg-gradient-to-r from-emerald-100/95 via-teal-50/90 to-emerald-50/70 hover:from-emerald-200/80 hover:to-teal-100/90 border-l-[6px] border-l-emerald-600 border-y-2 border-y-emerald-300 shadow-xs'
+                              : t.splitGroupId
+                              ? 'bg-gradient-to-r from-indigo-50/80 via-purple-50/40 to-white hover:bg-indigo-50/95 border-l-[6px] border-l-indigo-600 border-y border-y-indigo-200/70 shadow-2xs'
                               : 'hover:bg-slate-50/80 border-l-4 border-l-transparent'
                           }`}
                         >
@@ -585,14 +604,28 @@ export default function SharedLedger() {
                           </td>
 
                           <td className="px-5 py-4 max-w-xs">
-                            <div className="font-bold text-slate-900 flex items-center gap-1.5">
-                              {isSettledTx && (
-                                <span className="inline-flex items-center gap-1 text-[9.5px] font-black uppercase px-2 py-0.5 rounded-md bg-emerald-600 text-white shadow-xs flex-shrink-0">
-                                  <span>🤝</span>
-                                  <span>Settlement</span>
-                                </span>
+                            <div className="flex items-center justify-between gap-1.5 min-w-0">
+                              <div className="font-bold text-slate-900 flex items-center gap-1.5 truncate">
+                                {isSettledTx && (
+                                  <span className="inline-flex items-center gap-1 text-[9.5px] font-black uppercase px-2 py-0.5 rounded-md bg-emerald-600 text-white shadow-xs flex-shrink-0">
+                                    <span>🤝</span>
+                                    <span>Settlement</span>
+                                  </span>
+                                )}
+                                <span className={`truncate ${isSettledTx ? 'font-black text-emerald-950' : t.splitGroupId ? 'text-indigo-950 font-black' : ''}`}>{t.note}</span>
+                              </div>
+                              {t.splitGroupId && (
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedSplitGroupId(t.splitGroupId)}
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[10px] font-black bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-md shadow-indigo-600/25 ring-2 ring-indigo-300 transition-all active:scale-95 cursor-pointer flex-shrink-0"
+                                  title="Click to view Group Split summary modal"
+                                >
+                                  <Users className="w-3 h-3 text-white flex-shrink-0" />
+                                  <span>👥 Split Bill</span>
+                                  <span className="bg-white/20 text-white px-1.5 py-0.2 rounded font-extrabold text-[8.5px] sm:text-[9px]">Summary ↗</span>
+                                </button>
                               )}
-                              <span className={`truncate ${isSettledTx ? 'font-black text-emerald-950' : ''}`}>{t.note}</span>
                             </div>
                             {t.receiptNote && (
                               <div className="text-[10px] text-slate-500 mt-0.5 truncate font-mono">
@@ -661,6 +694,13 @@ export default function SharedLedger() {
         )}
 
       </main>
+
+      {/* Group Split Bill Breakdown Modal */}
+      <SplitGroupModal
+        isOpen={Boolean(selectedSplitGroupId)}
+        onClose={() => setSelectedSplitGroupId(null)}
+        splitGroupId={selectedSplitGroupId}
+      />
     </div>
   );
 }

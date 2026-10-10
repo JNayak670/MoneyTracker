@@ -1160,21 +1160,11 @@ exports.deleteTransaction = async (req, res) => {
 // @desc    Get full group split details including all participants
 exports.getGroupSplitDetails = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user ? (req.user.id || req.user._id?.toString()) : null;
     const { splitGroupId } = req.params;
 
-    // Check if user is authorized to view this group split
-    const userAccessTx = await Transaction.findOne({
-      splitGroupId,
-      $or: [
-        { userId },
-        { sharedWithUserId: userId },
-        { createdByUserId: userId }
-      ]
-    });
-
-    if (!userAccessTx) {
-      return res.status(404).json({ success: false, error: 'Group split bill not found or access denied.' });
+    if (!splitGroupId) {
+      return res.status(400).json({ success: false, error: 'Split group ID is required.' });
     }
 
     // Retrieve all transactions belonging to this group split
@@ -1186,21 +1176,35 @@ exports.getGroupSplitDetails = async (req, res) => {
       return res.status(404).json({ success: false, error: 'Group split bill not found.' });
     }
 
+    // If user is authenticated, check authorization
+    if (userId) {
+      const hasAccess = allGroupTxs.some(t => {
+        const uId = t.userId?.toString();
+        const swId = t.sharedWithUserId?.toString();
+        const cbId = t.createdByUserId?.toString();
+        return uId === userId || swId === userId || cbId === userId;
+      });
+
+      if (!hasAccess) {
+        return res.status(404).json({ success: false, error: 'Group split bill not found or access denied.' });
+      }
+    }
+
     // Find the primary transaction that contains totalBillAmount / participantsSummary
     const primary = allGroupTxs.find(t => t.splitDetails?.totalBillAmount || (t.splitDetails?.participantsSummary && t.splitDetails.participantsSummary.length > 0)) || allGroupTxs[0];
-    const isEntryOwner = checkIsEntryOwner(primary, userId);
+    const isEntryOwner = userId ? checkIsEntryOwner(primary, userId) : false;
     const totalBillAmount = primary.splitDetails?.totalBillAmount || 
       (allGroupTxs.reduce((acc, t) => acc + (t.amount || 0), 0) + (primary.splitDetails?.userShare || 0));
-    const payerName = primary.splitDetails?.payerName || (primary.splitDetails?.payerIsUser ? req.user.name : 'Unknown');
+    const payerName = primary.splitDetails?.payerName || (primary.splitDetails?.payerIsUser ? (req.user?.name || 'Payer') : 'Unknown');
     const splitMode = primary.splitDetails?.splitMode || 'EQUAL';
     const userShare = primary.splitDetails?.userShare || 0;
 
     // Check if current user is the payer
-    const payerIsUser = isEntryOwner 
+    const payerIsUser = userId && isEntryOwner 
       ? (primary.splitDetails?.payerIsUser !== false)
-      : (payerName.toLowerCase() === (req.user?.name || '').toLowerCase() || payerName.toLowerCase() === (req.user?.username || '').toLowerCase());
+      : (req.user ? (payerName.toLowerCase() === (req.user?.name || '').toLowerCase() || payerName.toLowerCase() === (req.user?.username || '').toLowerCase()) : false);
 
-    const isCreator = primary.createdByUserId 
+    const isCreator = userId && primary.createdByUserId 
       ? primary.createdByUserId.toString() === userId.toString()
       : isEntryOwner;
 
@@ -1209,10 +1213,10 @@ exports.getGroupSplitDetails = async (req, res) => {
       participants = primary.splitDetails.participantsSummary.map((p, idx) => {
         let isSelf = false;
         let displayName = p.name;
-        if (isCreator) {
+        if (isCreator && req.user) {
           isSelf = p.name === 'You' || p.isSelf === true || (req.user?.name && p.name === req.user.name);
           displayName = isSelf ? `${req.user.name} (You)` : p.name;
-        } else {
+        } else if (req.user) {
           // If viewing user is a recipient friend, "You" in stored summary belonged to the creator / payer
           if (p.name === 'You' || p.isSelf === true) {
             displayName = primary.splitDetails?.payerName || 'Payer';
@@ -1221,6 +1225,10 @@ exports.getGroupSplitDetails = async (req, res) => {
             isSelf = true;
             displayName = `${req.user.name} (You)`;
           }
+        } else {
+          // Guest mode (unauthenticated friend viewing via shared statement link)
+          isSelf = false;
+          displayName = (p.name === 'You' || p.isSelf === true) ? (primary.splitDetails?.payerName || 'Payer') : p.name;
         }
 
         return {
@@ -1256,7 +1264,7 @@ exports.getGroupSplitDetails = async (req, res) => {
       }));
 
       // Add logged-in user to participants list if they had a share or were the payer
-      if (userShare > 0 || payerIsUser) {
+      if (req.user && (userShare > 0 || payerIsUser)) {
         participants.unshift({
           transactionId: 'USER_SELF',
           friendId: 'USER_SELF',

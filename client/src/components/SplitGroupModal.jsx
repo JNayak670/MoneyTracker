@@ -46,8 +46,12 @@ export default function SplitGroupModal({ isOpen, onClose, splitGroupId, onSplit
   const loadGroupDetails = async () => {
     try {
       setLoading(true);
-      setError(null);
-      const res = await api.get(`/transactions/group/${splitGroupId}`);
+      let res = null;
+      try {
+        res = await api.get(`/transactions/group/${splitGroupId}`);
+      } catch (apiErr) {
+        res = await api.get(`/share/group/${splitGroupId}`);
+      }
       // Handle both unwrapped (api interceptor returns response.data) and wrapped Axios responses
       let data = null;
       if (res?.data?.splitGroupId) {

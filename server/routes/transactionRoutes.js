@@ -11,12 +11,14 @@ const {
   getGroupSplitDetails,
   deleteGroupSplit
 } = require('../controllers/transactionController');
-const { protect } = require('../middleware/authMiddleware');
+const { protect, optionalProtect } = require('../middleware/authMiddleware');
+
+// Group split details can be accessed by authenticated users and unauthenticated shared ledger viewers
+router.get('/group/:splitGroupId', optionalProtect, getGroupSplitDetails);
 
 router.use(protect);
 
 router.post('/settle', settleUp);
-router.get('/group/:splitGroupId', getGroupSplitDetails);
 router.delete('/group/:splitGroupId', deleteGroupSplit);
 router.post('/:id/approve', approveTransaction);
 router.post('/:id/reject', rejectTransaction);

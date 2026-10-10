@@ -534,7 +534,7 @@ export default function Transactions({ onOpenAddTx }) {
 
       {/* Transaction Table */}
       <div className="glass-card rounded-2xl overflow-hidden shadow-sm">
-        {filteredTransactions.length === 0 ? (
+        {displayTransactions.length === 0 ? (
           <div className="py-16 text-center space-y-2 px-4">
             <Receipt className="w-10 h-10 text-slate-400 mx-auto" />
             <h3 className="text-base font-bold text-slate-900">
@@ -567,7 +567,7 @@ export default function Transactions({ onOpenAddTx }) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white">
-                  {filteredTransactions.map(t => {
+                  {displayTransactions.map(t => {
                     const isGiven = t.type === 'GIVEN' || t.impactOnUser > 0;
                     const isSettled = t.type === 'SETTLED';
                     const isPending = t.approvalStatus === 'PENDING_APPROVAL';
@@ -584,12 +584,233 @@ export default function Transactions({ onOpenAddTx }) {
                       'Shopping': 'bg-indigo-50 text-indigo-800 border-indigo-200',
                     }[t.category] || 'bg-slate-100 text-slate-700 border-slate-200';
 
+                    if (t.isGroupedHeader) {
+                      const isExpanded = expandedGroupIds.has(t.splitGroupId);
+                      return (
+                        <React.Fragment key={t.id}>
+                          <tr className="bg-gradient-to-r from-indigo-50/40 via-purple-50/20 to-white hover:bg-indigo-50/70 border-l-[6px] border-l-indigo-600 transition-all">
+                            {/* Date */}
+                            <td className="px-3.5 py-3 text-slate-500 font-mono text-[11px] font-medium whitespace-nowrap">
+                              <div className="font-bold text-slate-900">{t.date}</div>
+                              {t.time && <div className="text-[10px] font-bold text-slate-400">{t.time}</div>}
+                            </td>
+
+                            {/* Friend / Participants */}
+                            <td className="px-3.5 py-3 font-black text-slate-900 whitespace-nowrap">
+                              <div className="flex items-center gap-2">
+                                <div className="flex -space-x-2 overflow-hidden py-0.5 flex-shrink-0">
+                                  {t.friends.slice(0, 3).map((f, i) => (
+                                    <span
+                                      key={f.id || f._id || i}
+                                      className="w-7 h-7 rounded-full flex items-center justify-center text-xs shadow-xs border-2 border-white ring-1 ring-slate-200 flex-shrink-0"
+                                      style={{ backgroundColor: f.avatarColor || '#6366f1' }}
+                                      title={f.name}
+                                    >
+                                      {f.avatarEmoji || '👤'}
+                                    </span>
+                                  ))}
+                                  {t.friends.length > 3 && (
+                                    <span className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-black bg-indigo-100 text-indigo-700 border-2 border-white ring-1 ring-indigo-200 flex-shrink-0">
+                                      +{t.friends.length - 3}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="text-xs font-bold text-slate-900 truncate max-w-[120px]" title={t.friends.map(f => f.name).join(', ')}>
+                                    {t.friends.map(f => f.name).join(', ')}
+                                  </div>
+                                  <span className="inline-flex items-center gap-0.5 text-[9.5px] font-black text-indigo-700 bg-indigo-50 border border-indigo-200/80 px-1.5 py-0.2 rounded-md">
+                                    👥 {t.friendCount} Friends Split
+                                  </span>
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Flow / Type */}
+                            <td className="px-3.5 py-3 whitespace-nowrap">
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-black text-[10.5px] bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-700 border border-indigo-200 shadow-2xs">
+                                <Users className="w-3 h-3 text-indigo-600 flex-shrink-0" />
+                                <span>👥 Group Split ({t.friendCount + 1})</span>
+                              </span>
+                            </td>
+
+                            {/* Description & Receipt */}
+                            <td className="px-3.5 py-2.5 min-w-[170px] max-w-[280px]">
+                              <div className="flex items-center justify-between gap-1.5 min-w-0">
+                                <span className="font-bold text-slate-900 text-xs truncate flex-1 min-w-0 flex items-center gap-1.5" title={t.note}>
+                                  <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-indigo-600 text-white shadow-2xs flex-shrink-0">
+                                    Split Bill
+                                  </span>
+                                  <span className="truncate">{t.note}</span>
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedSplitGroupId(t.splitGroupId)}
+                                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9.5px] font-black bg-gradient-to-r from-indigo-50 to-purple-50 hover:from-indigo-100 hover:to-purple-100 text-indigo-700 border border-indigo-200 shadow-2xs transition-all active:scale-95 cursor-pointer flex-shrink-0"
+                                  title="Click to view Group Split summary in popup modal"
+                                >
+                                  <Users className="w-2.5 h-2.5 text-indigo-600 flex-shrink-0" />
+                                  <span>Summary ↗</span>
+                                </button>
+                              </div>
+                              {t.receiptNote && (
+                                <div className="text-[9.5px] text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded mt-0.5 inline-flex items-center gap-1 font-mono border border-purple-200/60 max-w-full truncate" title={t.receiptNote}>
+                                  <span>🧾</span>
+                                  <span className="truncate">{t.receiptNote}</span>
+                                </div>
+                              )}
+                            </td>
+
+                            {/* Status */}
+                            <td className="px-3.5 py-3 whitespace-nowrap">
+                              <div className="flex flex-col gap-0.5 items-start">
+                                {t.hasPending ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9.5px] font-black bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs animate-pulse">
+                                    <Clock className="w-2.5 h-2.5 text-amber-700" />
+                                    <span>Pending Approvals</span>
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9.5px] font-black bg-emerald-50 text-emerald-800 border border-emerald-300">
+                                    <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" />
+                                    <span>2-Way Synced ({t.friendCount})</span>
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+
+                            {/* Category */}
+                            <td className="px-3.5 py-3 whitespace-nowrap">
+                              <span className={`px-2 py-0.5 rounded-md font-bold text-[10px] border ${categoryColors}`}>
+                                {t.category}
+                              </span>
+                            </td>
+
+                            {/* Method */}
+                            <td className="px-3.5 py-3 whitespace-nowrap">
+                              <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[10px] font-mono font-bold border border-slate-200">
+                                {t.paymentMethod || 'UPI'}
+                              </span>
+                            </td>
+
+                            {/* Amount */}
+                            <td className="px-3.5 py-3 text-right whitespace-nowrap">
+                              <div className="text-xs sm:text-sm font-black text-emerald-700">
+                                +₹{t.amount.toLocaleString()}
+                              </div>
+                              <div className="text-[9.5px] text-slate-400 font-bold">
+                                across {t.friendCount} friends
+                              </div>
+                            </td>
+
+                            {/* Actions */}
+                            <td className="px-3.5 py-3 text-right whitespace-nowrap">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => toggleExpandGroup(t.splitGroupId)}
+                                  className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-black border transition-all cursor-pointer ${
+                                    isExpanded
+                                      ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                                      : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200 shadow-2xs'
+                                  }`}
+                                  title={isExpanded ? 'Hide individual friend shares' : 'View individual friend shares and Settle buttons'}
+                                >
+                                  <span>{isExpanded ? 'Hide' : `${t.friendCount} Shares`}</span>
+                                  {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteGroupSplit(t.splitGroupId)}
+                                  className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                                  title="Delete entire group split bill"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+
+                          {/* Expanded breakdown row */}
+                          {isExpanded && (
+                            <tr className="bg-gradient-to-r from-indigo-50/70 via-purple-50/40 to-slate-50 border-b border-indigo-100">
+                              <td colSpan={9} className="px-4 py-3 pl-8">
+                                <div className="space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[11px] font-black uppercase text-indigo-950 tracking-wider flex items-center gap-1.5">
+                                      <Users className="w-3.5 h-3.5 text-indigo-600" />
+                                      <span>Individual Friend Breakdown — {t.note} ({t.subTransactions.length} Friends)</span>
+                                    </span>
+                                    <span className="text-[10px] text-indigo-700 font-bold">
+                                      Click Settle to clear or record debt settlement per friend
+                                    </span>
+                                  </div>
+
+                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                                    {t.subTransactions.map(sub => {
+                                      const subCanSettle = checkCanSettle(sub);
+                                      return (
+                                        <div 
+                                          key={sub.id} 
+                                          className="bg-white rounded-xl p-2.5 border border-indigo-200/80 shadow-2xs flex items-center justify-between gap-2 hover:border-indigo-300 transition-all"
+                                        >
+                                          <div className="flex items-center gap-2 min-w-0">
+                                            <span 
+                                              className="w-7 h-7 rounded-lg flex items-center justify-center text-xs shadow-2xs border border-black/5 flex-shrink-0"
+                                              style={{ backgroundColor: sub.friend?.avatarColor || '#6366f1' }}
+                                            >
+                                              {sub.friend?.avatarEmoji || '👤'}
+                                            </span>
+                                            <div className="min-w-0">
+                                              <div className="text-xs font-bold text-slate-900 truncate">
+                                                {sub.friend?.name || 'Friend'}
+                                              </div>
+                                              <div className="text-[10px] text-slate-400 font-medium">
+                                                {sub.isShared ? '✓ 2-Way Synced' : '📝 Local'}
+                                                {sub.approvalStatus === 'PENDING_APPROVAL' && ' • ⏳ Pending'}
+                                              </div>
+                                            </div>
+                                          </div>
+
+                                          <div className="flex items-center gap-2 flex-shrink-0">
+                                            <div className="text-right">
+                                              <div className="text-xs font-black text-emerald-700">
+                                                +₹{sub.amount.toLocaleString()}
+                                              </div>
+                                            </div>
+
+                                            {subCanSettle && (
+                                              <button
+                                                type="button"
+                                                onClick={() => handleOpenSettle(sub)}
+                                                className="inline-flex items-center gap-1 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white text-[9.5px] font-black px-2 py-1 rounded-md shadow-2xs active:scale-95 cursor-pointer"
+                                                title={`Settle ${sub.friend?.name}'s share`}
+                                              >
+                                                <CheckCircle2 className="w-2.5 h-2.5 text-white" />
+                                                <span>Settle</span>
+                                              </button>
+                                            )}
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    }
+
                     return (
                       <tr 
                         key={t.id} 
                         className={`transition-all ${
                           isSettled
                             ? 'bg-gradient-to-r from-emerald-100/95 via-teal-50/90 to-emerald-50/70 hover:from-emerald-200/80 hover:to-teal-100/90 border-l-[6px] border-l-emerald-600 border-y-2 border-y-emerald-300 shadow-xs'
+                            : t.splitGroupId
+                            ? 'bg-gradient-to-r from-indigo-50/75 via-purple-50/35 to-white hover:bg-indigo-50/95 border-l-[6px] border-l-indigo-600 border-y border-y-indigo-200/60 shadow-xs'
                             : isPending 
                             ? 'bg-amber-50/30 hover:bg-amber-50/50 border-l-4 border-l-amber-400' 
                             : isRejected 
@@ -598,15 +819,15 @@ export default function Transactions({ onOpenAddTx }) {
                         }`}
                       >
                         <td className={`px-3.5 py-3 text-slate-500 font-mono text-[11px] font-medium whitespace-nowrap ${isSettled ? 'border-l-[6px] border-l-emerald-600' : ''}`}>
-                          <div className={isSettled ? 'font-bold text-emerald-950' : ''}>{t.date}</div>
-                          {t.time && <div className={`text-[10px] font-bold ${isSettled ? 'text-emerald-700' : 'text-slate-400'}`}>{t.time}</div>}
+                          <div className={isSettled ? 'font-bold text-emerald-950' : t.splitGroupId ? 'font-bold text-slate-900' : ''}>{t.date}</div>
+                          {t.time && <div className={`text-[10px] font-bold ${isSettled ? 'text-emerald-700' : t.splitGroupId ? 'text-indigo-700' : 'text-slate-400'}`}>{t.time}</div>}
                         </td>
 
                         <td className="px-3.5 py-3 font-black text-slate-900 whitespace-nowrap">
                           <div className="flex items-center gap-2">
                             <span 
                               className={`w-7 h-7 rounded-xl flex items-center justify-center text-xs shadow-2xs border flex-shrink-0 ${
-                                isSettled ? 'ring-2 ring-emerald-500/40 border-emerald-400' : 'border-black/5'
+                                isSettled ? 'ring-2 ring-emerald-500/40 border-emerald-400' : t.splitGroupId ? 'ring-2 ring-indigo-400/30 border-indigo-300' : 'border-black/5'
                               }`}
                               style={{ backgroundColor: t.friend?.avatarColor || '#6366f1' }}
                             >
@@ -626,6 +847,11 @@ export default function Transactions({ onOpenAddTx }) {
                             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-black text-[11px] bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white shadow-md shadow-emerald-600/25 ring-2 ring-emerald-300">
                               <CheckCircle2 className="w-3.5 h-3.5 text-white stroke-[2.5] flex-shrink-0" />
                               <span>🤝 FULLY SETTLED</span>
+                            </span>
+                          ) : t.splitGroupId ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-black text-[10.5px] bg-gradient-to-r from-indigo-100 to-purple-100 text-indigo-900 border border-indigo-300 shadow-2xs">
+                              <Users className="w-3 h-3 text-indigo-700" />
+                              <span>👥 Split Share</span>
                             </span>
                           ) : (
                             <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-black text-[10.5px] border shadow-2xs ${
@@ -658,18 +884,18 @@ export default function Transactions({ onOpenAddTx }) {
                                   <span>Settlement</span>
                                 </span>
                               )}
-                              <span className={`truncate ${isSettled ? 'font-black text-emerald-950' : ''}`}>{t.note}</span>
+                              <span className={`truncate ${isSettled ? 'font-black text-emerald-950' : t.splitGroupId ? 'text-indigo-950 font-black' : ''}`}>{t.note}</span>
                             </span>
                             {t.splitGroupId && (
                               <button
                                 type="button"
                                 onClick={() => setSelectedSplitGroupId(t.splitGroupId)}
-                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9.5px] font-black bg-gradient-to-r from-indigo-50 to-purple-50 hover:from-indigo-100 hover:to-purple-100 text-indigo-700 border border-indigo-200 shadow-2xs transition-all active:scale-95 cursor-pointer flex-shrink-0"
-                                title="Click to view Group Split short summary & participants in pop up page"
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[10px] font-black bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-md shadow-indigo-600/25 ring-2 ring-indigo-300 transition-all active:scale-95 cursor-pointer flex-shrink-0"
+                                title="Click to view Group Split summary & participants in popup modal"
                               >
-                                <Users className="w-2.5 h-2.5 text-indigo-600 flex-shrink-0" />
-                                <span>Group Split ({t.groupSplitShares?.length || t.splitDetails?.participantCount || 2})</span>
-                                <span className="text-[9px] text-indigo-500 font-bold">↗</span>
+                                <Users className="w-3 h-3 text-white flex-shrink-0" />
+                                <span>👥 Split Bill ({t.groupSplitShares?.length || t.splitDetails?.participantCount || 2})</span>
+                                <span className="bg-white/20 text-white px-1.5 py-0.2 rounded font-extrabold text-[8.5px] sm:text-[9px]">Summary ↗</span>
                               </button>
                             )}
                           </div>
@@ -828,7 +1054,7 @@ export default function Transactions({ onOpenAddTx }) {
 
             {/* Mobile Card List View (Dedicated responsive cards on mobile screens) */}
             <div className="sm:hidden divide-y divide-slate-100 bg-white">
-              {filteredTransactions.map(t => {
+              {displayTransactions.map(t => {
                 const isGiven = t.type === 'GIVEN' || t.impactOnUser > 0;
                 const isSettled = t.type === 'SETTLED';
                 const isPending = t.approvalStatus === 'PENDING_APPROVAL';
@@ -845,12 +1071,172 @@ export default function Transactions({ onOpenAddTx }) {
                   'Shopping': 'bg-indigo-50 text-indigo-800 border-indigo-200',
                 }[t.category] || 'bg-slate-100 text-slate-700 border-slate-200';
 
+                if (t.isGroupedHeader) {
+                  const isExpanded = expandedGroupIds.has(t.splitGroupId);
+                  return (
+                    <div 
+                      key={t.id} 
+                      className="p-3.5 sm:p-4 space-y-3 rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50/40 via-white to-purple-50/30 shadow-xs"
+                    >
+                      {/* Top Header Banner */}
+                      <div className="flex items-center justify-between px-3.5 py-1.5 -mx-3.5 -mt-3.5 mb-2 bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-700 text-white font-black text-[11px] rounded-t-2xl shadow-xs">
+                        <span className="inline-flex items-center gap-1.5 uppercase tracking-wider">
+                          <Users className="w-3.5 h-3.5 text-white" />
+                          <span>👥 Combined Group Split ({t.friendCount + 1} People)</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedSplitGroupId(t.splitGroupId)}
+                          className="text-[10px] font-bold bg-white/20 hover:bg-white/30 px-2 py-0.5 rounded cursor-pointer transition-colors"
+                        >
+                          Bill Summary ↗
+                        </button>
+                      </div>
+
+                      {/* Friend Avatars Stack + Amount */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="flex -space-x-2 overflow-hidden py-0.5 flex-shrink-0">
+                            {t.friends.slice(0, 3).map((f, i) => (
+                              <span
+                                key={f.id || f._id || i}
+                                className="w-7 h-7 rounded-full flex items-center justify-center text-xs shadow-xs border-2 border-white ring-1 ring-slate-200 flex-shrink-0"
+                                style={{ backgroundColor: f.avatarColor || '#6366f1' }}
+                                title={f.name}
+                              >
+                                {f.avatarEmoji || '👤'}
+                              </span>
+                            ))}
+                            {t.friends.length > 3 && (
+                              <span className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-black bg-indigo-100 text-indigo-700 border-2 border-white ring-1 ring-indigo-200 flex-shrink-0">
+                                +{t.friends.length - 3}
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="min-w-0">
+                            <div className="text-xs font-black text-slate-900 truncate">
+                              {t.friends.map(f => f.name).join(', ')}
+                            </div>
+                            <div className="text-[10px] text-slate-400 font-mono flex items-center gap-1">
+                              <span>{t.date}</span>
+                              {t.time && <span>• {t.time}</span>}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="text-right flex-shrink-0 space-y-0.5">
+                          <div className="font-black text-sm sm:text-base text-emerald-700">
+                            +₹{t.amount.toLocaleString()}
+                          </div>
+                          <div className="text-[9.5px] text-slate-400 font-bold">
+                            across {t.friendCount} friends
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Description / Note & Category */}
+                      <div className="text-xs font-extrabold text-slate-900 flex items-center justify-between gap-1.5">
+                        <span className="truncate">{t.note}</span>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold border flex-shrink-0 ${categoryColor}`}>
+                          {t.category}
+                        </span>
+                      </div>
+
+                      {/* Receipt note */}
+                      {t.receiptNote && (
+                        <div className="text-[10px] text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md inline-flex items-center gap-1 font-mono border border-purple-200/60 max-w-full truncate">
+                          <span>🧾</span>
+                          <span className="truncate">{t.receiptNote}</span>
+                        </div>
+                      )}
+
+                      {/* Expand / Collapse Button & Delete Button */}
+                      <div className="flex items-center justify-between pt-1 border-t border-slate-100 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => toggleExpandGroup(t.splitGroupId)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 shadow-2xs active:scale-95 transition-all cursor-pointer"
+                        >
+                          <Users className="w-3.5 h-3.5 text-indigo-600" />
+                          <span>{isExpanded ? 'Hide Breakdown' : `Show ${t.friendCount} Friends' Shares`}</span>
+                          {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteGroupSplit(t.splitGroupId)}
+                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                          title="Delete entire group split bill"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      {/* Expanded inline friend shares list */}
+                      {isExpanded && (
+                        <div className="pt-2 border-t border-indigo-100 space-y-2">
+                          <div className="text-[10.5px] font-black uppercase text-indigo-900 tracking-wider">
+                            Individual Friend Shares ({t.subTransactions.length}):
+                          </div>
+                          <div className="space-y-1.5">
+                            {t.subTransactions.map(sub => {
+                              const subCanSettle = checkCanSettle(sub);
+                              return (
+                                <div 
+                                  key={sub.id}
+                                  className="bg-white rounded-xl p-2.5 border border-indigo-100 flex items-center justify-between gap-2 shadow-2xs"
+                                >
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <span 
+                                      className="w-7 h-7 rounded-lg flex items-center justify-center text-xs shadow-2xs border border-black/5 flex-shrink-0"
+                                      style={{ backgroundColor: sub.friend?.avatarColor || '#6366f1' }}
+                                    >
+                                      {sub.friend?.avatarEmoji || '👤'}
+                                    </span>
+                                    <div className="min-w-0">
+                                      <div className="text-xs font-bold text-slate-900 truncate">
+                                        {sub.friend?.name}
+                                      </div>
+                                      <div className="text-[10px] text-slate-400 font-medium">
+                                        {sub.isShared ? '✓ 2-Way Synced' : '📝 Local'}
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center gap-2 flex-shrink-0">
+                                    <span className="text-xs font-black text-emerald-700">
+                                      +₹{sub.amount.toLocaleString()}
+                                    </span>
+                                    {subCanSettle && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleOpenSettle(sub)}
+                                        className="inline-flex items-center gap-1 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white text-[9.5px] font-black px-2 py-1 rounded shadow-2xs active:scale-95 cursor-pointer"
+                                      >
+                                        <CheckCircle2 className="w-2.5 h-2.5 text-white" />
+                                        <span>Settle</span>
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+
                 return (
                   <div 
                     key={t.id} 
                     className={`p-3.5 sm:p-4 space-y-2.5 transition-all rounded-2xl border ${
                       isSettled
                         ? 'border-2 border-emerald-400 border-l-[8px] border-l-emerald-600 bg-gradient-to-br from-emerald-100/95 via-teal-50/90 to-white shadow-lg ring-2 ring-emerald-500/25 overflow-hidden'
+                        : t.splitGroupId
+                        ? 'border-2 border-indigo-300 border-l-[8px] border-l-indigo-600 bg-gradient-to-br from-indigo-50/95 via-purple-50/40 to-white shadow-md ring-2 ring-indigo-400/20 hover:border-indigo-400'
                         : isPending 
                         ? 'bg-amber-50/40 border-slate-200' 
                         : isRejected 
@@ -876,7 +1262,7 @@ export default function Transactions({ onOpenAddTx }) {
                       <div className="flex items-center gap-2 min-w-0">
                         <span 
                           className={`w-8 h-8 rounded-xl flex items-center justify-center text-sm shadow-xs border flex-shrink-0 ${
-                            isSettled ? 'ring-2 ring-emerald-500/40 border-emerald-400' : 'border-black/5'
+                            isSettled ? 'ring-2 ring-emerald-500/40 border-emerald-400' : t.splitGroupId ? 'ring-2 ring-indigo-400/30 border-indigo-300' : 'border-black/5'
                           }`}
                           style={{ backgroundColor: t.friend?.avatarColor || '#6366f1' }}
                         >
@@ -909,6 +1295,8 @@ export default function Transactions({ onOpenAddTx }) {
                           <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9.5px] font-black border ${
                             isSettled
                               ? 'bg-emerald-200 text-emerald-950 border-emerald-400 shadow-2xs'
+                              : t.splitGroupId
+                              ? 'bg-indigo-100 text-indigo-900 border-indigo-300 shadow-2xs'
                               : isGiven
                               ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                               : 'bg-rose-50 text-rose-700 border-rose-200'
@@ -918,6 +1306,11 @@ export default function Transactions({ onOpenAddTx }) {
                                 <CheckCircle2 className="w-2.5 h-2.5 text-emerald-800" />
                                 <span>🤝 Fully Settled</span>
                               </>
+                            ) : t.splitGroupId ? (
+                              <>
+                                <Users className="w-2.5 h-2.5 text-indigo-700" />
+                                <span>👥 Split Share</span>
+                              </>
                             ) : isGiven ? '↗️ Lent' : '↙️ Borrowed'}
                           </span>
                         </div>
@@ -926,17 +1319,17 @@ export default function Transactions({ onOpenAddTx }) {
 
                     {/* Note / Description */}
                     <div className="text-xs font-bold text-slate-800 flex items-center justify-between gap-1.5 flex-wrap">
-                      <span className="font-extrabold text-slate-900">{t.note}</span>
+                      <span className={`font-extrabold ${t.splitGroupId ? 'text-indigo-950' : 'text-slate-900'}`}>{t.note}</span>
                       {t.splitGroupId && (
                         <button
                           type="button"
                           onClick={() => setSelectedSplitGroupId(t.splitGroupId)}
-                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[9.5px] font-black bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-700 hover:from-indigo-100 hover:to-purple-100 border border-indigo-200 shadow-2xs active:scale-95 cursor-pointer"
-                          title="Click to view Group Split short summary in pop up page"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[9.5px] font-black bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-md shadow-indigo-600/25 ring-2 ring-indigo-300 active:scale-95 cursor-pointer flex-shrink-0"
+                          title="Click to view Group Split summary in popup modal"
                         >
-                          <Users className="w-2.5 h-2.5 text-indigo-600" />
-                          <span>Group Split ({t.groupSplitShares?.length || t.splitDetails?.participantCount || 2})</span>
-                          <span className="text-indigo-500 font-semibold underline text-[9px]">Summary ↗</span>
+                          <Users className="w-3 h-3 text-white flex-shrink-0" />
+                          <span>👥 Split Bill ({t.groupSplitShares?.length || t.splitDetails?.participantCount || 2})</span>
+                          <span className="bg-white/20 text-white px-1.5 py-0.2 rounded font-extrabold text-[8.5px] sm:text-[9px]">Summary ↗</span>
                         </button>
                       )}
                     </div>

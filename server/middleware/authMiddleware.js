@@ -76,4 +76,45 @@ async function protect(req, res, next) {
   }
 }
 
-module.exports = { protect, JWT_SECRET, activeUsersCache, userAuthCache, clearUserAuthCache };
+async function optionalProtect(req, res, next) {
+  let token;
+
+  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+    token = req.headers.authorization.split(' ')[1];
+  } else if (req.query && req.query.token) {
+    token = req.query.token;
+  }
+
+  if (!token) {
+    return next();
+  }
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const userIdStr = decoded.id;
+    const nowTime = Date.now();
+
+    let user = null;
+    const cachedEntry = userAuthCache.get(userIdStr);
+
+    if (cachedEntry && (nowTime - cachedEntry.cachedAt < USER_CACHE_TTL)) {
+      user = cachedEntry.user;
+    } else {
+      user = await User.findById(userIdStr).select('-password').lean();
+      if (user) {
+        user.id = user._id.toString();
+        userAuthCache.set(userIdStr, { user, cachedAt: nowTime });
+      }
+    }
+
+    if (user) {
+      req.user = user;
+    }
+  } catch (err) {
+    // In optional auth, invalid or expired tokens simply fall back to unauthenticated guest mode
+  }
+
+  next();
+}
+
+module.exports = { protect, optionalProtect, JWT_SECRET, activeUsersCache, userAuthCache, clearUserAuthCache };

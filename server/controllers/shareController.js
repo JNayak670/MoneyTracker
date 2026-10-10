@@ -129,7 +129,9 @@ exports.getSharedLedger = async (req, res) => {
         paymentMethod: t.paymentMethod,
         receiptNote: t.receiptNote,
         status: t.status,
-        runningBalanceAfter: runningBalance
+        runningBalanceAfter: runningBalance,
+        splitGroupId: t.splitGroupId || null,
+        splitDetails: t.splitDetails || null
       };
     });
 

@@ -917,12 +917,14 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
                           className={`p-3.5 sm:p-4 rounded-xl sm:rounded-2xl transition-all flex items-center justify-between gap-2.5 border ${
                             isSettled
                               ? 'border-2 border-emerald-400 border-l-[8px] border-l-emerald-600 bg-gradient-to-r from-emerald-100/95 via-teal-50/90 to-white shadow-lg ring-2 ring-emerald-500/25'
+                              : t.splitGroupId
+                              ? 'border-2 border-indigo-300 border-l-[8px] border-l-indigo-600 bg-gradient-to-r from-indigo-50/95 via-purple-50/40 to-white shadow-md ring-2 ring-indigo-400/20 hover:border-indigo-400'
                               : 'bg-white border-slate-200 hover:border-slate-300 shadow-xs'
                           }`}
                         >
                           <div className="space-y-0.5 sm:space-y-1">
                             <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className={`text-xs font-black ${isSettled ? 'text-emerald-950 text-sm' : 'text-slate-900'}`}>{t.note}</span>
+                              <span className={`text-xs font-black ${isSettled ? 'text-emerald-950 text-sm' : t.splitGroupId ? 'text-indigo-950 font-black' : 'text-slate-900'}`}>{t.note}</span>
                               {isSettled ? (
                                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-[10px] sm:text-[11px] font-black bg-gradient-to-r from-emerald-600 to-teal-700 text-white shadow-md ring-2 ring-emerald-300">
                                   <CheckCircle2 className="w-3.5 h-3.5 text-white flex-shrink-0" />
@@ -943,15 +945,16 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
                                 <button
                                   type="button"
                                   onClick={() => setSelectedSplitGroupId(t.splitGroupId)}
-                                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] sm:text-[10px] font-black bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 shadow-2xs transition-all active:scale-95 cursor-pointer"
-                                  title="View Group Split Bill Details"
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[10px] sm:text-[11px] font-black bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-md shadow-indigo-600/25 ring-2 ring-indigo-300 transition-all active:scale-95 cursor-pointer flex-shrink-0"
+                                  title="View Group Split Bill Details & Summary"
                                 >
-                                  <Users className="w-3 h-3 text-indigo-600" />
-                                  <span>Group Split</span>
+                                  <Users className="w-3 h-3 text-white flex-shrink-0" />
+                                  <span>👥 SPLIT BILL</span>
+                                  <span className="bg-white/20 text-white px-1.5 py-0.2 rounded font-extrabold text-[8.5px] sm:text-[9px]">Summary ↗</span>
                                 </button>
                               )}
                             </div>
-                            <div className={`text-[10px] sm:text-[11px] font-mono ${isSettled ? 'text-emerald-800 font-semibold' : 'text-slate-500'}`}>
+                            <div className={`text-[10px] sm:text-[11px] font-mono ${isSettled ? 'text-emerald-800 font-semibold' : t.splitGroupId ? 'text-indigo-800 font-medium' : 'text-slate-500'}`}>
                               📅 {t.date} {t.time || ''} • via {t.paymentMethod || 'UPI'}
                             </div>
                           </div>
@@ -967,10 +970,17 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
                                 </span>
                               </div>
                             ) : (
-                              <div className={`text-xs sm:text-sm font-black ${
-                                isGiven ? 'text-emerald-700' : 'text-rose-700'
-                              }`}>
-                                {isGiven ? '+₹' : '-₹'}{t.amount.toLocaleString()}
+                              <div className="inline-flex flex-col items-end">
+                                <div className={`text-xs sm:text-sm font-black ${
+                                  isGiven ? 'text-emerald-700' : 'text-rose-700'
+                                }`}>
+                                  {isGiven ? '+₹' : '-₹'}{t.amount.toLocaleString()}
+                                </div>
+                                {t.splitGroupId && (
+                                  <span className="text-[9px] font-black uppercase tracking-wider text-indigo-700 bg-indigo-100/90 px-1.5 py-0.2 rounded border border-indigo-200 mt-0.5 block">
+                                    Split Share
+                                  </span>
+                                )}
                               </div>
                             )}
                             <div className={`text-[10px] sm:text-[11px] font-mono ${
