@@ -81,18 +81,21 @@ export const printFriendStatement = (friendLedger, currency = '₹') => {
           </tr>
         </thead>
         <tbody>
-          ${transactions.map(t => `
-            <tr>
+          ${transactions.map(t => {
+            const isSettled = t.type === 'SETTLED';
+            return `
+            <tr style="${isSettled ? 'background-color: #ecfdf5; border-left: 5px solid #059669; font-weight: 700;' : ''}">
               <td>${t.date} ${t.time || ''}</td>
               <td>${t.note}</td>
               <td>${t.category}</td>
-              <td>${t.type}</td>
-              <td class="${t.impactOnUser > 0 ? 'green' : t.impactOnUser < 0 ? 'red' : ''}">
-                ${t.impactOnUser > 0 ? '+' : t.impactOnUser < 0 ? '-' : ''}${currency}${t.amount.toLocaleString()}
+              <td>${isSettled ? '<span style="display: inline-block; padding: 2px 8px; border-radius: 6px; background: #ccfbf1; color: #0f766e; font-weight: 800; font-size: 0.8rem; border: 1px solid #5eead4;">🤝 SETTLED</span>' : t.type}</td>
+              <td class="${isSettled ? 'teal' : t.impactOnUser > 0 ? 'green' : t.impactOnUser < 0 ? 'red' : ''}" style="${isSettled ? 'color: #0f766e; font-weight: 800;' : ''}">
+                ${isSettled ? '🤝 ' : t.impactOnUser > 0 ? '+' : t.impactOnUser < 0 ? '-' : ''}${currency}${t.amount.toLocaleString()}
               </td>
-              <td><strong>${currency}${t.runningBalance.toLocaleString()}</strong></td>
+              <td><strong>${currency}${t.runningBalance.toLocaleString()}${isSettled && Math.abs(t.runningBalance) < 0.01 ? ' (Cleared)' : ''}</strong></td>
             </tr>
-          `).join('')}
+          `;
+          }).join('')}
         </tbody>
       </table>
 

@@ -830,27 +830,37 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
 
             {/* Balance Status Banner */}
             <div className="p-3.5 sm:p-6 overflow-y-auto space-y-4 sm:space-y-6">
-              <div className={`rounded-2xl p-3.5 sm:p-4 flex flex-col xs:flex-row items-start xs:items-center justify-between gap-3 border ${
+              <div className={`rounded-2xl p-3.5 sm:p-4 flex flex-col xs:flex-row items-start xs:items-center justify-between gap-3 border transition-all ${
                 activeLedger.currentBalance > 0
                   ? 'bg-emerald-50 border-emerald-200'
                   : activeLedger.currentBalance < 0
                   ? 'bg-rose-50 border-rose-200'
-                  : 'bg-slate-50 border-slate-200'
+                  : 'bg-gradient-to-r from-emerald-100 via-teal-50 to-emerald-100 border-2 border-emerald-400 shadow-md ring-2 ring-emerald-500/25'
               }`}>
                 <div>
-                  <span className="text-[10px] sm:text-xs uppercase font-extrabold text-slate-500 tracking-wider">
-                    Current Running Balance
+                  <span className={`text-[10px] sm:text-xs uppercase font-extrabold tracking-wider ${
+                    activeLedger.currentBalance === 0 ? 'text-emerald-900 flex items-center gap-1.5' : 'text-slate-500'
+                  }`}>
+                    {activeLedger.currentBalance === 0 && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />}
+                    <span>{activeLedger.currentBalance === 0 ? 'Verified Statement Balance' : 'Current Running Balance'}</span>
                   </span>
                   <div className={`text-lg sm:text-2xl font-black mt-0.5 ${
                     activeLedger.currentBalance > 0
                       ? 'text-emerald-800'
                       : activeLedger.currentBalance < 0
                       ? 'text-rose-800'
-                      : 'text-slate-800'
+                      : 'text-emerald-950 flex items-center gap-2'
                   }`}>
                     {activeLedger.currentBalance > 0 && `Friend Owes You ₹${activeLedger.currentBalance.toLocaleString()}`}
                     {activeLedger.currentBalance < 0 && `You Owe Friend ₹${Math.abs(activeLedger.currentBalance).toLocaleString()}`}
-                    {activeLedger.currentBalance === 0 && 'All Dues Settled (₹0)'}
+                    {activeLedger.currentBalance === 0 && (
+                      <>
+                        <span>All Dues Settled (₹0)</span>
+                        <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-lg bg-emerald-600 text-white shadow-xs">
+                          Fully Cleared
+                        </span>
+                      </>
+                    )}
                   </div>
                 </div>
 
@@ -900,14 +910,29 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
                   <div className="space-y-2 sm:space-y-2.5">
                     {activeLedger.transactions.map((t) => {
                       const isGiven = t.type === 'GIVEN' || t.impactOnUser > 0;
+                      const isSettled = t.type === 'SETTLED';
                       return (
-                        <div key={t.id} className="p-3 sm:p-3.5 rounded-xl sm:rounded-2xl bg-white border border-slate-200 hover:border-slate-300 shadow-xs transition-all flex items-center justify-between gap-2">
+                        <div 
+                          key={t.id} 
+                          className={`p-3.5 sm:p-4 rounded-xl sm:rounded-2xl transition-all flex items-center justify-between gap-2.5 border ${
+                            isSettled
+                              ? 'border-2 border-emerald-400 border-l-[8px] border-l-emerald-600 bg-gradient-to-r from-emerald-100/95 via-teal-50/90 to-white shadow-lg ring-2 ring-emerald-500/25'
+                              : 'bg-white border-slate-200 hover:border-slate-300 shadow-xs'
+                          }`}
+                        >
                           <div className="space-y-0.5 sm:space-y-1">
                             <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="text-xs font-bold text-slate-900">{t.note}</span>
-                              <span className="text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 font-semibold border border-slate-200/60">
-                                {t.category}
-                              </span>
+                              <span className={`text-xs font-black ${isSettled ? 'text-emerald-950 text-sm' : 'text-slate-900'}`}>{t.note}</span>
+                              {isSettled ? (
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-[10px] sm:text-[11px] font-black bg-gradient-to-r from-emerald-600 to-teal-700 text-white shadow-md ring-2 ring-emerald-300">
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-white flex-shrink-0" />
+                                  <span>🤝 FULLY SETTLED</span>
+                                </span>
+                              ) : (
+                                <span className="text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 font-semibold border border-slate-200/60">
+                                  {t.category}
+                                </span>
+                              )}
                               {t.approvalStatus === 'PENDING_APPROVAL' && (
                                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] sm:text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300 animate-pulse">
                                   <Clock className="w-2.5 h-2.5 text-amber-700" />
@@ -926,17 +951,41 @@ export default function Friends({ onOpenAddTx, editingFriend, onOpenAddFriend, o
                                 </button>
                               )}
                             </div>
-                            <div className="text-[10px] sm:text-[11px] text-slate-500 font-mono">
+                            <div className={`text-[10px] sm:text-[11px] font-mono ${isSettled ? 'text-emerald-800 font-semibold' : 'text-slate-500'}`}>
                               📅 {t.date} {t.time || ''} • via {t.paymentMethod || 'UPI'}
                             </div>
                           </div>
 
                           <div className="text-right flex-shrink-0 space-y-1">
-                            <div className={`text-xs sm:text-sm font-extrabold ${isGiven ? 'text-emerald-700' : 'text-rose-700'}`}>
-                              {isGiven ? '+' : '-'}₹{t.amount.toLocaleString()}
-                            </div>
-                            <div className="text-[10px] sm:text-[11px] text-slate-500 font-semibold font-mono">
-                              Bal: ₹{t.runningBalance.toLocaleString()}
+                            {isSettled ? (
+                              <div className="inline-flex flex-col items-end">
+                                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 text-white font-black text-xs sm:text-sm shadow-md ring-2 ring-emerald-300">
+                                  <span>🤝 ₹{t.amount.toLocaleString()}</span>
+                                </span>
+                                <span className="text-[9.5px] font-black uppercase tracking-wider text-emerald-950 bg-emerald-200/90 px-2 py-0.5 rounded-md mt-1 border border-emerald-300">
+                                  ✓ Cleared Full Dues
+                                </span>
+                              </div>
+                            ) : (
+                              <div className={`text-xs sm:text-sm font-black ${
+                                isGiven ? 'text-emerald-700' : 'text-rose-700'
+                              }`}>
+                                {isGiven ? '+₹' : '-₹'}{t.amount.toLocaleString()}
+                              </div>
+                            )}
+                            <div className={`text-[10px] sm:text-[11px] font-mono ${
+                              isSettled && Math.abs(t.runningBalance || 0) < 0.01
+                                ? 'text-emerald-950 font-black flex items-center justify-end gap-1 mt-1'
+                                : 'text-slate-500 font-semibold'
+                            }`}>
+                              {isSettled && Math.abs(t.runningBalance || 0) < 0.01 ? (
+                                <span className="inline-flex items-center gap-1 bg-emerald-200/90 text-emerald-950 px-2 py-0.5 rounded-md border border-emerald-300">
+                                  <CheckCircle2 className="w-3 h-3 text-emerald-700" />
+                                  <span>Bal: ₹0 (Zero Dues Cleared)</span>
+                                </span>
+                              ) : (
+                                <span>Bal: ₹{t.runningBalance.toLocaleString()}</span>
+                              )}
                             </div>
                             {(() => {
                               const isFriendSettled = Math.abs(activeLedger.currentBalance || 0) < 0.01;

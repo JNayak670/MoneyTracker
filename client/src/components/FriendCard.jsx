@@ -50,11 +50,11 @@ export default function FriendCard({
         ? 'border-emerald-300/80 shadow-emerald-500/5' 
         : isOwing 
         ? 'border-rose-300/80 shadow-rose-500/5' 
-        : 'border-slate-200 shadow-slate-500/5'
+        : 'border-emerald-300/80 shadow-emerald-500/5'
     }`}>
       {/* Subtle top indicator line */}
       <div className={`absolute top-0 left-0 right-0 h-1.5 ${
-        isOwed ? 'bg-gradient-to-r from-emerald-400 via-teal-400 to-emerald-500' : isOwing ? 'bg-gradient-to-r from-rose-400 via-pink-500 to-rose-600' : 'bg-gradient-to-r from-slate-300 via-indigo-300 to-slate-300'
+        isOwed ? 'bg-gradient-to-r from-emerald-400 via-teal-400 to-emerald-500' : isOwing ? 'bg-gradient-to-r from-rose-400 via-pink-500 to-rose-600' : 'bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-600'
       }`} />
       
       {/* Top Details */}
@@ -253,7 +253,7 @@ export default function FriendCard({
             ? 'bg-[#eefbf5] border-[#d1f2e1] text-emerald-950'
             : isOwing
             ? 'bg-[#fff1f2] border-[#fecdd3] text-rose-950'
-            : 'bg-slate-50 border-slate-200 text-slate-700'
+            : 'bg-gradient-to-r from-emerald-100/90 via-teal-50/90 to-emerald-50/70 border-emerald-300 text-emerald-950 ring-1 ring-emerald-400/30'
         }`}>
           <div className="flex items-center justify-between mb-1">
             <span className="text-[11px] uppercase tracking-wider font-extrabold flex items-center gap-1">
@@ -268,8 +268,8 @@ export default function FriendCard({
                   YOU OWE {friend.name.toUpperCase()}
                 </span>
               ) : (
-                <span className="text-slate-700 flex items-center gap-1 font-bold">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                <span className="text-emerald-950 flex items-center gap-1 font-black">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />
                   ALL SETTLED UP
                 </span>
               )}
@@ -280,17 +280,20 @@ export default function FriendCard({
                 ? 'bg-[#0f766e] text-white shadow-xs' 
                 : isOwing 
                 ? 'bg-rose-600 text-white shadow-xs' 
-                : 'bg-slate-200 text-slate-700'
+                : 'bg-emerald-600 text-white shadow-xs ring-1 ring-emerald-300'
             }`}>
               {isOwed && <Sparkles className="w-2.5 h-2.5" />}
-              <span>{isOwed ? 'COLLECT' : isOwing ? 'PAY DUE' : 'ZERO DUE'}</span>
+              <span>{isOwed ? 'COLLECT' : isOwing ? 'PAY DUE' : '✓ ZERO DUE'}</span>
             </span>
           </div>
 
           <div className="text-2xl sm:text-3xl font-black tracking-tight flex items-baseline gap-1 mt-0.5">
             {isSettled ? (
-              <span className="text-xs text-slate-500 font-bold">
-                ₹0 (No balance pending)
+              <span className="text-sm font-black text-emerald-950 flex items-center gap-1.5">
+                <span className="text-base font-extrabold font-mono">₹0</span>
+                <span className="text-[11px] font-bold text-emerald-800 bg-emerald-200/80 px-2 py-0.5 rounded-md border border-emerald-300">
+                  Cleared & Balanced
+                </span>
               </span>
             ) : (
               <span className={`font-black ${isOwed ? 'text-emerald-950' : 'text-rose-950'}`}>

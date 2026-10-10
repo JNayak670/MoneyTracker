@@ -526,7 +526,14 @@ export default function Dashboard({ onOpenAddTx, onOpenAddFriend, onViewFriendHi
                     const categoryEmoji = CATEGORY_EMOJIS[t.category] || '🏷️';
 
                     return (
-                      <tr key={t.id} className="hover:bg-slate-50/80 transition-colors">
+                      <tr 
+                        key={t.id} 
+                        className={`transition-colors border-l-4 ${
+                          isSettled
+                            ? 'bg-teal-50/70 hover:bg-teal-100/70 border-l-teal-600'
+                            : 'hover:bg-slate-50/80 border-l-transparent'
+                        }`}
+                      >
                         <td className="px-5 py-4 text-slate-500 font-mono font-medium">
                           {t.date}
                         </td>
@@ -542,28 +549,42 @@ export default function Dashboard({ onOpenAddTx, onOpenAddFriend, onViewFriendHi
                           </div>
                         </td>
                         <td className="px-5 py-4">
-                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg font-black text-[11px] border ${
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-black text-[11px] border shadow-2xs ${
                             isSettled
-                              ? 'bg-cyan-100 text-cyan-800 border-cyan-300'
+                              ? 'bg-gradient-to-r from-teal-100 to-emerald-100 text-teal-900 border-teal-300 ring-1 ring-teal-400/30'
                               : isGiven
                               ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
                               : 'bg-rose-100 text-rose-800 border-rose-300'
                           }`}>
-                            {isSettled ? '🤝 Settled' : isGiven ? '↗️ Lent (You Paid)' : '↙️ Borrowed (They Paid)'}
+                            {isSettled ? '🤝 Settled Up' : isGiven ? '↗️ Lent (You Paid)' : '↙️ Borrowed (They Paid)'}
                           </span>
                         </td>
                         <td className="px-5 py-4 text-slate-700 font-medium max-w-xs truncate">
-                          {t.note || '-'}
+                          <div className="flex items-center gap-1.5">
+                            {isSettled && (
+                              <span className="inline-flex items-center gap-0.5 text-[9px] font-black uppercase px-1.5 py-0.2 rounded bg-teal-100 text-teal-800 border border-teal-300 flex-shrink-0">
+                                Settlement
+                              </span>
+                            )}
+                            <span className="truncate">{t.note || '-'}</span>
+                          </div>
                         </td>
                         <td className="px-5 py-4">
                           <span className={`px-2.5 py-1 rounded-lg font-bold text-[11px] border ${categoryColors}`}>
                             {categoryEmoji} {t.category}
                           </span>
                         </td>
-                        <td className={`px-5 py-4 text-right font-black text-sm ${
-                          isSettled ? 'text-cyan-700' : isGiven ? 'text-emerald-700' : 'text-rose-700'
-                        }`}>
-                          {isSettled ? '' : isGiven ? '+' : '-'}{currency}{t.amount.toLocaleString()}
+                        <td className="px-5 py-4 text-right font-black">
+                          <div className={`text-sm ${
+                            isSettled ? 'text-teal-800' : isGiven ? 'text-emerald-700' : 'text-rose-700'
+                          }`}>
+                            {isSettled ? '🤝 ' : isGiven ? '+' : '-'}{currency}{t.amount.toLocaleString()}
+                          </div>
+                          {isSettled && (
+                            <span className="text-[9.5px] text-teal-700 font-extrabold uppercase tracking-wider block mt-0.5">
+                              Settled
+                            </span>
+                          )}
                         </td>
                       </tr>
                     );
